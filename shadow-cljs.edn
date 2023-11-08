@@ -1,0 +1,15 @@
+;; shadow-clj configuration
+{:deps true
+ :nrepl {:port 7888}
+ ;; serve over http 8080 port
+ :builds
+ {:app
+  {:target :browser
+   :output-dir "public/app/js"
+   :asset-path "/app/js"
+   :http {:port 9630}
+   :devtools {:http-root "public"
+              :http-port 8080
+              :loader-mode :eval
+              :use-document-host false}
+   :modules {:main {:init-fn boiler.core/init}}}}}
