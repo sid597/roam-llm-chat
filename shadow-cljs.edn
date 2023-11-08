@@ -12,4 +12,4 @@
               :http-port 8080
               :loader-mode :eval
               :use-document-host false}
-   :modules {:main {:init-fn boiler.core/init}}}}}
+   :modules {:main {:init-fn ui.core/init}}}}}
