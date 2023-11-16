@@ -240,69 +240,19 @@
 (defn block-render [e]
   (let [input-ref  (r/atom nil)
         handle-did-mount (fn [_]
-                           (log "component did mount" @input-ref)
                            (when-let [ref @input-ref]
-                             (log "==?" (.querySelector js/document ".chat-loader"))
-                             (let [new-input-el   (.createElement js/document "div")]
-                               (set! (.-id new-input-el) "chat-context")
-                               (.addEventListener new-input-el "click"
-                                 (fn [e]
-                                   (log "mouseover new input el"
-                                     (.getAttribute
-                                       (.-target e)
-                                       "id"))))
-                               (.appendChild ref new-input-el)
-                               (log "new element" new-input-el)
-                               (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                     (clj->js {:uid "lefvqG8v3"
-                                               :el @input-ref #_new-input-el}))
-                                 (.then (fn [res]
-                                          (log "Render child")))))))]
+                             (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                                   (clj->js {:uid "NwZQptIUd"
+                                             :el ref}))
+                               (.then (fn [res]
+                                        (log "Render child"))))))]
     (r/create-class
       {:component-did-mount  handle-did-mount
        :component-did-update handle-did-mount
        :reagent-render       (fn [_]
-                               [:div.dont-focus-block
-                                [:div.chat-loader
-                                 {:ref (fn [el] (reset! input-ref el))
-                                  :on-click (fn [e]
-                                              (.preventDefault e)
-                                              (log "chat loader div clicked" e))}]])})))
+                                [:span [:div.chat-loader
+                                        {:ref (fn [el] (reset! input-ref el))}]])})))
 
-
-
-
-#_(defn block-render [e]
-    (let [input-ref  (r/atom nil)
-          handle-did-mount (fn [_]
-                             (println "component did mount")
-                             (when-let [ref @input-ref]
-                               (log "==?" (.querySelector js/document ".chat-loader"))
-                               (let [new-input-el   (.createElement js/document "div")]
-                                 (set! (.-id new-input-el) "chat-context")
-                                 (set! (.-onClick new-input-el) (fn [e] (log "mouseover new input el" e)))
-                                 (.appendChild ref new-input-el)
-                                 (log "new element" new-input-el)
-                                 (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                       (clj->js {:uid "NwZQptIUd"
-                                                 :el ref}))
-                                   (.then (fn [res]
-                                            (log "Render child")))))))]
-      (r/create-class
-        {:component-did-mount  handle-did-mount
-         :component-did-update handle-did-mount
-         :reagent-render       (fn [_]
-                                 [:div.dont-focus-block
-                                  [:div.chat-loader
-                                   {:ref (fn [el] (do
-                                                    (log "ref" el
-                                                      (reset! input-ref el))))
-                                    :on-click (fn [e]
-                                                (log "chat loader div clicked" e)
-                                                (when-let [chat-context-el (.getElementById js/document "chat-context")]
-                                                  (let [click-event (.createEvent js/document "MouseEvent")]
-                                                    (.initEvent click-event "click" true true)
-                                                    (.dispatchEvent chat-context-el click-event))))}]])})))
 
 
 (defn add-new-option-to-context-menu []
@@ -316,20 +266,11 @@
                 :callback (fn [e]
                             (let [dom-id (str "block-input-" (j/get e :window-id) "-" (j/get e :block-uid))
                                   parent-el (.getElementById js/document dom-id)
-                                  block-uid (j/get-in e [:block-uid])
-                                  new-container (.createElement js/document "div")]
-                              (log "chat llm callback" dom-id)
-                              (log "parent el" parent-el)
-                              (log "new container" new-container)
-                              (.appendChild parent-el new-container)
-                              (log "block uid" block-uid)
-                              ;; Update block string
-                              (rd/render [block-render e] parent-el)
-                              #_(j/call-in js/window [:roamAlphaAPI :data  :block :update]
-                                  (clj->js {:block
-                                            {:uid block-uid
-                                             :window-id (j/get e :window-id)
-                                             :string "{{roam/render: ((C_s8CL875)) \"C_s8CL875\"}}"}}))))}))))
+                                  span-el  (.querySelector parent-el "span")]
+                              (.addEventListener parent-el "mousedown" (fn [e]
+                                                                         (.stopPropagation e)))
+                              (rd/render [block-render e] span-el)))}))))
+
 
 
 ;; Returns
