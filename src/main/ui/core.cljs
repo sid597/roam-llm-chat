@@ -208,11 +208,18 @@
                 :display-conditional (fn [e]
                                        true)
                 :callback (fn [e]
-                            (let [dom-id (str "block-input-" (j/get e :window-id) "-" (j/get e :block-uid))
+                            (let [block-uid (j/get e :block-uid)
+                                  dom-id (str "block-input-" (j/get e :window-id) "-" block-uid)
                                   parent-el (.getElementById js/document dom-id)]
+
                               (.addEventListener parent-el "mousedown" (fn [e]
                                                                          (.stopPropagation e)))
-                              (rd/render [block-render e] parent-el)))}))))
+                              (println "cui" (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}"))
+                              (j/call-in js/window [:roamAlphaAPI :data  :block :update]
+                                (clj->js {:block
+                                          {:uid block-uid
+                                           :string (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}")}}))
+                              #_(rd/render [block-render e] parent-el)))}))))
 
 
 
