@@ -34,30 +34,71 @@
             block-uid
             s)))
 
-(defn chat-context []
-  (let [input-ref (r/atom nil)
-        chat-loaded (r/atom nil)]
+(defn chat-context [uid]
+  (let [context-ref (r/atom nil)
+        chat-loaded (r/atom nil)
+        update-fn   (fn []
+                      (when-let [context-el @context-ref]
+                        (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                              (clj->js {:uid uid
+                                        :zoom-path true
+                                        :el context-el}))
+                          (.then (fn [_])))))]
+
     (r/create-class
-      {:component-did-mount
-       (fn []
-         (when-let [input-el @input-ref]
-           (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                 (clj->js {:uid "NwZQptIUd"
-                           :zoom-path true
-                           :el input-el}))
-             (.then (fn [res]
-                      (log "PROMISE RESULT" res)
-                      (reset! chat-loaded res))))))
+      {:component-did-mount  update-fn
+       :component-did-update update-fn
        :reagent-render
        (fn []
-         [:div {:ref (fn [el] (reset! input-ref el))}])})))
+         [:div.chat-loader
+          {:ref (fn [el] (reset! context-ref el))
+           :style {:flex "1 1 auto"
+                   :height "100%"
+                   :overflow "auto"
+                   :display "flex"
+                   :align-items "flex-start"
+                   :max-height "400px"}}])})))
+
+(defn chat-history [messages]
+  (println "chat History ----->" @messages)
+  (let [history-ref (r/atom nil)
+        update-fn   (fn [this]
+                      (when-let [hist-el @history-ref]
+                        (println "this" this "argv" (r/argv this))
+                        (doall
+                          (for [child (reverse (:children @messages))]
+                            ^{:key child}
+                            (let [uid (:uid child)
+                                  msg-block-div (.createElement js/document "div")]
+                              (println "child" child)
+                              (do
+                                (if (.hasChildNodes hist-el)
+                                  (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
+                                  (.appendChild hist-el msg-block-div (.-firstChild hist-el)))
+                                (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                                      (clj->js {:uid uid
+                                                :zoom-path true
+                                                :el msg-block-div}))
+                                  (.then (fn [_])))))))))]
+
+    (r/create-class
+      {:component-did-update update-fn
+       :component-did-mount  update-fn
+       :reagent-render       (fn [messages]
+                               [:div.chat-history
+                                {:ref   (fn [el] (reset! history-ref el))
+                                 :style {:flex "1"
+                                         :overflow-y "auto"
+                                         :margin "10px"
+                                         :min-height "300px"
+                                         :max-height "800px"
+                                         :background "aliceblue"}}])})))
 
 
 (defn load-context [context messages]
-  (let [ctx-buid      (:uid context)
-        children      (:children context)
-        m-len         (count messages)
-        m-uid         (:uid messages)]
+  (let [children      (:children context)
+        m-len         (count @messages)
+        m-uid         (:uid @messages)]
     (fn [context messages]
       (doall
         (for [child children]
@@ -74,9 +115,6 @@
                                           (.then (fn [r]
                                                    (let [res (js->clj r :keywordize-keys true)
                                                          page-data (data-for-pages res)]
-                                                     (pprint page-data)
-                                                     (println page-data)
-                                                     (println (str page-data))
                                                      (doall
                                                       (for [dg-node page-data]
                                                         (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
@@ -85,7 +123,7 @@
                                                                         :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
                                                                                    :string (str "``` " dg-node "```")
                                                                                    :open   true}}))
-                                                          (.then (fn []
+                                                          (.then (fn [_]
                                                                    (println "new block in messages" page-data))))))))))
 
                 :else                  (do
@@ -103,99 +141,38 @@
 
 (defn chat-ui [block-uid]
   (println "block uid for chat" block-uid)
-  (pprint (ffirst (q '[:find (pull ?e [:block/string :block/uid {:block/children ...}])
-                        :in $ ?uid
-                        :where
-                        [?e :block/uid ?uid]]
-                     block-uid)))
   (let [settings (get-child-with-str block-uid "Settings")
         context  (get-child-with-str block-uid "Context")
-        messages (get-child-with-str block-uid "Messages")
-        chat-loader-el (r/atom nil)
-        c-uid    (:uid context)
-        chat-loaded (r/atom nil)
-        ;; Define the function for handling the mounting of the component
-        handle-did-mount (fn []
-                           (println "component did mount")
-                           (let [hist           (.querySelector js/document ".chat-history")]
-                             (println "CHAT LOADED" c-uid)
-                             (when @chat-loader-el
-                               #_(.appendChild chat-loader-el new-input-el (.-firstChild chat-loader-el))
-                               (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                     (clj->js {:uid (str c-uid)
-                                               :zoom-path true
-                                               :el @chat-loader-el}))
-                                 (.then (fn [res]
-                                          (log "PROMISE RESULT" res)
-                                          (reset! chat-loaded res)))))
-                             (when hist
-                               (doall
-                                 (for [child (reverse (:children messages))]
-                                   ^{:key child}
-                                   (let [uid (:uid child)
-                                         msg-block-div (.createElement js/document "div")]
-                                     (println "child" child)
-                                     (do
-                                       (if (.hasChildNodes hist)
-                                         (.insertBefore hist msg-block-div (.-firstChild hist))
-                                         (.appendChild hist msg-block-div (.-firstChild hist)))
-                                       (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                             (clj->js {:uid uid
-                                                       :zoom-path true
-                                                       :el msg-block-div}))
-                                         (.then (fn [res]
-                                                  (log "PROMISE RESULT" res)
-                                                  (reset! chat-loaded res)))))))))))]
+        messages (r/atom (get-child-with-str block-uid "Messages"))
+        c-uid    (:uid context)]
 
-    (r/create-class
-      {:component-did-mount handle-did-mount
-       :reagent-render (fn [{:keys [block-uid]}]
-                         (println "settings")
-                         (pprint settings)
-                         (pprint context)
-                         (println "muid" c-uid)
-                         (pprint messages)
-                         [:div.chat-container
-                          {:style {:display "flex"
-                                   :flex-direction "column"
-                                   :border-radius "8px"
-                                   :overflow "hidden"}}
-                          [:> Card {:interactive true
-                                    :elevation 3
-                                    :style {:flex "1"
-                                            :margin "0"
-                                            :display "flex"
-                                            :flex-direction "column"
-                                            :border "2px solid rgba(0, 0, 0, 0.2)"
-                                            :border-radius "8px"}}
+   (fn [{:keys [block-uid]}]
 
-                           [:div.chat-history
-                            {:style {:flex "1"
-                                     :overflow-y "auto"
-                                     :margin "10px"
-                                     :min-height "300px"
-                                     :max-height "1000px"
-                                     :background "aliceblue"}}]
-
-                           [:div.chat-input-container
-                            {:style {:display "flex"
-                                     :align-items "center"
-                                     :border "1px"
-                                     :padding "10px"}}
-                            [:div.chat-loader
-                             {:ref (fn [el] (reset! chat-loader-el el))
-                              :style {:flex "1 1 auto"
-                                      :height "100%"
-                                      :overflow "auto"
-                                      :display "flex"
-                                      :align-items "flex-start"
-                                      :max-height "500px"}}]
-
-                            [:> Button {:icon "arrow-right"
-                                        :intent "primary"
-                                        :large true
-                                        :on-click (load-context context messages)
-                                        :style {:margin-left "10px"}}]]]])})))
+     [:div.chat-container
+      {:style {:display "flex"
+               :flex-direction "column"
+               :border-radius "8px"
+               :overflow "hidden"}}
+      [:> Card {:interactive true
+                :elevation 3
+                :style {:flex "1"
+                        :margin "0"
+                        :display "flex"
+                        :flex-direction "column"
+                        :border "2px solid rgba(0, 0, 0, 0.2)"
+                        :border-radius "8px"}}
+       [chat-history messages]
+       [:div.chat-input-container
+        {:style {:display "flex"
+                 :align-items "center"
+                 :border "1px"
+                 :padding "10px"}}
+        [chat-context c-uid]
+        [:> Button {:icon "arrow-right"
+                    :intent "primary"
+                    :large true
+                    :on-click (load-context context messages)
+                    :style {:margin-left "10px"}}]]]])))
 
 
 
