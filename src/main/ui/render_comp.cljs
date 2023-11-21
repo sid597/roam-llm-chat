@@ -3,22 +3,11 @@
             [applied-science.js-interop :as j]
             [clojure.pprint :as pp :refer [pprint]]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
+            [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
 
 
-(defn q
-  ([query]
-   (let [serialised-query (pr-str query)
-         roam-api         (.-data (.-roamAlphaAPI js/window))
-         q-fn             (.-q roam-api)]
-     (-> (.apply q-fn roam-api (array serialised-query))
-       (js->clj :keywordize-keys true))))
-  ([query & args]
-   (let [serialised-query (pr-str query)
-         roam-api         (.-data (.-roamAlphaAPI js/window))
-         q-fn             (.-q roam-api)]
-     (-> (.apply q-fn roam-api (apply array (concat [serialised-query] args)))
-       (js->clj :keywordize-keys true)))))
+
 
 
 #_(ns ui.core
@@ -45,7 +34,7 @@
             block-uid
             s)))
 
-(defn chat-input []
+(defn chat-context []
   (let [input-ref (r/atom nil)
         chat-loaded (r/atom nil)]
     (r/create-class
@@ -64,35 +53,86 @@
          [:div {:ref (fn [el] (reset! input-ref el))}])})))
 
 
+(defn load-context [context messages]
+  (let [ctx-buid      (:uid context)
+        children      (:children context)
+        m-len         (count messages)
+        m-uid         (:uid messages)]
+    (fn [context messages]
+      (doall
+        (for [child children]
+          ^{:key child}
+          (let [child-uid (:uid child)
+                cstr (:string child)
+                ctr  (atom m-len)]
+            (do
+              (println "child ---->" (= "{{ query block }}"
+                                       cstr) child-uid)
+              (cond
+                (= "{{ query block }}"
+                  cstr)                 (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
+                                          (.then (fn [r]
+                                                   (let [res (js->clj r :keywordize-keys true)
+                                                         page-data (data-for-pages res)]
+                                                     (pprint page-data)
+                                                     (println page-data)
+                                                     (println (str page-data))
+                                                     (doall
+                                                      (for [dg-node page-data]
+                                                        (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
+                                                              (clj->js {:location {:parent-uid (str m-uid)
+                                                                                   :order       -1}
+                                                                        :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+                                                                                   :string (str "``` " dg-node "```")
+                                                                                   :open   true}}))
+                                                          (.then (fn []
+                                                                   (println "new block in messages" page-data))))))))))
+
+                :else                  (do
+                                         (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
+                                               (clj->js {:location {:parent-uid (str m-uid)
+                                                                    :order       -1}
+                                                         :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+                                                                    :string (str cstr)
+                                                                    :open   true}}))
+                                           (.then (fn []
+                                                    (println "new block in messages"))))
+                                         (swap! ctr inc))))))))))
+
+
+
 (defn chat-ui [block-uid]
-  (let [
-        settings (get-child-with-str block-uid "Settings")
+  (println "block uid for chat" block-uid)
+  (pprint (ffirst (q '[:find (pull ?e [:block/string :block/uid {:block/children ...}])
+                        :in $ ?uid
+                        :where
+                        [?e :block/uid ?uid]]
+                     block-uid)))
+  (let [settings (get-child-with-str block-uid "Settings")
         context  (get-child-with-str block-uid "Context")
-        messages (:block/children (get-child-with-str block-uid "Messages"))
-        c-uid    (:block/uid context)
+        messages (get-child-with-str block-uid "Messages")
+        chat-loader-el (r/atom nil)
+        c-uid    (:uid context)
         chat-loaded (r/atom nil)
         ;; Define the function for handling the mounting of the component
         handle-did-mount (fn []
                            (println "component did mount")
-                           (let [chat-loader-el (.querySelector js/document ".chat-loader")
-                                 new-input-el   (.createElement js/document "div")
-                                 hist           (.querySelector js/document ".chat-history")]
-                             (println "CHAT LOADED")
-                             (when chat-loader-el
-                               (.appendChild chat-loader-el new-input-el (.-firstChild chat-loader-el))
+                           (let [hist           (.querySelector js/document ".chat-history")]
+                             (println "CHAT LOADED" c-uid)
+                             (when @chat-loader-el
+                               #_(.appendChild chat-loader-el new-input-el (.-firstChild chat-loader-el))
                                (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                     (clj->js {:uid "NwZQptIUd"
+                                     (clj->js {:uid (str c-uid)
                                                :zoom-path true
-                                               :el new-input-el}))
+                                               :el @chat-loader-el}))
                                  (.then (fn [res]
                                           (log "PROMISE RESULT" res)
                                           (reset! chat-loaded res)))))
                              (when hist
-                               (println "CHAT HISTORY" (count messages))
                                (doall
-                                 (for [child messages]
+                                 (for [child (reverse (:children messages))]
                                    ^{:key child}
-                                   (let [uid (:block/uid child)
+                                   (let [uid (:uid child)
                                          msg-block-div (.createElement js/document "div")]
                                      (println "child" child)
                                      (do
@@ -112,12 +152,12 @@
        :reagent-render (fn [{:keys [block-uid]}]
                          (println "settings")
                          (pprint settings)
+                         (pprint context)
                          (println "muid" c-uid)
                          (pprint messages)
                          [:div.chat-container
                           {:style {:display "flex"
                                    :flex-direction "column"
-                                   :height "500px"
                                    :border-radius "8px"
                                    :overflow "hidden"}}
                           [:> Card {:interactive true
@@ -133,6 +173,7 @@
                             {:style {:flex "1"
                                      :overflow-y "auto"
                                      :margin "10px"
+                                     :min-height "300px"
                                      :background "aliceblue"}}]
 
                            [:div.chat-input-container
@@ -140,10 +181,16 @@
                                      :align-items "center"
                                      :border "1px"
                                      :padding "10px"}}
-                            [chat-input]
+                            [:div.chat-loader
+                             {:ref (fn [el] (reset! chat-loader-el el))
+                              :style {:flex "1"
+                                      :display "flex"
+                                      :align-items "center"}}]
+
                             [:> Button {:icon "arrow-right"
                                         :intent "primary"
                                         :large true
+                                        :on-click (load-context context messages)
                                         :style {:margin-left "10px"}}]]]])})))
 
 
