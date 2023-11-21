@@ -174,6 +174,7 @@
                                      :overflow-y "auto"
                                      :margin "10px"
                                      :min-height "300px"
+                                     :max-height "1000px"
                                      :background "aliceblue"}}]
 
                            [:div.chat-input-container
@@ -183,9 +184,12 @@
                                      :padding "10px"}}
                             [:div.chat-loader
                              {:ref (fn [el] (reset! chat-loader-el el))
-                              :style {:flex "1"
+                              :style {:flex "1 1 auto"
+                                      :height "100%"
+                                      :overflow "auto"
                                       :display "flex"
-                                      :align-items "center"}}]
+                                      :align-items "flex-start"
+                                      :max-height "500px"}}]
 
                             [:> Button {:icon "arrow-right"
                                         :intent "primary"
