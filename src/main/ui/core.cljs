@@ -12,9 +12,7 @@
 
 
 (defn add-new-option-to-context-menu []
-  (let [block-context-menus (j/get-in js/window [:roamAlphaAPI :ui :blockContextMenu])]
-    (log "block context menu" block-context-menus)
-    (.addCommand block-context-menus
+    (j/call-in js/window [:roamAlphaAPI :ui :blockContextMenu :addCommand]
       ;; Returns
       #_{:block-uid "8CskYJbhx"
          :page-uid "11-08-2023"
@@ -33,7 +31,7 @@
                              #_(j/call-in js/window [:roamAlphaAPI :data  :block :update]
                                  (clj->js {:block
                                            {:uid block-uid
-                                            :string (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}")}}))))}))))
+                                            :string (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}")}}))))})))
 
 
 (defn init []
