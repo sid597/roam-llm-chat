@@ -151,7 +151,7 @@
                        (resolve nil)))))))))
 
 (defn call-openai-api [messages callback]
-  (let [client (OpenAI. #js {:apiKey "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"
+  (let [client (OpenAI. #js {:apiKey "GG"
                              :dangerouslyAllowBrowser true})
         response (j/call-in client  [:chat :completions :create]
                    (clj->js {:model "gpt-4-1106-preview"
