@@ -58,18 +58,20 @@
                    :overflow "auto"
                    :display "flex"
                    :align-items "flex-start"
-                   :max-height "400px"}}])})))
+                   :max-height "700px"}}])})))
 
 (defn chat-history [messages]
   (let [history-ref (r/atom nil)
         update-fn   (fn [this]
                       (when-let [hist-el @history-ref]
+                        (set! (.-innerHTML hist-el ) "")
                         (doall
                           (for [child (reverse (:children @messages))]
                             ^{:key child}
                             (let [uid (:uid child)
-                                  msg-block-div (.createElement js/document "div")]
+                                  msg-block-div (.createElement js/document (str "div.msg-" uid))]
                               (do
+                                (log "chat-history ref" hist-el)
                                 (println "child ---->" child)
                                 (if (.hasChildNodes hist-el)
                                   (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
@@ -94,7 +96,7 @@
                                            :overflow-y "auto"
                                            :margin "10px"
                                            :min-height "300px"
-                                           :max-height "800px"
+                                           :max-height "700px"
                                            :background "aliceblue"}}]))})))
 
 
@@ -149,7 +151,7 @@
                        (resolve nil)))))))))
 
 (defn call-openai-api [messages callback]
-  (let [client (OpenAI. #js {:apiKey  "gg"
+  (let [client (OpenAI. #js {:apiKey "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"
                              :dangerouslyAllowBrowser true})
         response (j/call-in client  [:chat :completions :create]
                    (clj->js {:model "gpt-4-1106-preview"
@@ -239,40 +241,41 @@
         c-uid    (:uid context)]
 
    (fn [_]
-     [:div.chat-container
-      {:style {:display "flex"
-               :flex-direction "column"
-               :border-radius "8px"
-               :overflow "hidden"}}
-      [:> Card {:interactive true
-                :elevation 3
-                :style {:flex "1"
-                        :margin "0"
-                        :display "flex"
-                        :flex-direction "column"
-                        :border "2px solid rgba(0, 0, 0, 0.2)"
-                        :border-radius "8px"}}
-       [chat-history messages]
-       [:div.chat-input-container
+     (let [msg @messages]
+       [:div.chat-container
         {:style {:display "flex"
-                 :align-items "center"
-                 :border "1px"
-                 :padding "10px"}}
-        [chat-context c-uid]
-        [:> Button {:icon "arrow-right"
-                    :intent "primary"
-                    :large true
-                    :on-click (fn []
-                                (-> (load-context context messages)
-                                  (.then (fn []
-                                           (js/setTimeout
-                                             (fn []
-                                               (let [new-msgs (get-child-with-str block-uid "Messages")]
-                                                 (do
-                                                   (reset! messages new-msgs)
-                                                   (send-context-and-message new-msgs messages block-uid))))
-                                             900)))))
-                    :style {:margin-left "10px"}}]]]])))
+                 :flex-direction "column"
+                 :border-radius "8px"
+                 :overflow "hidden"}}
+        [:> Card {:interactive true
+                  :elevation 3
+                  :style {:flex "1"
+                          :margin "0"
+                          :display "flex"
+                          :flex-direction "column"
+                          :border "2px solid rgba(0, 0, 0, 0.2)"
+                          :border-radius "8px"}}
+         [chat-history messages]
+         [:div.chat-input-container
+          {:style {:display "flex"
+                   :align-items "center"
+                   :border "1px"
+                   :padding "10px"}}
+          [chat-context c-uid]
+          [:> Button {:icon "arrow-right"
+                      :intent "primary"
+                      :large true
+                      :on-click (fn []
+                                  (-> (load-context context messages)
+                                    (.then (fn []
+                                             (js/setTimeout
+                                               (fn []
+                                                 (let [new-msgs (get-child-with-str block-uid "Messages")]
+                                                   (do
+                                                     (reset! messages new-msgs)
+                                                     (send-context-and-message new-msgs messages block-uid))))
+                                               900)))))
+                      :style {:margin-left "10px"}}]]]]))))
 
 
 
