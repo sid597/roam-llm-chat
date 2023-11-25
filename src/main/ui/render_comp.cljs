@@ -150,8 +150,11 @@
                        (println "all promises resolved")
                        (resolve nil)))))))))
 
+(goog-define oai-key "")
+
 (defn call-openai-api [messages callback]
-  (let [client (OpenAI. #js {:apiKey "GG"
+  (println "call-openai-api" oai-key)
+  (let [client (OpenAI. #js {:apiKey oai-key
                              :dangerouslyAllowBrowser true})
         response (j/call-in client  [:chat :completions :create]
                    (clj->js {:model "gpt-4-1106-preview"

@@ -34,7 +34,9 @@
                                             :string (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}")}}))))})))
 
 
-(defn init []
+(defn init [config-json]
+  (let [config (js->clj config-json :keywordize-keys true)]
+    (log "config" config))
   (js/console.log "Hello from roam cljs plugin boilerplate!")
   (add-new-option-to-context-menu))
 
