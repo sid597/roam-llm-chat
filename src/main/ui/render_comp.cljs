@@ -1,11 +1,48 @@
 (ns ui.render-comp
+  (:require-macros
+    [cljs.core.async.macros :as asyncm :refer (go go-loop)])
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [clojure.pprint :as pp :refer [pprint]]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             ["openai" :as oai :refer [OpenAI]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
+            [taoensso.sente :as sente :refer (cb-success?)]
+            [cljs.core.async :refer [<! >! chan put!]]
             [reagent.dom :as rd]))
+
+(def ?csrf-token
+  (when-let [el (.getElementById js/document "sente-csrf-token")]
+    (.getAttribute el "data-csrf-token")))
+
+(let [{:keys [chsk ch-recv send-fn state]}
+      (sente/make-channel-socket-client!
+        "/chsk" ; Note the same path as before
+        ?csrf-token
+        {:type :auto})] ; e/o #{:auto :ajax :ws}
+
+
+  (def chsk       chsk)
+  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def chsk-state state))   ; Watchable, read-only atom
+
+
+(defn handle-openai-event [event]
+  (pprint event))
+
+(defn send-message-and-stream-reply [messages]
+  (go
+    (chsk-send!
+      [:openai-api-call messages]
+      100
+      (fn [response]
+        (if (sente/cb-success? response)
+            (let [[event-type event-data] (<! ch-chsk)]
+              (case event-type
+                :openai-event (handle-openai-event event-data)
+                :chsk/recv (print "Received a non-event message: " event-data)
+                :else (print "Unknown event type: " event-type))))))))
 
 
 
@@ -150,39 +187,8 @@
                        (println "all promises resolved")
                        (resolve nil)))))))))
 
+
 (goog-define oai-key "")
-
-(defn call-openai-api [messages callback]
-  (println "call-openai-api" oai-key)
-  (let [client (OpenAI. #js {:apiKey oai-key
-                             :dangerouslyAllowBrowser true})
-        response (j/call-in client  [:chat :completions :create]
-                   (clj->js {:model "gpt-4-1106-preview"
-                             :messages (clj->js messages)
-                             :temperature 1
-                             :max_tokens 512
-                             :top_p 1
-                             :frequency_penalty 0
-                             :presence_penalty 0}))]
-
-    (comment
-      ;;Returns
-      {:id "chatcmpl-8NiFe8FGpUIGLGZXETzr0VuMcz2ZN",
-       :object "chat.completion",
-       :created 1700662338,
-       :model "gpt-4-1106-preview",
-       :choices
-       [{:index 0,
-         :message
-         {:role "assistant",
-          :content
-          "Hello! As an AI, I'm here to assist and provide you with information, help answer your questions, and engage in conversation about a wide range of topics. How can I assist you today?"},
-         :finish_reason "stop"}],
-       :usage {:prompt_tokens 14, :completion_tokens 40, :total_tokens 54},
-       :system_fingerprint "fp_a24b4d720c"})
-    (-> response
-      (.then callback)
-      (.catch (fn [error] (println "Error:" error))))))
 
 #_(call-openai-api [{:role "user"
                      :content "Hello, I'm a human."}]
@@ -212,26 +218,27 @@
      (for [msg messages]
        (let [msg-str (:string msg)]
          (swap! res str (extract-from-code-block msg-str)))))
-    (call-openai-api [{:role "user"
-                       :content @res}]
-      (fn [response]
-        (let [res-str (-> (js->clj response :keywordize-keys true)
-                        :choices
-                        first
-                        :message
-                        :content)]
-          (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
-                (clj->js {:location {:parent-uid (str m-uid)
-                                     :order       -1}
-                          :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
-                                     :string res-str
-                                     :open   true}}))
-            (.then (fn [_]
-                     (js/setTimeout
-                       (fn []
-                        (println "new block in messages")
-                        (reset! reset-atom (get-child-with-str block-uid "Messages")))
-                       500)))))))))
+    #_(call-openai-api
+        [{:role "user"
+          :content @res}]
+        (fn [response]
+          (let [res-str (-> (js->clj response :keywordize-keys true)
+                          :choices
+                          first
+                          :message
+                          :content)]
+            (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
+                  (clj->js {:location {:parent-uid (str m-uid)
+                                       :order       -1}
+                            :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+                                       :string res-str
+                                       :open   true}}))
+              (.then (fn [_]
+                       (js/setTimeout
+                         (fn []
+                          (println "new block in messages")
+                          (reset! reset-atom (get-child-with-str block-uid "Messages")))
+                         500)))))))))
 
 
 #_(send-context-and-message "kOxujvJLm")
