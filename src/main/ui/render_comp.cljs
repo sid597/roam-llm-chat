@@ -11,42 +11,46 @@
             [cljs.core.async :refer [<! >! chan put!]]
             [reagent.dom :as rd]))
 
-(def ?csrf-token
-  (when-let [el (.getElementById js/document "sente-csrf-token")]
-    (.getAttribute el "data-csrf-token")))
-
-(let [{:keys [chsk ch-recv send-fn state]}
-      (sente/make-channel-socket-client!
-        "/chsk" ; Note the same path as before
-        ?csrf-token
-        {:type :auto})] ; e/o #{:auto :ajax :ws}
 
 
-  (def chsk       chsk)
-  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
-  (def chsk-send! send-fn) ; ChannelSocket's send API fn
-  (def chsk-state state))   ; Watchable, read-only atom
+(defn start []
+  (let [socket (js/WebSocket. "ws://localhost:1337")]
+
+    ;; Handle incoming messages
+    (aset socket "onmessage"
+      (clj->js
+        (fn [event]
+          (let [data (.-data event)]  ;; You can directly use .-data on event
+            (println "Received:" data)))))
+
+    ;; Send a message after the connection is open
+    (aset socket "onopen"
+      (clj->js
+        (fn []
+          (.send socket "hello"))))))
+
+(start)
+
+#_#_(defn send-message-and-stream-reply [messages]
+      (println "send message and stream reply")
+      (go
+        (chsk-send!
+          [:openai-api-call {:messages messages}]
+          100
+          (fn [response]
+            (if (sente/cb-success? response)
+                (let [[event-type event-data] (<! ch-chsk)]
+                  (case event-type
+                    :openai-event (handle-openai-event event-data)
+                    :chsk/recv (print "Received a non-event message: " event-data)
+                    :else (print "Unknown event type: " event-type))))))))
 
 
-(defn handle-openai-event [event]
-  (pprint event))
 
-(defn send-message-and-stream-reply [messages]
-  (go
-    (chsk-send!
-      [:openai-api-call messages]
-      100
-      (fn [response]
-        (if (sente/cb-success? response)
-            (let [[event-type event-data] (<! ch-chsk)]
-              (case event-type
-                :openai-event (handle-openai-event event-data)
-                :chsk/recv (print "Received a non-event message: " event-data)
-                :else (print "Unknown event type: " event-type))))))))
-
-
-
-
+(send-message-and-stream-reply [{:role "system" :content "You are a helpful assistant."}
+                                {:role "user" :content "Who won the world series in 2020?"}
+                                {:role "assistant" :content "The Los Angeles Dodgers won the World Series in 2020."}
+                                {:role "user" :content "Where was it played?"}])
 
 #_(ns ui.core
     (:require [reagent.core :as r]
