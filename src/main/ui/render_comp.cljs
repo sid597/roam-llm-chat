@@ -69,6 +69,7 @@
             :style {:flex "1 1 auto"
                     :height "100%"
                     :overflow "auto"
+                    :flex-direction "column"
                     :display "flex"
                     :align-items "stretch"
                     :max-height "700px"}}]))})))
@@ -110,8 +111,8 @@
                                    :style {:flex "1"
                                            :overflow-y "auto"
                                            :margin "10px"
-                                           :min-height "300px"
-                                           :max-height "700px"
+                                           :min-height "600px"
+                                           :max-height "900px"
                                            :background "aliceblue"}}]))})))
 
 (defn move-block [parent-uid order block-uid callback]
