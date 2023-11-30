@@ -1,33 +1,58 @@
+
 (ns server.core
-  (:refer-clojure :exclude [abs update-keys])
-  (:require
-    [clojure.core.async :as async :refer [<! >!]]
-    [org.httpkit.server :as server :refer [run-server]]))
+  (:require [compojure.core :refer :all]
+            [ring.middleware.params :refer [wrap-params]]
+            [wkok.openai-clojure.api :as api]
+            [cheshire.core :as json]
+            [server.env :as env :refer [oai-key]]
+            [ring.adapter.jetty :as jetty]))
 
 
-#_(defn stream-counter
-    []
-    (let [ch (async/chan)]
-      (async/go-loop [ctr 0]
-        (async/>! ch ctr)
-        (Thread/sleep 1000)
-        (recur (inc ctr)))
-     ch))
+(defn oai [request]
+  (let [messages  (-> request
+                    :body
+                    slurp
+                    (json/parse-string true)
+                    :documents)
+
+        res (api/create-chat-completion
+              {:model "gpt-4-1106-preview"
+               :messages  messages
+               :temperature 1
+               :max_tokens 256
+               :top_p 1
+               :frequency_penalty 0
+               :presence_penalty 0}
+              {:api-key oai-key})]
+
+   {:status 200
+    :headers {"Content-Type" "text/plain"}
+    :body   (-> res
+              :choices
+              first
+              :message
+              :content)}))
 
 
-(defn ws-handler [ws]
-  (let [ctr (atom 0)]
-    (future
-      (while true
-        (Thread/sleep 1000) ; wait for 1 second
-        (swap! ctr inc) ; increment counter
-        (when (not= @ctr 10) ; send until ctr reaches 10
-          (server/send! ws (str @ctr))))))) ; corrected line here
+(defn- handle-preflight [_]
+  {:status 200
+   :headers {"Access-Control-Allow-Origin" "https://roamresearch.com"   ; Allow requests from this origin
+             "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
+             "Access-Control-Allow-Headers" "Content-Type, Authorization"}})
+
+(defn- cors-headers [response]
+  (let [updated-response (update response :headers merge
+                           {"Access-Control-Allow-Origin" "https://roamresearch.com"})]  ; Add CORS header
+    updated-response))
+
+(defroutes app-routes
+  (OPTIONS "/chat-complete" [] handle-preflight)   ; Handle preflight OPTIONS request
+  (POST "/chat-complete" request (cors-headers (oai request))))
+
+(def app
+  (-> app-routes
+    (wrap-params)))
 
 (defn -main [& args]
-  (println "running main")
-  (server/run-server
-    {:port 1337
-     :websocket ws-handler}
-    {:timeout 600000}))
-
+  (println "Starting server")
+  (jetty/run-jetty app {:port 3000}))
