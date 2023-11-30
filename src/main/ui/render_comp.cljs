@@ -3,7 +3,8 @@
             [applied-science.js-interop :as j]
             [clojure.pprint :as pp :refer [pprint]]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
-            ["openai" :as oai :refer [OpenAI]]
+            [cljs-http.client :as http]
+            [cljs.core.async :as async :refer [take!]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
 
@@ -69,7 +70,7 @@
                     :height "100%"
                     :overflow "auto"
                     :display "flex"
-                    :align-items "flex-start"
+                    :align-items "stretch"
                     :max-height "700px"}}]))})))
 
 (defn chat-history [messages]
@@ -196,48 +197,15 @@
                            (resolve nil))
                          200)))))))))
 
-(goog-define oai-key "")
 
 (defn call-openai-api [messages callback]
-  (println "call-openai-api" oai-key)
-  (let [client (OpenAI. #js {:apiKey oai-key
-                             :dangerouslyAllowBrowser true})
-        response (j/call-in client  [:chat :completions :create]
-                   (clj->js {:model "gpt-4-1106-preview"
-                             :messages (clj->js messages)
-                             :temperature 1
-                             :max_tokens 102
-                             :top_p 1
-                             :frequency_penalty 0
-                             :presence_penalty 0}))]
-
-    (comment
-      ;;Returns
-      {:id "chatcmpl-8NiFe8FGpUIGLGZXETzr0VuMcz2ZN",
-       :object "chat.completion",
-       :created 1700662338,
-       :model "gpt-4-1106-preview",
-       :choices
-       [{:index 0,
-         :message
-         {:role "assistant",
-          :content
-          "Hello! As an AI, I'm here to assist and provide you with information, help answer your questions, and engage in conversation about a wide range of topics. How can I assist you today?"},
-         :finish_reason "stop"}],
-       :usage {:prompt_tokens 14, :completion_tokens 40, :total_tokens 54},
-       :system_fingerprint "fp_a24b4d720c"})
-    (-> response
-      (.then callback)
-      (.catch (fn [error] (println "Error:" error))))))
-
-#_(call-openai-api [{:role "user"
-                     :content "Hello, I'm a human."}]
-    (fn [response]
-      (pprint (-> (js->clj response :keywordize-keys true)
-                :choices
-                first
-                :message
-                :content))))
+  (let [url     "http://localhost:3000/chat-complete"  ;; Update the URL to use the local proxy server
+        data    (clj->js {:documents messages})
+        headers {"Content-Type" "application/json"}
+        res-ch  (http/post url {:with-credentials? false
+                                :headers headers
+                                :json-params data})]
+    (take! res-ch callback)))
 
 
 (defn extract-from-code-block [s]
@@ -264,11 +232,8 @@
     (call-openai-api [{:role "user"
                        :content @res}]
       (fn [response]
-        (let [res-str (-> (js->clj response :keywordize-keys true)
-                        :choices
-                        first
-                        :message
-                        :content)]
+        (let [res-str (-> response
+                        :body)]
           (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
                                                                        (fn []
                                                                         (println "new block in messages")

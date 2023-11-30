@@ -34,6 +34,23 @@
               :content)}))
 
 
+#_(comment
+    ;;Returns
+    {:id "chatcmpl-8NiFe8FGpUIGLGZXETzr0VuMcz2ZN",
+     :object "chat.completion",
+     :created 1700662338,
+     :model "gpt-4-1106-preview",
+     :choices
+     [{:index 0,
+       :message
+       {:role "assistant",
+        :content
+        "Hello! As an AI, I'm here to assist and provide you with information, help answer your questions, and engage in conversation about a wide range of topics. How can I assist you today?"},
+       :finish_reason "stop"}],
+     :usage {:prompt_tokens 14, :completion_tokens 40, :total_tokens 54},
+     :system_fingerprint "fp_a24b4d720c"})
+
+
 (defn- handle-preflight [_]
   {:status 200
    :headers {"Access-Control-Allow-Origin" "https://roamresearch.com"   ; Allow requests from this origin
