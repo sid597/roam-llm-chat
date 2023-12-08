@@ -64,18 +64,12 @@
                :display-conditional (fn [e]
                                       true)
                :callback (fn [e]
-                           (let [block-uid (j/get e :block-uid)
-                                 dom-id (str "block-input-" (j/get e :window-id) "-" block-uid)]
-                              (println "cui" (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}"))
-                              (if (children-exist? block-uid)
-                               (rc/main {:block-uid block-uid} "filler"  dom-id)
-                               (create-blocks
-                                 block-uid
-                                 #_#(rc/main {:block-uid block-uid} "filler"  dom-id)
-                                 #(j/call-in js/window [:roamAlphaAPI :data  :block :update]
-                                    (clj->js {:block
-                                              {:uid block-uid
-                                               :string (str "{{ chat-llm }}")}}))))))})))
+                           (let [block-uid (j/get e :block-uid)]
+                              (j/call-in js/window [:roamAlphaAPI :data  :block :update]
+                                (clj->js {:block
+                                          {:uid block-uid
+                                           :string (str "{{ chat-llm }}")}}))))})))
+
 (defn extract-last-substring [s]
   (if (>= (count s) 9)
     (subs s (- (count s) 9))
@@ -84,8 +78,13 @@
 (defn load-ui [node]
   (let [dom-id (-> (j/call node :closest "div")
                  (j/get :id))
-        pid    (extract-last-substring dom-id)]
-    (rc/main {:block-uid pid} "filler" dom-id)))
+        pbuid    (extract-last-substring dom-id)]
+    (if (children-exist? pbuid)
+      (rc/main {:block-uid pbuid} "filler"  dom-id)
+      (create-blocks
+        pbuid
+        #(rc/main {:block-uid pbuid} "filler"  dom-id)))))
+
 
 (defn get-matches [d class-name tag-name]
   (let [matches (->> (.getElementsByClassName  d class-name)
@@ -93,11 +92,9 @@
                     (filter #(and
                                (= (j/get % :nodeName) tag-name)
                                (= "chat-llm" (j/get % :innerText)))))]
-    (println "matches" matches)
     matches))
 
 (defn mutation-callback [mutations observer]
-  (log "mutation-callback")
   (doseq [mutation mutations]
     (when (= (.-type mutation) "childList")
       (doseq [node (array-seq (.-addedNodes mutation))]
@@ -115,8 +112,11 @@
     (load-ui match)))
 
 (defn init []
- (js/console.log "Hello from roam cljs plugin boilerplate!")
+ (js/console.log "Hello from  chat-llm!")
+  ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
+  ;; observe for new chat-llm buttons
  (start-observing)
+  ;; a way to add the chat-llm button
  (add-new-option-to-context-menu))
 

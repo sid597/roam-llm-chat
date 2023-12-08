@@ -42,7 +42,7 @@
         chat-loaded (r/atom nil)
         update-fn   (fn [this]
                       (when-let [context-el @context-ref]
-                        (println "4. chat context update fn" @context)
+                        (println "4. chat context update fn")
                         ;(pprint @context)
                         ;(set! (.-innerHTML context-el ) "")
                         (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
@@ -251,11 +251,7 @@
         context  (r/atom (get-child-with-str block-uid "Context"))
         messages (r/atom (get-child-with-str block-uid "Messages"))
         active? (r/atom true)]
-   (println "children" (q '[:find (pull ?e [:block/string :block/uid :block/order {:block/children ...}])
-                            :in $ ?uid
-                            :where
-                            [?e :block/uid ?uid]]
-                          block-uid))
+
    (fn [_]
      (let [msg @messages
            c-msg (:children @context)]
