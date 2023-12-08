@@ -69,16 +69,54 @@
                               (println "cui" (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}"))
                               (if (children-exist? block-uid)
                                (rc/main {:block-uid block-uid} "filler"  dom-id)
-                               (create-blocks block-uid #(rc/main {:block-uid block-uid} "filler"  dom-id)))
-                             #_(j/call-in js/window [:roamAlphaAPI :data  :block :update]
-                                 (clj->js {:block
-                                           {:uid block-uid
-                                            :string (str "{{roam/render: ((C_s8CL875)) \"C_s8CL875\" " dom-id " " "}}")}}))))})))
+                               (create-blocks
+                                 block-uid
+                                 #_#(rc/main {:block-uid block-uid} "filler"  dom-id)
+                                 #(j/call-in js/window [:roamAlphaAPI :data  :block :update]
+                                    (clj->js {:block
+                                              {:uid block-uid
+                                               :string (str "{{ chat-llm }}")}}))))))})))
+(defn extract-last-substring [s]
+  (if (>= (count s) 9)
+    (subs s (- (count s) 9))
+    s))
 
+(defn load-ui [node]
+  (let [dom-id (-> (j/call node :closest "div")
+                 (j/get :id))
+        pid    (extract-last-substring dom-id)]
+    (rc/main {:block-uid pid} "filler" dom-id)))
+
+(defn get-matches [d class-name tag-name]
+  (let [matches (->> (.getElementsByClassName  d class-name)
+                    array-seq
+                    (filter #(and
+                               (= (j/get % :nodeName) tag-name)
+                               (= "chat-llm" (j/get % :innerText)))))]
+    (println "matches" matches)
+    matches))
+
+(defn mutation-callback [mutations observer]
+  (log "mutation-callback")
+  (doseq [mutation mutations]
+    (when (= (.-type mutation) "childList")
+      (doseq [node (array-seq (.-addedNodes mutation))]
+        (when (instance? js/Element node)
+          (doseq [match (get-matches node "bp3-button" "BUTTON")]
+            (load-ui match)))))))
+
+(defn start-observing []
+  (let [observer (js/MutationObserver. mutation-callback)]
+    (.observe observer js/document #js {:childList true
+                                        :subtree true})))
+
+(defn setup []
+  (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
+    (load-ui match)))
 
 (defn init []
-  (js/console.log "Hello from roam cljs plugin boilerplate!")
-  (add-new-option-to-context-menu))
-
-
+ (js/console.log "Hello from roam cljs plugin boilerplate!")
+ (setup)
+ (start-observing)
+ (add-new-option-to-context-menu))
 
