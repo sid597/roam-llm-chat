@@ -232,6 +232,7 @@
        (let [msg-str (:string msg)]
          (swap! res str (extract-from-code-block msg-str)))))
     (println "send-context-and-message" @res)
+    (println "URL ENDPOINT" url-endpoint)
     (call-openai-api [{:role "user"
                        :content @res}]
       (fn [response]
