@@ -111,7 +111,8 @@
   (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
     (load-ui match)))
 
-(defn init []
+(defn init [config-json]
+  (log "config" config-json)
  (js/console.log "Hello from  chat-llm!")
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)

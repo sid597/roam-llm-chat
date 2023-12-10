@@ -198,9 +198,10 @@
                            (resolve nil))
                          200)))))))))
 
+(goog-define url-endpoint "")
 
 (defn call-openai-api [messages callback]
-  (let [url     "http://localhost:3000/chat-complete"  ;; Update the URL to use the local proxy server
+  (let [url     url-endpoint
         data    (clj->js {:documents messages})
         headers {"Content-Type" "application/json"}
         res-ch  (http/post url {:with-credentials? false

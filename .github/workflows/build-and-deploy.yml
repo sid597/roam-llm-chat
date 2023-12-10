@@ -1,0 +1,44 @@
+Name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.14.2
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Set up Clojure CLI tools
+        uses: DeLaGuardo/setup-clojure@3.5
+        with:
+          cli: 1.11.1
+
+      - name: Build the optimized release using shadow-cljs
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: npx shadow-cljs release app --config-merge "{\"closure-defines\":{\"ui.render-comp/url-endpoint\":\"$API_URL\"}}"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public/app
