@@ -35,7 +35,7 @@ jobs:
       - name: Build the optimized release using shadow-cljs
         env:
           API_URL: ${{ secrets.API_URL }}
-        run: npx shadow-cljs release app --config-merge "{\"closure-defines\":{\"ui.render-comp/url-endpoint\":\"$API_URL\"}}"
+        run: npx shadow-cljs release app --config-merge '{:closure-defines {ui.render-comp/url-endpoint \"$API_URL\"}}'
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
