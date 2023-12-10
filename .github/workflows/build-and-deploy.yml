@@ -30,7 +30,7 @@ jobs:
       - name: Set up Clojure CLI tools
         uses: DeLaGuardo/setup-clojure@3.5
         with:
-          cli: 1.11.1
+          cli: 1.10.1.693
 
       - name: Build the optimized release using shadow-cljs
         env:
