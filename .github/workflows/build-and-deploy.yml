@@ -32,17 +32,6 @@ jobs:
         with:
           cli: 1.10.1.693
 
-      - name: Create EDN file with API_URL
-        env:
-            API_URL: ${{ secrets.API_URL }}
-        run: echo "{:closure-defines {ui.render-comp/url-endpoint \"$API_URL\"}}" > merge.edn
-
-      - name: log edn
-        run: echo merge.edn
-
-      - name: Build the optimized release using shadow-cljs
-        run: npx shadow-cljs release app --config-merge merge.edn
-
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:

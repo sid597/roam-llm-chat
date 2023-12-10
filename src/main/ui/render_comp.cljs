@@ -201,8 +201,7 @@
 (goog-define url-endpoint "")
 
 (defn call-openai-api [messages callback]
-  (println "URL ENDPOINT" url-endpoint)
-  (let [url     url-endpoint
+  (let [url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages})
         headers {"Content-Type" "application/json"}
         res-ch  (http/post url {:with-credentials? false
@@ -232,7 +231,6 @@
        (let [msg-str (:string msg)]
          (swap! res str (extract-from-code-block msg-str)))))
     (println "send-context-and-message" @res)
-    (println "URL ENDPOINT" url-endpoint)
     (call-openai-api [{:role "user"
                        :content @res}]
       (fn [response]
