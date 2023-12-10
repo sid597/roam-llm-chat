@@ -37,6 +37,9 @@ jobs:
             API_URL: ${{ secrets.API_URL }}
         run: echo "{:closure-defines {ui.render-comp/url-endpoint \"$API_URL\"}}" > merge.edn
 
+      - name: log edn
+        run: echo merge.edn
+
       - name: Build the optimized release using shadow-cljs
         run: npx shadow-cljs release app --config-merge merge.edn
 
