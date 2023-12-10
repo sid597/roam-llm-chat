@@ -16,4 +16,8 @@
         net.clojars.wkok/openai-clojure {:mvn/version "0.13.0"}
         reagent/reagent           {:mvn/version "0.10.0"
                                    :exclusions [cljsjs/react
-                                                cljsjs/react-dom]}}}
+                                                cljsjs/react-dom]}}
+ :aliases
+ {;; Run with clj -T:build function-in-build
+  :build {:deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
+          :ns-default build}}}
