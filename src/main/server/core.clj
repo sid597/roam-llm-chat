@@ -4,25 +4,30 @@
             [ring.middleware.params :refer [wrap-params]]
             [wkok.openai-clojure.api :as api]
             [cheshire.core :as json]
-            [server.env :as env :refer [oai-key]]
+            [server.env :as env :refer [oai-key pass-key]]
             [ring.adapter.jetty :as jetty]))
 
 
 (defn oai [request]
-  (let [messages  (-> request
+  (let [rq        (-> request
                     :body
                     slurp
-                    (json/parse-string true)
+                    (json/parse-string true))
+        messages  (-> rq
                     :documents)
-        res (api/create-chat-completion
-              {:model "gpt-4-1106-preview"
-               :messages messages
-               :temperature 1
-               :max_tokens 256
-               :top_p 1
-               :frequency_penalty 0
-               :presence_penalty 0}
-              {:api-key oai-key})]
+        passphrase (-> rq
+                      :passphrase)
+        res (if (= passphrase pass-key)
+              (api/create-chat-completion
+                {:model "gpt-4-1106-preview"
+                 :messages messages
+                 :temperature 1
+                 :max_tokens 256
+                 :top_p 1
+                 :frequency_penalty 0
+                 :presence_penalty 0}
+                {:api-key oai-key})
+              "Nice try!")]
    {:status 200
     :headers {"Content-Type" "text/plain"}
     :body   (-> res

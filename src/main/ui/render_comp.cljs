@@ -200,13 +200,17 @@
 
 (goog-define url-endpoint "")
 
+
 (defn call-openai-api [messages callback]
-  (let [url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
-        data    (clj->js {:documents messages})
+  (let [passphrase (j/get-in js/window [:localStorage :passphrase])
+        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+        data    (clj->js {:documents messages
+                          :passphrase passphrase})
         headers {"Content-Type" "application/json"}
         res-ch  (http/post url {:with-credentials? false
                                 :headers headers
                                 :json-params data})]
+    (println "passphrase" passphrase)
     (take! res-ch callback)))
 
 
