@@ -201,6 +201,7 @@
 (goog-define url-endpoint "")
 
 (defn call-openai-api [messages callback]
+  (println "URL ENDPOINT" url-endpoint)
   (let [url     url-endpoint
         data    (clj->js {:documents messages})
         headers {"Content-Type" "application/json"}
