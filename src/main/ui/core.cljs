@@ -52,6 +52,7 @@
 
 
 (defn add-new-option-to-context-menu []
+    (println "add new option to context menu")
     (j/call-in js/window [:roamAlphaAPI :ui :blockContextMenu :addCommand]
       ;; Returns
       #_{:block-uid "8CskYJbhx"
@@ -60,7 +61,7 @@
          :read-only? false
          :block-string ""
          :heading nil}
-     (clj->js {:label "Chat LLM: Hello from ClojureScript"
+     (clj->js {:label "New LLM chat"
                :display-conditional (fn [e]
                                       true)
                :callback (fn [e]
@@ -108,11 +109,15 @@
                                         :subtree true})))
 
 (defn setup []
-  (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
-    (load-ui match)))
+  (println "doing setup")
+  (let [matches (get-matches js/document "bp3-button" "BUTTON")]
+    (when (seq matches)
+      (doseq [match matches]
+        (load-ui match)))))
 
-(defn init [config-json]
- ; (log "config" config-json)
+
+(defn init []
+ (log "config --------------->")
  (js/console.log "Hello from  chat-llm!")
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
