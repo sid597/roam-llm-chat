@@ -28,12 +28,12 @@
             s)))
 
 (defn chat-context [context]
-  (println "2. load chat-content")
+  ;(println "2. load chat-content")
   (let [context-ref (r/atom nil)
         chat-loaded (r/atom nil)
         update-fn   (fn [this]
                       (when-let [context-el @context-ref]
-                        (println "4. chat context update fn")
+                        ;(println "4. chat context update fn")
                         ;(pprint @context)
                         ;(set! (.-innerHTML context-el ) "")
                         (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
@@ -76,7 +76,7 @@
                                   msg-block-div (.createElement js/document (str "div.msg-" uid))]
                               (do
                                 ;(log "chat-history ref" hist-el)
-                                (println "chat histor child ---->" child)
+                                #_(println "chat histor child ---->" child)
                                 (if (.hasChildNodes hist-el)
                                   (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
                                   (.appendChild hist-el msg-block-div (.-firstChild hist-el)))
@@ -104,7 +104,6 @@
                                            :background "aliceblue"}}]))})))
 
 (defn move-block [parent-uid order block-uid callback]
-  (println "moving block")
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :move]
         (clj->js {:location {:parent-uid parent-uid
                              :order       order}
@@ -145,7 +144,6 @@
         res-ch  (http/post url {:with-credentials? false
                                 :headers headers
                                 :json-params data})]
-    (println "passphrase" passphrase)
     (take! res-ch callback)))
 
 
@@ -166,7 +164,6 @@
       (for [msg messages]
         (let [msg-str (:string msg)]
           (swap! res str (extract-from-code-block msg-str)))))
-    (println "send-context-and-message" @res)
     (call-openai-api [{:role "user"
                        :content @res}]
       (fn [response]
@@ -178,7 +175,6 @@
                                                                          (reset! message-atom (get-child-with-str block-uid "Messages"))
                                                                          (reset! active? true))
                                                                        500)))))))
-
 
 
 (defn load-context [context-atom messages-atom parent-id active?]
@@ -243,7 +239,6 @@
    (fn [_]
      (let [msg @messages
            c-msg (:children @context)]
-       (println "1. context children" c-msg)
        [:div.chat-container
         {:style {:display "flex"
                  :flex-direction "column"
@@ -269,13 +264,11 @@
                       :intent "primary"
                       :large true
                       :on-click (fn []
-                                  (do
-                                    (println "clicked send button")
-                                    (pprint msg)
-                                    (pprint @messages)
-                                    (pprint @context)
-                                    (reset! active? false)
-                                    (load-context context messages block-uid active?)))
+                                  (when @active?
+                                   (do
+                                     (println "clicked send button")
+                                     (reset! active? false)
+                                     (load-context context messages block-uid active?))))
 
 
                       :style {:margin-left "10px"}}

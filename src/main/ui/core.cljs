@@ -12,7 +12,7 @@
   [& args]  (apply js/console.log args))
 
 (defn create-new-block-with-id [parent-uid block-uid order string]
-  (println "create new block" string)
+  (println "create new block" parent-uid)
   (j/call-in js/window [:roamAlphaAPI :data :block :create]
     (clj->js {:location {:parent-uid parent-uid
                          :order       order}
@@ -22,7 +22,6 @@
 
 
 (defn create-blocks [puid cb]
-  (log "create blocks" puid)
   (let [m-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
         c-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
         cc-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])]
@@ -46,8 +45,6 @@
                                              puid))))
         messages? (= "Messages" (-> children first :string))
         context?  (= "Context" (-> children second :string))]
-    (println "children exist" children messages? context?)
-    (println "msg" (-> children first))
     (and messages? context?)))
 
 
@@ -78,12 +75,10 @@
     s))
 
 (defn load-ui [node]
-  (log "load ui" node)
   (let [dom-id (-> (j/call node :closest "div")
                  (j/get :id))
         pbuid    (extract-last-substring dom-id)
         children? (children-exist? pbuid)]
-    (log "children exist" children?)
     (if children?
       (rc/main {:block-uid pbuid} "filler"  dom-id)
       (create-blocks
@@ -105,7 +100,6 @@
       (doseq [node (array-seq (.-addedNodes mutation))]
         (when (instance? js/Element node)
           (doseq [match (get-matches node "bp3-button" "BUTTON")]
-            (log "mutation callback" match)
             (load-ui match)))))))
 
 (defn start-observing []
@@ -114,9 +108,7 @@
                                         :subtree true})))
 
 (defn setup []
-  (log "setup")
   (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
-    (log "setup" match)
     (load-ui match)))
 
 (defn init []
