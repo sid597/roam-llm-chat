@@ -12,7 +12,7 @@
   [& args]  (apply js/console.log args))
 
 (defn create-new-block-with-id [parent-uid block-uid order string]
-  (println "create new block" parent-uid)
+  (println "create new block" string)
   (j/call-in js/window [:roamAlphaAPI :data :block :create]
     (clj->js {:location {:parent-uid parent-uid
                          :order       order}
@@ -22,6 +22,7 @@
 
 
 (defn create-blocks [puid cb]
+  (log "create blocks" puid)
   (let [m-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
         c-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
         cc-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])]
@@ -45,7 +46,6 @@
                                              puid))))
         messages? (= "Messages" (-> children first :string))
         context?  (= "Context" (-> children second :string))]
-    (cljs.pprint/pprint children)
     (println "children exist" children messages? context?)
     (println "msg" (-> children first))
     (and messages? context?)))
@@ -66,10 +66,11 @@
                                       true)
                :callback (fn [e]
                            (let [block-uid (j/get e :block-uid)]
-                              (j/call-in js/window [:roamAlphaAPI :data  :block :update]
-                                (clj->js {:block
-                                          {:uid block-uid
-                                           :string (str "{{ chat-llm }}")}}))))})))
+                             (log "add new chat block" block-uid)
+                             (j/call-in js/window [:roamAlphaAPI :data  :block :update]
+                               (clj->js {:block
+                                         {:uid block-uid
+                                          :string (str "{{ chat-llm }}")}}))))})))
 
 (defn extract-last-substring [s]
   (if (>= (count s) 9)
@@ -77,10 +78,13 @@
     s))
 
 (defn load-ui [node]
+  (log "load ui" node)
   (let [dom-id (-> (j/call node :closest "div")
                  (j/get :id))
-        pbuid    (extract-last-substring dom-id)]
-    (if (children-exist? pbuid)
+        pbuid    (extract-last-substring dom-id)
+        children? (children-exist? pbuid)]
+    (log "children exist" children?)
+    (if children?
       (rc/main {:block-uid pbuid} "filler"  dom-id)
       (create-blocks
         pbuid
@@ -101,6 +105,7 @@
       (doseq [node (array-seq (.-addedNodes mutation))]
         (when (instance? js/Element node)
           (doseq [match (get-matches node "bp3-button" "BUTTON")]
+            (log "mutation callback" match)
             (load-ui match)))))))
 
 (defn start-observing []
@@ -109,16 +114,13 @@
                                         :subtree true})))
 
 (defn setup []
-  (println "doing setup")
-  (let [matches (get-matches js/document "bp3-button" "BUTTON")]
-    (when (seq matches)
-      (doseq [match matches]
-        (load-ui match)))))
-
+  (log "setup")
+  (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
+    (log "setup" match)
+    (load-ui match)))
 
 (defn init []
- (log "config --------------->")
- (js/console.log "Hello from  chat-llm!")
+ (js/console.log "Hello from  chat-llm! LOCAL")
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
   ;; observe for new chat-llm buttons

@@ -4,23 +4,14 @@
             [clojure.pprint :as pp :refer [pprint]]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [cljs-http.client :as http]
-            [cljs.core.async :as async :refer [take!]]
+            [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
+            [cljs.core.async.interop :as asy :refer [<p!]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
 
 
 
 
-
-#_(ns ui.core
-    (:require [reagent.core :as r]
-              [applied-science.js-interop :as j]
-              [roam.datascript.reactive :as dr]
-              [roam.datascript :as d]
-              [clojure.pprint :as pp :refer [pprint]]
-              [blueprintjs.core :as bp :refer [Button InputGroup Card]]
-              [roam.ui.main-window :as cmp]
-              [reagent.dom :as rd]))
 
 (defn log
  [& args]  (apply js/console.log args))
@@ -54,9 +45,6 @@
                               (println "5. chat context block rendered successfully")))
                           (.catch (fn [e]
                                     (log "Error in chat context block" e))))))]
-
-
-
     (r/create-class
       {:component-did-mount  update-fn
        :component-did-update update-fn
@@ -116,6 +104,7 @@
                                            :background "aliceblue"}}]))})))
 
 (defn move-block [parent-uid order block-uid callback]
+  (println "moving block")
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :move]
         (clj->js {:location {:parent-uid parent-uid
                              :order       order}
@@ -144,60 +133,6 @@
              (println "-- updated block string now moving --")
              (move-block parent-uid order block-uid callback)))))
 
-(defn load-context [context messages]
-  (println "load context ")
-  ;(pprint context)
-  (let [
-        m-len         (count @messages)
-        m-uid         (:uid @messages)]
-      (js/Promise.
-        (fn [resolve _]
-          (let [children (:children context)
-                c-uid    (:uid context)
-                count    (count children)
-                promises (doall
-                          (for [child children]
-                            ^{:key child}
-                            (let [child-uid (:uid child)
-                                  cstr (:string child)
-                                  ctr  (atom m-len)]
-                              (do
-                                (println "count" count)
-                                (pprint children)
-                                (cond
-                                  (= "{{ query block }}"
-                                    cstr)                 (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
-                                                            (.then (fn [r]
-                                                                     (let [res (js->clj r :keywordize-keys true)
-                                                                           page-data (str
-                                                                                       "```"
-                                                                                       (clojure.string/join "\n -----" (data-for-pages res))
-                                                                                       "```")]
-                                                                       (update-block-string-and-move
-                                                                         child-uid
-                                                                         page-data
-                                                                         m-uid
-                                                                         (:order child)
-                                                                         (println "updated and moved block"))))))
-
-                                  :else                  (do
-                                                           (move-block
-                                                             m-uid
-                                                             (if (= count 1)
-                                                               "last"
-                                                               (:order child))
-                                                             child-uid
-                                                             (println "moved block" child-uid))
-                                                           (swap! ctr inc)))))))]
-            (-> (js/Promise.all promises)
-              (.then (fn [_]
-                       (js/setTimeout
-                         (fn []
-                           (println "all promises resolved")
-                           (create-new-block c-uid "first" "" (println "new block created"))
-                           (resolve nil))
-                         200)))))))))
-
 (goog-define url-endpoint "")
 
 
@@ -221,19 +156,16 @@
       (str (second m) " \n ")
       (str s " \n "))))
 
-(comment
-  (def text "```javascript\n \n{:title [[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis., :body --\n title: [[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.\n url: https://roamresearch.com/#/app/akamatsulab/page/0PAm1s8St\n author: Heonsu Kim\n date: Fri Apr 28 2023 12:30:01 GMT-0700 (Pacific Daylight Time)\n --\n Source of Claim\n Notes\n Discourse Context\n **Supported By::** [[[[EVD]] - About 30 DNM2 molecules were required for forming the encytosis in SK-MEL-2 cells.  - [[@grassart2014actin]]]], :refs [October 21st, 2023 > #Import > [[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis. [[EVD]] - About 30 DNM2 molecules were required for forming the encytosis in SK-MEL-2 cells.  - [[@grassart2014actin]] >  > [[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis. [[QUE]] - What are the phenotypes of knocking down dynamin2? > Related [[QUE]] [[CLM]] [[EVD]] > [[SupportedBy]]\n [[[[EVD]] - About 30 DNM2 molecules were required for forming the encytosis in SK-MEL-2 cells.  - [[@grassart2014actin]]]][[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.]}\n```")
-  (pprint (extract-from-code-block text)))
-
-(defn send-context-and-message [message-block reset-atom block-uid active?]
-  (let [res (atom "")
-        messages (:children message-block)
-        m-uid    (:uid message-block)]
-
+(defn send-context-and-message [message-atom block-uid active?]
+  (println "send-context-and-message" block-uid)
+  (let [res           (atom "")
+        message-block (get-child-with-str block-uid "Messages")
+        messages      (sort-by :order (:children message-block))
+        m-uid         (:uid message-block)]
     (doall
-     (for [msg messages]
-       (let [msg-str (:string msg)]
-         (swap! res str (extract-from-code-block msg-str)))))
+      (for [msg messages]
+        (let [msg-str (:string msg)]
+          (swap! res str (extract-from-code-block msg-str)))))
     (println "send-context-and-message" @res)
     (call-openai-api [{:role "user"
                        :content @res}]
@@ -242,13 +174,64 @@
                         :body)]
           (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
                                                                        (fn []
-                                                                        (println "new block in messages")
-                                                                        (reset! reset-atom (get-child-with-str block-uid "Messages"))
-                                                                        (reset! active? true))
+                                                                         (println "new block in messages")
+                                                                         (reset! message-atom (get-child-with-str block-uid "Messages"))
+                                                                         (reset! active? true))
                                                                        500)))))))
 
 
-#_(send-context-and-message "kOxujvJLm")
+
+(defn load-context [context-atom messages-atom parent-id active?]
+  (println "load context ")
+  ;(pprint context)
+  (let [messages (get-child-with-str parent-id "Messages")
+        context  (get-child-with-str parent-id "Context")
+        m-len    (count (:children messages))
+        m-uid    (:uid messages)
+        children (:children context)
+        c-uid    (:uid context)
+        count    (count children)]
+    (go
+      (doseq [child children]
+        ^{:key child}
+        (let [child-uid (:uid child)
+              cstr (:string child)
+              order (+ m-len (:order child))]
+          (do
+            (println "order ------>" order)
+            (cond
+              (or (= "{{query block}}"
+                    cstr)
+                (= "{{ query block }}"
+                  cstr))               (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
+                                                (.then (fn [r]
+                                                         (let [res (js->clj r :keywordize-keys true)
+                                                               page-data (str
+                                                                           "```"
+                                                                           (clojure.string/join "\n -----" (data-for-pages res))
+                                                                           "```")]
+                                                           (update-block-string-and-move
+                                                             child-uid
+                                                             page-data
+                                                             m-uid
+                                                             order
+                                                             (println "updated and moved block")))))))
+              :else                  (<p!
+                                       (move-block
+                                         m-uid
+                                         order
+                                         child-uid
+                                         (println "moved block" child-uid)))))))
+      (<p! (create-new-block c-uid "first" "" (println "new block created")))
+      (<p! (js/Promise. (fn [_]
+                            (reset! messages-atom (get-child-with-str parent-id "Messages"))
+                            (println "messages atom reset")
+                            (send-context-and-message messages-atom parent-id active?))))
+      (<p! (js/Promise. (fn [_] (reset! context-atom (get-child-with-str parent-id "Context"))))))))
+
+
+
+
 
 (defn chat-ui [block-uid]
   (println "block uid for chat" block-uid)
@@ -287,26 +270,17 @@
                       :large true
                       :on-click (fn []
                                   (do
+                                    (println "clicked send button")
+                                    (pprint msg)
+                                    (pprint @messages)
+                                    (pprint @context)
                                     (reset! active? false)
-                                    (-> (load-context @context messages)
-                                      (.then (fn []
-                                               (js/setTimeout
-                                                 (fn []
-                                                   (println "Timeout after load context")
-                                                   (let [new-msgs (get-child-with-str block-uid "Messages")
-                                                         new-context (get-child-with-str block-uid "Context")]
-                                                     ;(pprint new-context)
+                                    (load-context context messages block-uid active?)))
 
-                                                     (do
-                                                       (reset! messages new-msgs)
-                                                       (println "reseting to new context")
-                                                       (reset! context new-context)
-                                                       (send-context-and-message new-msgs messages block-uid active?))))
-                                                 200))))))
+
                       :style {:margin-left "10px"}}
            (when (not @active?)
              "WAITING FOR RESPONSE...")]]]]))))
-
 
 
 
@@ -316,4 +290,3 @@
     (println "parent el" (first args) parent-el block-uid)
     (.addEventListener parent-el "mousedown" (fn [e] (.stopPropagation e)))
     (rd/render [chat-ui block-uid] parent-el)))
-

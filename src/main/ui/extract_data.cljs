@@ -84,7 +84,6 @@
        :where [?e :block/uid ?uid]]
     uid))
 
-(uid-to-block "TVZUdVlcj")
 
 (defn replace-block-uids [block-str]
   (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
@@ -109,9 +108,7 @@
       (if current-string [current-string] [])
       (mapcat extract-strings children))))
 
-(extract-strings (ffirst (sort-by :order (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
-                                              :in $ ?eid]
-                                           83918))))
+
 (defn build-map [lst]
   (into {}
     (for [item lst]
