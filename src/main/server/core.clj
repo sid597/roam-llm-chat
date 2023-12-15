@@ -17,12 +17,16 @@
                     :documents)
         passphrase (-> rq
                       :passphrase)
+        {:keys [model
+                max-tokens
+                temperature]} (-> rq
+                                 :settings)
         res (if (= passphrase pass-key)
               (api/create-chat-completion
-                {:model "gpt-4-1106-preview"
+                {:model model
                  :messages messages
-                 :temperature 1
-                 :max_tokens 256
+                 :temperature temperature
+                 :max_tokens max-tokens
                  :top_p 1
                  :frequency_penalty 0
                  :presence_penalty 0}
@@ -75,4 +79,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 8080}))
+  (jetty/run-jetty app {:port 8084}))
