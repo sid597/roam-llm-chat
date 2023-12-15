@@ -5,6 +5,7 @@
             ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [cljs-http.client :as http]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
+            [ui.components :as comp :refer [send-message-component settings-menu]]
             [cljs.core.async.interop :as asy :refer [<p!]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
@@ -141,7 +142,7 @@
 
 (defn call-openai-api [{:keys [messages settings callback]}]
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
-        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+        url     "http://localhost:3000/chat-complete" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages
                           :settings settings
                           :passphrase passphrase})
@@ -265,7 +266,7 @@
           {:style {:display "flex"
                    :flex-direction "row"
                    :border-radius "8px"
-                   :margin "10px"
+                   :margin "10px 10px -9px 10px  "
                    :background-color "whitesmoke"
                    :border "1px"}}
           [chat-context context]
@@ -273,79 +274,38 @@
            {:vertical true
             :style {:align-self "flex-end"
                     :padding "15px"}}
-           [:> Button {:class-name "sp"
-                       :style {:width "30px"}
-                       :icon (if @active? "send-message" nil)
-                       :min-height "20px"
-                       :minimal true
-                       :fill false
-                       :large true
-                       :loading (not @active?)
-                       :on-click (fn []
-                                   (when @active?
-                                     (do
-                                        (println "clicked send button")
-                                        (reset! active? false)
-                                        (load-context context messages block-uid active? {:model @default-model
-                                                                                          :max-tokens @default-msg-value
-                                                                                          :temperature @default-temp}))))}]
-           [:div
-            [:> Popover
-             {:arrow true
-              :position "bottom"
-              :style {:width "200px"
-                      :padding "20px"}}
-             [:> Button {:class-name "sp"
-                         :icon "cog"
-                         :minimal true
-                         :small true
-                         :fill true
-                         :style {:height "10px"
-                                 :border "none"}}]
-             [:> Menu
-              {:style {:padding "20px"}}
-              [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-              [:> HTMLSelect
-               {:fill true
-                :style {:margin-bottom "10px"}
-                :on-change (fn [e]
-                             (log "select value" (j/get-in e [:currentTarget :value]))
-                             (reset! default-model (j/get-in e [:currentTarget :value])))
-                :value @default-model}
+           [send-message-component
+            active?
+            (fn []
+             (when @active?
+               (do
+                 (println "clicked send button")
+                 (reset! active? false)
+                 (load-context context messages block-uid active? {:model @default-model
+                                                                   :max-tokens @default-msg-value
+                                                                   :temperature @default-temp}))))]
+           [settings-menu {:default-model default-model
+                           :default-msg-value default-msg-value
+                           :default-temp default-temp}]]]
+         [:div.chin
+          {:style {:display "flex"
+                   :flex-direction "row"
+                   :border-radius "0px 0px 8px 8px"
+                   :margin "10px"
+                   :background-color "#eeebeb"
+                   :height "27px"
+                   :justify-content "end"
+                   :font-size "10px"
+                   :padding-right "27px"
+                   :align-items "center"
+                   :border "1px"}}
+          [:span {:style {:margin "0px 10px"}} "Model: " @default-model]
+          "|"
+          [:span {:style {:margin "0px 10px "}} "Max Tokens: " @default-msg-value]
+          "|"
+          [:span {:style {:margin "0px 10px"}} "Temperature: " (js/parseFloat (.toFixed @default-temp 1))]]]]))))
 
-               [:option {:value "gpt-4-1106-preview"} "gpt-4-1106-preview"]
-               [:option {:value "gpt-3.5-turbo-1106"} "gpt-3.5-turbo-1106"]]
-              [:> MenuDivider {:style {:margin "5px"}}]
-              [:div
-               {:style {:margin-bottom "10px"}}
-               [:span {:style {:margin-bottom "5px"}} "Max output length:"]
-               [:> Slider {:min 0
-                           :max 2048
-                           :label-renderer @default-msg-value
-                           :value @default-msg-value
-                           :label-values [0 2048]
-                           :on-change (fn [e]
-                                        (log "slider value" e)
-                                        (reset! default-msg-value e))
-                           :on-release (fn [e]
-                                         (log "slider value" e)
-                                         (reset! default-msg-value e))}]]
-              [:> MenuDivider {:style {:margin "5px"}}]
-              [:div
-               {:style {:margin-bottom "10px"}}
-               [:span {:style {:margin-bottom "5px"}} "Temperature:"]
-               [:> Slider {:min 0
-                           :max 2
-                           :step-size 0.1
-                           :label-renderer @default-temp
-                           :value @default-temp
-                           :label-values [0 2]
-                           :on-change (fn [e]
-                                        (log "slider value" e)
-                                        (reset! default-temp e))
-                           :on-release (fn [e]
-                                         (log "slider value" e)
-                                         (reset! default-temp e))}]]]]]]]]]))))
+
 
 
 
