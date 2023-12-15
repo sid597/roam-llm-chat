@@ -20,7 +20,7 @@
         {:keys [model
                 max-tokens
                 temperature]} (-> rq
-                                 :settings)
+                                :settings)
         res (if (= passphrase pass-key)
               (api/create-chat-completion
                 {:model model
@@ -79,4 +79,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 8084}))
+  (jetty/run-jetty app {:port 8080}))

@@ -139,7 +139,7 @@
 (goog-define url-endpoint "")
 
 
-(defn call-openai-api [{:keys [messages settings]} callback]
+(defn call-openai-api [{:keys [messages settings callback]}]
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
         url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages
@@ -169,18 +169,19 @@
       (for [msg messages]
         (let [msg-str (:string msg)]
           (swap! res str (extract-from-code-block msg-str)))))
-    (call-openai-api [{:messages {:role "user"
-                                  :content @res}
-                       :settings settings}]
-      (fn [response]
-        (let [res-str (-> response
-                        :body)]
-          (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
-                                                                       (fn []
-                                                                         (println "new block in messages")
-                                                                         (reset! message-atom (get-child-with-str block-uid "Messages"))
-                                                                         (reset! active? true))
-                                                                       500)))))))
+    (call-openai-api
+      {:messages [{:role "user"
+                   :content @res}]
+       :settings settings
+       :callback (fn [response]
+                   (let [res-str (-> response
+                                   :body)]
+                     (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
+                                                                                  (fn []
+                                                                                    (println "new block in messages")
+                                                                                    (reset! message-atom (get-child-with-str block-uid "Messages"))
+                                                                                    (reset! active? true))
+                                                                                  500))))})))
 
 
 (defn load-context [context-atom messages-atom parent-id active? settings]
@@ -243,11 +244,7 @@
         active? (r/atom true)
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
-        default-model (r/atom "gpt-4-1106-preview")
-        settings {:model default-model
-                  :max-tokens default-msg-value
-                  :temperature default-temp}]
-
+        default-model (r/atom "gpt-4-1106-preview")]
    (fn [_]
      (let [msg @messages
            c-msg (:children @context)]
@@ -289,7 +286,9 @@
                                      (do
                                         (println "clicked send button")
                                         (reset! active? false)
-                                        (load-context context messages block-uid active? settings))))}]
+                                        (load-context context messages block-uid active? {:model @default-model
+                                                                                          :max-tokens @default-msg-value
+                                                                                          :temperature @default-temp}))))}]
            [:div
             [:> Popover
              {:arrow true
@@ -310,8 +309,8 @@
                {:fill true
                 :style {:margin-bottom "10px"}
                 :on-change (fn [e]
-                             (log "select value" e)
-                             (reset! default-model e))
+                             (log "select value" (j/get-in e [:currentTarget :value]))
+                             (reset! default-model (j/get-in e [:currentTarget :value])))
                 :value @default-model}
 
                [:option {:value "gpt-4-1106-preview"} "gpt-4-1106-preview"]
