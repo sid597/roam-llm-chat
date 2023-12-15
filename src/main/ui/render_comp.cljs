@@ -305,7 +305,7 @@
                                  :border "none"}}]
              [:> Menu
               {:style {:padding "20px"}}
-              [:Span {:style {:margin-bottom "5px"}} "Select Model:"]
+              [:span {:style {:margin-bottom "5px"}} "Select Model:"]
               [:> HTMLSelect
                {:fill true
                 :style {:margin-bottom "10px"}
@@ -319,7 +319,7 @@
               [:> MenuDivider {:style {:margin "5px"}}]
               [:div
                {:style {:margin-bottom "10px"}}
-               [:Span {:style {:margin-bottom "5px"}} "Max output length:"]
+               [:span {:style {:margin-bottom "5px"}} "Max output length:"]
                [:> Slider {:min 0
                            :max 2048
                            :label-renderer @default-msg-value
@@ -334,7 +334,7 @@
               [:> MenuDivider {:style {:margin "5px"}}]
               [:div
                {:style {:margin-bottom "10px"}}
-               [:Span {:style {:margin-bottom "5px"}} "Temperature:"]
+               [:span {:style {:margin-bottom "5px"}} "Temperature:"]
                [:> Slider {:min 0
                            :max 2
                            :step-size 0.1
