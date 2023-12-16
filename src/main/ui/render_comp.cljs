@@ -102,10 +102,10 @@
                                    :class (str "chat-history-" id)
                                    :style {:flex "1"
                                            :overflow-y "auto"
-                                           :margin "10px 10px -10px 10px  "
+                                           :margin "10px"
                                            :min-height "300px"
                                            :max-height "700px"
-                                           :border-radius "8px 8px 0px 0px"
+                                           :border-radius "8px"
                                            :background "aliceblue"}}]))})))
 
 (defn move-block [parent-uid order block-uid callback]
