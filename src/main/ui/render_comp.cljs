@@ -142,7 +142,7 @@
 
 (defn call-openai-api [{:keys [messages settings callback]}]
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
-        url     "http://localhost:3000/chat-complete" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages
                           :settings settings
                           :passphrase passphrase})
@@ -259,21 +259,7 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-         [:div
           [chat-history messages]
-          [:div.chin
-           {:style {:display "flex"
-                    :flex-direction "row"
-                    :border-radius "0px 0px 8px 8px"
-                    :margin "10px"
-                    :background-color "#e2eaf0"
-                    :height "27px"
-                    :justify-content "space-between"
-                    :font-size "10px"
-                    :padding-right "11px"
-                    :align-items "center"
-                    :border "1px"}}]]
-
          [:div.chat-input-container
           {:style {:display "flex"
                    :flex-direction "row"
