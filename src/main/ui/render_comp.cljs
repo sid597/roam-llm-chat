@@ -5,7 +5,7 @@
             ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [cljs-http.client :as http]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.components :as comp :refer [send-message-component settings-menu]]
+            [ui.components :as comp :refer [send-message-component ]]
             [cljs.core.async.interop :as asy :refer [<p!]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
@@ -273,20 +273,8 @@
           [:> ButtonGroup
            {:vertical true
             :style {:align-self "flex-end"
-                    :padding "15px"}}
-           [send-message-component
-            active?
-            (fn []
-             (when @active?
-               (do
-                 (println "clicked send button")
-                 (reset! active? false)
-                 (load-context context messages block-uid active? {:model @default-model
-                                                                   :max-tokens @default-msg-value
-                                                                   :temperature @default-temp}))))]
-           [settings-menu {:default-model default-model
-                           :default-msg-value default-msg-value
-                           :default-temp default-temp}]]]
+                    :padding "15px"}}]]
+
          [:div.chin
           {:style {:display "flex"
                    :flex-direction "row"
@@ -294,16 +282,67 @@
                    :margin "10px"
                    :background-color "#eeebeb"
                    :height "27px"
-                   :justify-content "end"
+                   :justify-content "space-between"
                    :font-size "10px"
-                   :padding-right "27px"
+                   :padding-right "11px"
                    :align-items "center"
                    :border "1px"}}
-          [:span {:style {:margin "0px 10px"}} "Model: " @default-model]
-          "|"
-          [:span {:style {:margin "0px 10px "}} "Max Tokens: " @default-msg-value]
-          "|"
-          [:span {:style {:margin "0px 10px"}} "Temperature: " (js/parseFloat (.toFixed @default-temp 1))]]]]))))
+          [:> ButtonGroup
+           [comp/button-popover
+            (str "Model: " @default-model)
+            [:div
+             [:span {:style {:margin-bottom "5px"}} "Select Model:"]
+             [:> HTMLSelect
+              {:fill true
+               :style {:margin-bottom "10px"}
+               :on-change (fn [e]
+                            (reset! default-model (j/get-in e [:currentTarget :value])))
+               :value @default-model}
+
+              [:option {:value "gpt-4-1106-preview"} "gpt-4-1106-preview"]
+              [:option {:value "gpt-3.5-turbo-1106"} "gpt-3.5-turbo-1106"]]]]
+
+           [:> Divider]
+           [comp/button-popover
+            (str "Max Tokens: " @default-msg-value)
+            [:div
+             [:span {:style {:margin-bottom "5px"}} "Max output length:"]
+             [:> Slider {:min 0
+                         :max 2048
+                         :label-renderer @default-msg-value
+                         :value @default-msg-value
+                         :label-values [0 2048]
+                         :on-change (fn [e]
+                                      (reset! default-msg-value e))
+                         :on-release (fn [e]
+                                       (log "slider value" e)
+                                       (reset! default-msg-value e))}]]]
+           [:> Divider]
+           [comp/button-popover
+            (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
+            [:div
+             {:style {:margin-bottom "10px"}}
+             [:span {:style {:margin-bottom "5px"}} "Temperature:"]
+             [:> Slider {:min 0
+                         :max 2
+                         :step-size 0.1
+                         :label-renderer @default-temp
+                         :value @default-temp
+                         :label-values [0 2]
+                         :on-change (fn [e]
+                                      (reset! default-temp e))
+                         :on-release (fn [e]
+                                       (reset! default-temp e))}]]]]
+          [send-message-component
+           active?
+           (fn []
+            (when @active?
+              (do
+                (println "clicked send button")
+                (reset! active? false)
+                (load-context context messages block-uid active? {:model @default-model
+                                                                  :max-tokens @default-msg-value
+                                                                  :temperature @default-temp}))))]]]]))))
 
 
 
