@@ -5,7 +5,7 @@
             ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [cljs-http.client :as http]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.components :as comp :refer [send-message-component ]]
+            [ui.components :as comp :refer [send-message-component]]
             [cljs.core.async.interop :as asy :refer [<p!]]
             [ui.extract-data :as ed :refer [data-for-pages q]]
             [reagent.dom :as rd]))
@@ -63,7 +63,7 @@
                     :align-items "stretch"
                     :background-color "whitesmoke"
                     :min-height "100px"
-                    :border-radius "8px"
+                    :border-radius "8px 8px 0px 0px"
                     :max-height "700px"}}]))})))
 
 (defn chat-history [messages]
@@ -102,10 +102,10 @@
                                    :class (str "chat-history-" id)
                                    :style {:flex "1"
                                            :overflow-y "auto"
-                                           :margin "10px"
+                                           :margin "10px 10px -10px 10px  "
                                            :min-height "300px"
                                            :max-height "700px"
-                                           :border-radius "8px"
+                                           :border-radius "8px 8px 0px 0px"
                                            :background "aliceblue"}}]))})))
 
 (defn move-block [parent-uid order block-uid callback]
@@ -159,6 +159,7 @@
     (if m
       (str (second m) " \n ")
       (str s " \n "))))
+
 
 (defn send-context-and-message [message-atom block-uid active? settings]
   (println "send-context-and-message" block-uid)
@@ -234,9 +235,6 @@
       (<p! (js/Promise. (fn [_] (reset! context-atom (get-child-with-str parent-id "Context"))))))))
 
 
-
-
-
 (defn chat-ui [block-uid]
   (println "block uid for chat" block-uid)
   (let [settings (get-child-with-str block-uid "Settings")
@@ -261,12 +259,26 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-         [chat-history messages]
+         [:div
+          [chat-history messages]
+          [:div.chin
+           {:style {:display "flex"
+                    :flex-direction "row"
+                    :border-radius "0px 0px 8px 8px"
+                    :margin "10px"
+                    :background-color "#e2eaf0"
+                    :height "27px"
+                    :justify-content "space-between"
+                    :font-size "10px"
+                    :padding-right "11px"
+                    :align-items "center"
+                    :border "1px"}}]]
+
          [:div.chat-input-container
           {:style {:display "flex"
                    :flex-direction "row"
                    :border-radius "8px"
-                   :margin "10px 10px -9px 10px  "
+                   :margin "10px 10px -10px 10px  "
                    :background-color "whitesmoke"
                    :border "1px"}}
           [chat-context context]
@@ -343,11 +355,6 @@
                 (load-context context messages block-uid active? {:model @default-model
                                                                   :max-tokens @default-msg-value
                                                                   :temperature @default-temp}))))]]]]))))
-
-
-
-
-
 
 
 (defn main [{:keys [:block-uid]} & args]
