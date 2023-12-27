@@ -3,8 +3,6 @@
     [applied-science.js-interop :as j]
     [ui.extract-data :as ed :refer [q]]
     [clojure.set :as set]
-    [cljs.core.async.interop :as asy :refer [<p!]]
-    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
     ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -18,115 +16,43 @@
       s
       nil)))
 
-(is-discourse-node "a [QUE]] - Is this a question?")
-
-(defn find-block-parent [uids]
-  (println "find block parent" uids)
-  (let [parent (reduce
-                 (fn [acc uid]
-                   (let [title (ffirst (q '[:find ?title
-                                             :in $ ?uid
-                                             :where
-                                             [?e :block/uid ?uid]
-                                             [?e :block/parents ?r]
-                                             [?r :node/title ?title]]
-                                          (:uid uid)))]
-                     (if (some? (is-discourse-node title))
-                       (conj acc title)
-                       acc)))
-                 []
-                 uids)]
-    parent))
-
-(find-block-parent ["vJNRzQ5KB"])
-
-(defn query-in-refs [page]
-  (->> (q '[:find ?title
-            :in $ ?page
-            :where
-            [?e :node/title ?page]
-            [?d :block/refs ?e]
-            [?d :block/parents ?r]
-            [?r :node/title ?title]]
-         page)
-    (map first)
-    (set)))
+;(is-discourse-node "a [QUE]] - Is this a question?")
+;(is-discourse-node "[[QUE]] - How do Hip1R binding kinetics and periodicity affect endocytic actin architecture and integrity?")
 
 
-(defn query-in-refs-dg [page]
-  (->> (q '[:find ?title
-            :in $ ?page
-            :where
-            [?e :node/title ?page]
-            [?d :block/refs ?e]
-            [?d :block/parents ?r]
-            [?r :node/title ?title]]
-         page)
-    (map first)
-    (set)
-    (reduce
-      (fn [acc x]
-        (if (some? (is-discourse-node x))
-          (conj acc x)
-          acc))
-      #{})))
+(defn generate-query-pattern [depth]
+  (let [queries (concat
+                  [[(symbol  "?e"  ) :node/title (symbol (str "?page"))]]
+                  (mapcat (fn [d]
+                            (let [base-index (- d 1)]
+                              [[(symbol (str "?d" base-index)) :block/refs (symbol
+                                                                             (if (= 0 base-index)
+                                                                               "?e"
+                                                                               (str "?r"  (- base-index 1))))]
+                               [(symbol (str "?d" base-index)) :block/parents (symbol (str "?r" base-index))]]))
+                    (range 1 (inc depth)))
+                  [[(symbol (str "?r" (- depth 1) )) :node/title (symbol (str "?title"))]])]
+    (pr-str (vec (concat [:find (symbol (str "?title" )) :in '$ '?page :where]
+                   queries)))))
+
+(generate-query-pattern 2)
+
+(defn get-in-refs [page-name depth]
+  (let [qry-res  (q
+                   (generate-query-pattern depth)
+                   page-name)
+        filtered-discourse-nodes (reduce (fn [acc x]
+                                           (if (some? (is-discourse-node (first x)))
+                                             (conj acc (first x))
+                                             acc))
+                                   #{}
+                                   qry-res)]
+    filtered-discourse-nodes))
 
 
-(defn bfs-level [current-level visited depth]
-  (if (or (empty? current-level) (<= depth 0))
-    visited
-    (let [next-level  (apply clojure.set/union
-                        (map #(do
-                                (println "-->"  %)
-                                (set (query-in-refs %)))
-                          current-level))
-          next-visited (clojure.set/union visited current-level)]
-      (println "====================================")
-      (cljs.pprint/pprint next-level)
-      (println "====================================")
-      (bfs-level next-level next-visited (dec depth)))))
-
-(defn get-refs [page-name depth]
-  (let [qry-ref       (query-in-refs page-name)
-        starting-level (set  qry-ref)]
-    (println "qry-ref" qry-ref)
-    (cljs.pprint/pprint  starting-level)
-    (bfs-level starting-level #{} (dec depth))
-    #_(map #(vector % %) (bfs-level starting-level #{} (dec depth)))))
-
-(query-in-refs-dg "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?")
-
-(get-refs "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?"
-  2)
-
-
-#_(defn get-refs [page-name node]
-    (let [node-regex (re-pattern (str "\\[\\[" (clojure.string/join "\\]\\]|\\[\\[" node) "\\]\\]"))
-          src-regex (re-pattern "^@[^\\s]+")]
-      (q '[:find ?title
-           :in $ ?page ?node-regex ?src-regex
-           :where
-           [?e :node/title ?page]
-           [?d :block/refs ?e]
-           [?d :block/parents ?r]
-           [?r :node/title ?title]]
-        page-name node-regex src-regex)))
-
-
-
-(defn pull-refs-in [page-name depth]
-  (let [x-ref-y  (atom {})
-        discourse-nodes (-> (ffirst (q '[:find (pull ?e [:block/uid {:block/_refs 1}])
-                                         :in $ ?page
-                                         :where
-                                         [?e :node/title  ?page]]
-                                      page-name))
-                          :_refs
-                          find-block-parent)]
-    discourse-nodes))
-
-(pull-refs-in "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?"
-  1)
+(get-in-refs
+  "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?"
+  3)
 
 
 (defn get-explorer-pages []
@@ -162,7 +88,6 @@
 
 
      "AI"])))
-
 
 
 (defn dialog-box [])
