@@ -1,8 +1,10 @@
 (ns ui.graph-overview-ai.client
   (:require
+    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
+    [cljs.core.async.interop :as asy :refer [<p!]]
     [applied-science.js-interop :as j]
     [ui.extract-data :as ed :refer [q]]
-    [clojure.set :as set]
+    [ui.render-comp :as rc :refer [create-new-block]]
     ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -93,8 +95,41 @@
 (defn dialog-box [])
 
 
-(defn sm [a b]
-  (+ a b))
 
 
-(sm 1 3)
+(defn extract-struct [struct start top-parent]
+  (let [stack (atom [struct])
+        res   (atom [top-parent])]
+     (while (not-empty @stack)
+      (let [cur (first @stack)
+            {:keys [uid string order]} cur
+            parent (first @res)]
+        (swap! stack rest)
+        (swap! stack #(vec (concat % (:children cur))))
+        (println "block-" string "-parent-" parent #_(first @res))
+        (swap! res rest)
+        (swap! res #(vec (concat % (vec (repeat (count (:children cur))
+                                          (:string cur)))))))
+
+      @res)))
+
+(extract-struct
+  {:uid "zyd"
+   :string "a"
+   :order 0
+   :children [{:uid "ss"
+               :string "ab"
+               :children [{:uid "zyd"
+                           :string "abc"
+                           :children [{:uid "zyd"
+                                       :string "abcd"
+                                       :children []}]}]}
+              {:uid "ss"
+               :string "abcde"
+               :children [{:uid "zyd"
+                           :string "abcdef"
+                           :children []}]}]
+   :callback ()}
+  "a"
+  "xxx")
+
