@@ -94,42 +94,61 @@
 
 (defn dialog-box [])
 
+(defn create-new-block-with-id [{:keys [parent-uid block-uid order string callback]}]
+  (println "create new block" parent-uid)
+  (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
+        (clj->js {:location {:parent-uid parent-uid
+                             :order       order}
+                  :block    {:uid    block-uid
+                             :string string
+                             :open   true}}))
+    (.then (fn []
+              callback))))
 
-
-
-(defn extract-struct [struct start top-parent]
+(defn extract-struct [struct top-parent]
   (let [stack (atom [struct])
         res   (atom [top-parent])]
+    (go
      (while (not-empty @stack)
       (let [cur (first @stack)
-            {:keys [uid string order]} cur
-            parent (first @res)]
+            {:keys [u s o]} cur
+            new-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+            parent (first @res)
+            args {:parent-uid parent
+                  :block-uid  (if (some? u) u new-uid)
+                  :order      (if (some? o) o "last")
+                  :string     s
+                  :callback  (println "callback")}]
         (swap! stack rest)
-        (swap! stack #(vec (concat % (:children cur))))
-        (println "block-" string "-parent-" parent #_(first @res))
+        (swap! stack #(vec (concat % (:c cur))))
+        ;(println "block-" string "-parent-" parent #_(first @res))
+        (<p! (create-new-block-with-id args))
+
+        (cljs.pprint/pprint  args)
         (swap! res rest)
-        (swap! res #(vec (concat % (vec (repeat (count (:children cur))
-                                          (:string cur)))))))
+        (swap! res #(vec (concat % (vec (repeat (count (:c cur))
+                                          (if (some? (:u cur))
+                                           (:u cur)
+                                           new-uid)))))))))))
 
-      @res)))
 
+
+#_(extract-struct
+    {:string "a"
+     :order 0
+     :children [{:string "ab"
+                 :children [{:string "abc"
+                             :children [{:string "abcd"
+                                         :children []}]}]}
+                {:string "abcde"
+                 :children [{:string "abcdef"
+                             :children []}]}]
+     :callback ()}
+    "a"
+    "RaOQ5W_uH")
 (extract-struct
-  {:uid "zyd"
-   :string "a"
-   :order 0
-   :children [{:uid "ss"
-               :string "ab"
-               :children [{:uid "zyd"
-                           :string "abc"
-                           :children [{:uid "zyd"
-                                       :string "abcd"
-                                       :children []}]}]}
-              {:uid "ss"
-               :string "abcde"
-               :children [{:uid "zyd"
-                           :string "abcdef"
-                           :children []}]}]
-   :callback ()}
-  "a"
-  "xxx")
-
+  {:s "AI chats"
+   :c [{:s "{{ chat-llm }}"
+        :c [{:s "Messages"}
+            {:s "Context"}]}]}
+  "RaOQ5W_uH")
