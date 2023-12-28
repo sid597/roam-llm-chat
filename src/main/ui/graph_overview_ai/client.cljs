@@ -93,3 +93,8 @@
 (defn dialog-box [])
 
 
+(defn sm [a b]
+  (+ a b))
+
+
+(sm 1 3)
