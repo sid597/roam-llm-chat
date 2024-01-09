@@ -36,6 +36,7 @@
               :on-click callback}])
 
 (defn button-popover [button-text render-comp]
+
   [:> Popover
    {:position "bottom"}
    [:> Button {:minimal true

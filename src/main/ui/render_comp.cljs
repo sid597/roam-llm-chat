@@ -267,12 +267,7 @@
                    :margin "10px 10px -10px 10px  "
                    :background-color "whitesmoke"
                    :border "1px"}}
-          [chat-context context]
-          [:> ButtonGroup
-           {:vertical true
-            :style {:align-self "flex-end"
-                    :padding "15px"}}]]
-
+          [chat-context context]]
          [:div.chin
           {:style {:display "flex"
                    :flex-direction "row"
@@ -290,20 +285,23 @@
             (str "Model: " @default-model)
             [:div
              [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-             [:> HTMLSelect
-              {:fill true
-               :style {:margin-bottom "10px"}
-               :on-change (fn [e]
-                            (reset! default-model (j/get-in e [:currentTarget :value])))
-               :value @default-model}
-
-              [:option {:value "gpt-4-1106-preview"} "gpt-4-1106-preview"]
-              [:option {:value "gpt-3.5-turbo-1106"} "gpt-3.5-turbo-1106"]]]]
-
+             [:> Divider]
+             [:> Menu.Item
+              {:text "gpt-4-1106-preview"
+               :on-click (fn [e]
+                           (js/console.log "clicked menu item" e)
+                           (reset! default-model "gpt-4-1106-preview"))}]
+             [:> Divider]
+             [:> Menu
+              [:> Menu.Item
+               {:text "gpt-3.5-turbo-1106"
+                :on-click (fn [e]
+                            (js/console.log "clicked menu item" e)
+                            (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
            [:> Divider]
            [comp/button-popover
             (str "Max Tokens: " @default-msg-value)
-            [:div
+            [:div.bp3-popover-dismiss
              [:span {:style {:margin-bottom "5px"}} "Max output length:"]
              [:> Slider {:min 0
                          :max 2048
@@ -318,7 +316,7 @@
            [:> Divider]
            [comp/button-popover
             (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
-            [:div
+            [:div.bp3-popover-dismiss
              {:style {:margin-bottom "10px"}}
              [:span {:style {:margin-bottom "5px"}} "Temperature:"]
              [:> Slider {:min 0
