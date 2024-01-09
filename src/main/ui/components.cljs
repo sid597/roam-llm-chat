@@ -11,7 +11,21 @@
 
 (defn log
   [& args]  (apply js/console.log args))
+
+(defn inject-style []
+  (let [style-element (.createElement js/document "style")
+        css-string ".sp svg { color: cadetblue; }"] ; Change 'blue' to your desired color
+
+    (set! (.-type style-element) "text/css")
+    (when (.-styleSheet style-element) ; For IE8 and below.
+      (set! (.-cssText (.-styleSheet style-element)) css-string))
+    (when-not (.-styleSheet style-element) ; For modern browsers.
+      (let [text-node (.createTextNode js/document css-string)]
+        (.appendChild style-element text-node)))
+    (.appendChild (.-head js/document) style-element)))
+
 (defn send-message-component [active? callback]
+  (inject-style)
   [:> Button {:class-name "sp"
               :style {:width "30px"}
               :icon (if @active? "send-message" nil)
