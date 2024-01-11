@@ -13,7 +13,6 @@
 
 
 
-
 (defn log
  [& args]  (apply js/console.log args))
 
@@ -235,6 +234,37 @@
       (<p! (js/Promise. (fn [_] (reset! context-atom (get-child-with-str parent-id "Context"))))))))
 
 
+(defn handle-load-context [{:keys [block-uid
+                                   active?
+                                   context
+                                   messages
+                                   default-model
+                                   default-msg-value
+                                   default-temp]}]
+  (fn []
+    (when @active?
+      (do
+        (println "clicked send button")
+        (reset! active? false)
+        (load-context context messages block-uid active? {:model @default-model
+                                                          :max-tokens @default-msg-value
+                                                          :temperature @default-temp})))))
+
+
+(defn get-parent-parent [uid]
+  (ffirst (q '[:find  ?p
+               :in $ ?uid
+               :where [?e :block/uid ?uid]
+               [?e :block/parents ?p1]
+               [?p1 :block/string "Context"]
+               [?p1 :block/parents ?p2]
+               [?p2 :block/string "{{ chat-llm }}"]
+               [?p2 :block/uid ?p]]
+            uid)))
+
+(get-parent-parent "PpRbK9kGg")
+(defonce listener-added? (atom false))
+
 (defn chat-ui [block-uid]
   (println "block uid for chat" block-uid)
   (let [settings (get-child-with-str block-uid "Settings")
@@ -245,8 +275,30 @@
         default-temp (r/atom 0.9)
         default-model (r/atom "gpt-4-1106-preview")]
    (fn [_]
-     (let [msg @messages
-           c-msg (:children @context)]
+     (let [msg               @messages
+           c-msg             (:children @context)
+           handle-key-event  (fn [event]
+                               (println "handle key event" @default-temp)
+                               (when (and (.-ctrlKey event) (= "w" (.-key event)))
+                                 (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
+                                              (j/get :block-uid))
+                                       b-parent (get-parent-parent buid)]
+                                   (println "Ctrl+C was pressed" b-parent buid (j/get  (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
+                                                                                :block-uid))
+                                  (when @active?
+                                    (do
+                                      (println "clicked send button")
+                                      (reset! active? false)
+                                      (load-context context messages b-parent active? {:model @default-model
+                                                                                       :max-tokens @default-msg-value
+                                                                                       :temperature @default-temp}))))))]
+
+
+       (when-not @listener-added?
+         ;; Add event listener if not already added
+         (.addEventListener js/window "keydown" handle-key-event)
+         (reset! listener-added? true))
+
        [:div.chat-container
         {:style {:display "flex"
                  :flex-direction "column"
