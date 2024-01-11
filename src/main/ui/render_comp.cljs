@@ -27,7 +27,7 @@
             block-uid
             s)))
 
-(defn chat-context [context]
+(defn chat-context [context handle-keydown-event]
   ;(println "2. load chat-content")
   (let [context-ref (r/atom nil)
         chat-loaded (r/atom nil)
@@ -54,6 +54,7 @@
            (println "3. chat context insdie component")
           [:div.chat-loader
            {:ref (fn [el] (reset! context-ref el))
+            :on-key-down handle-keydown-event
             :style {:flex "1 1 auto"
                     :height "100%"
                     :overflow "auto"
@@ -234,23 +235,6 @@
       (<p! (js/Promise. (fn [_] (reset! context-atom (get-child-with-str parent-id "Context"))))))))
 
 
-(defn handle-load-context [{:keys [block-uid
-                                   active?
-                                   context
-                                   messages
-                                   default-model
-                                   default-msg-value
-                                   default-temp]}]
-  (fn []
-    (when @active?
-      (do
-        (println "clicked send button")
-        (reset! active? false)
-        (load-context context messages block-uid active? {:model @default-model
-                                                          :max-tokens @default-msg-value
-                                                          :temperature @default-temp})))))
-
-
 (defn get-parent-parent [uid]
   (ffirst (q '[:find  ?p
                :in $ ?uid
@@ -262,8 +246,6 @@
                [?p2 :block/uid ?p]]
             uid)))
 
-(get-parent-parent "PpRbK9kGg")
-(defonce listener-added? (atom false))
 
 (defn chat-ui [block-uid]
   (println "block uid for chat" block-uid)
@@ -278,26 +260,16 @@
      (let [msg               @messages
            c-msg             (:children @context)
            handle-key-event  (fn [event]
-                               (println "handle key event" @default-temp)
-                               (when (and (.-ctrlKey event) (= "w" (.-key event)))
+                               (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
                                               (j/get :block-uid))
                                        b-parent (get-parent-parent buid)]
-                                   (println "Ctrl+C was pressed" b-parent buid (j/get  (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
-                                                                                :block-uid))
                                   (when @active?
                                     (do
-                                      (println "clicked send button")
                                       (reset! active? false)
                                       (load-context context messages b-parent active? {:model @default-model
                                                                                        :max-tokens @default-msg-value
                                                                                        :temperature @default-temp}))))))]
-
-
-       (when-not @listener-added?
-         ;; Add event listener if not already added
-         (.addEventListener js/window "keydown" handle-key-event)
-         (reset! listener-added? true))
 
        [:div.chat-container
         {:style {:display "flex"
@@ -319,7 +291,7 @@
                    :margin "10px 10px -10px 10px  "
                    :background-color "whitesmoke"
                    :border "1px"}}
-          [chat-context context]]
+          [chat-context context handle-key-event]]
          [:div.chin
           {:style {:display "flex"
                    :flex-direction "row"
