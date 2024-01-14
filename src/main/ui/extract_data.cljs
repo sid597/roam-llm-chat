@@ -206,4 +206,5 @@
 (defn is-a-page? [s]
   (second (re-find #"\[\[(.+)\]\]" s)))
 
-(some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."))
+(comment
+  (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.")))
