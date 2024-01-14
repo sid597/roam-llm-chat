@@ -7,7 +7,7 @@
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components :as comp :refer [send-message-component]]
             [cljs.core.async.interop :as asy :refer [<p!]]
-            [ui.extract-data :as ed :refer [data-for-pages q]]
+            [ui.extract-data :as ed :refer [data-for-pages q is-a-page?]]
             [reagent.dom :as rd]))
 
 
@@ -208,25 +208,38 @@
               (or (= "{{query block}}"
                     cstr)
                 (= "{{ query block }}"
-                  cstr))               (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
-                                                (.then (fn [r]
-                                                         (let [res (js->clj r :keywordize-keys true)
-                                                               page-data (str
-                                                                           "```"
-                                                                           (clojure.string/join "\n -----" (data-for-pages res))
-                                                                           "```")]
-                                                           (update-block-string-and-move
-                                                             child-uid
-                                                             page-data
-                                                             m-uid
-                                                             order
-                                                             (println "updated and moved block")))))))
-              :else                  (<p!
-                                       (move-block
-                                         m-uid
-                                         order
-                                         child-uid
-                                         (println "moved block" child-uid)))))))
+                  cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
+                                                 (.then (fn [r]
+                                                          (let [res (js->clj r :keywordize-keys true)
+                                                                page-data (str
+                                                                            "```"
+                                                                            (clojure.string/join "\n -----" (data-for-pages res))
+                                                                            "```")]
+                                                            (update-block-string-and-move
+                                                              child-uid
+                                                              page-data
+                                                              m-uid
+                                                              order
+                                                              (println "updated and moved block")))))))
+              (some? (is-a-page? cstr)) (<p!
+                                          (let [page-data (str
+                                                            "```"
+                                                            (clojure.string/join "\n -----" (data-for-pages [{:text (is-a-page? cstr)}]))
+                                                            "```")]
+                                            (update-block-string-and-move
+                                              child-uid
+                                              page-data
+                                              m-uid
+                                              order
+                                              (println "extracted page data and replaced with it"))))
+
+
+              :else                     (<p!
+                                          (move-block
+                                            m-uid
+                                            order
+                                            child-uid
+                                            (println "moved block" child-uid)))))))
       (<p! (create-new-block c-uid "first" "" (println "new block created")))
       (<p! (js/Promise. (fn [_]
                             (reset! messages-atom (get-child-with-str parent-id "Messages"))
