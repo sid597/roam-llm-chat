@@ -169,24 +169,26 @@
     @res))
 
 
-(defn get-all-data-for [title]
-  (let [children (get-children-for title)
-        refs     (get-all-refs-for title)]
-    {:title     title
-     :body (:plain-text children)
-     :refs refs}))
+(defn get-all-data-for [title get-linked-refs?]
+  (let [children (get-children-for title)]
+    (merge
+     {:title     title
+      :body      (:plain-text children)}
+     (when @get-linked-refs?
+       {:refs (get-all-refs-for title)}))))
 
 
-(defn data-for-pages [pages]
+(defn data-for-pages [pages get-linked-refs?]
   (let [res (atom [])]
     (doall
      (for [page pages]
        (swap! res (fn [old-res]
-                    (conj old-res
-                          (with-out-str
-                            (print "\n")
-                            (print (get-all-data-for (:text page)))
-                            (print "\n")))))))
+                    (let [page-data (get-all-data-for (:text page) get-linked-refs?)]
+                     (conj old-res
+                           (with-out-str
+                             (print "\n")
+                             (print page-data)
+                             (print "\n"))))))))
     @res))
 
 
@@ -196,12 +198,16 @@
 #_(get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 
 
-(data-for-pages [
-                 {:text
-                  "[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
-                  :text-uid "YEbfS-WDB",
-                  :uid "YEbfS-WDB"}
-                 {:text "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."}])
+(comment
+  (data-for-pages [
+                   {:text
+                    "[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
+                    :text-uid "YEbfS-WDB",
+                    :uid "YEbfS-WDB"}
+                   {:text "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."}]
+    (atom false)))
+
+
 
 (defn is-a-page? [s]
   (second (re-find #"\[\[(.+)\]\]" s)))

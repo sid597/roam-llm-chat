@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [clojure.pprint :as pp :refer [pprint]]
-            ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
+            ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [cljs-http.client :as http]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components :as comp :refer [send-message-component]]
@@ -186,7 +186,7 @@
                                                                                   500))))})))
 
 
-(defn load-context [context-atom messages-atom parent-id active? settings]
+(defn load-context [context-atom messages-atom parent-id active? get-linked-refs? settings]
   (println "load context ")
   ;(pprint context)
   (let [messages (get-child-with-str parent-id "Messages")
@@ -213,7 +213,7 @@
                                                           (let [res (js->clj r :keywordize-keys true)
                                                                 page-data (str
                                                                             "```"
-                                                                            (clojure.string/join "\n -----" (data-for-pages res))
+                                                                            (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
                                                                             "```")]
                                                             (update-block-string-and-move
                                                               child-uid
@@ -224,7 +224,9 @@
               (some? (is-a-page? cstr)) (<p!
                                           (let [page-data (str
                                                             "```"
-                                                            (clojure.string/join "\n -----" (data-for-pages [{:text (is-a-page? cstr)}]))
+                                                            (clojure.string/join "\n -----" (data-for-pages
+                                                                                              [{:text (is-a-page? cstr)}]
+                                                                                              get-linked-refs?))
                                                             "```")]
                                             (update-block-string-and-move
                                               child-uid
@@ -268,7 +270,8 @@
         active? (r/atom true)
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
-        default-model (r/atom "gpt-4-1106-preview")]
+        default-model (r/atom "gpt-4-1106-preview")
+        get-linked-refs (r/atom true)]
    (fn [_]
      (let [msg               @messages
            c-msg             (:children @context)
@@ -280,9 +283,9 @@
                                   (when @active?
                                     (do
                                       (reset! active? false)
-                                      (load-context context messages b-parent active? {:model @default-model
-                                                                                       :max-tokens @default-msg-value
-                                                                                       :temperature @default-temp}))))))]
+                                      (load-context context messages b-parent active? get-linked-refs {:model @default-model
+                                                                                                       :max-tokens @default-msg-value
+                                                                                                       :temperature @default-temp}))))))]
 
        [:div.chat-container
         {:style {:display "flex"
@@ -365,7 +368,23 @@
                          :on-change (fn [e]
                                       (reset! default-temp e))
                          :on-release (fn [e]
-                                       (reset! default-temp e))}]]]]
+                                       (reset! default-temp e))}]]]
+
+           [:> Divider]
+           [:div.chk
+            {:style {:align-self "center"
+                     :margin-left "5px"}}
+            [:> Checkbox
+             {:style {:margin-bottom "0px"}
+              :checked @get-linked-refs
+              :on-change (fn [x]
+                            (reset! get-linked-refs (not @get-linked-refs)))}
+             [:span.bp3-button-text
+              {:style {:font-size "14px"
+                       :font-family "initial"
+                       :font-weight "initial"}} "Include linked references?"]]]]
+
+
           [send-message-component
            active?
            (fn []
@@ -373,9 +392,9 @@
               (do
                 (println "clicked send button")
                 (reset! active? false)
-                (load-context context messages block-uid active? {:model @default-model
-                                                                  :max-tokens @default-msg-value
-                                                                  :temperature @default-temp}))))]]]]))))
+                (load-context context messages block-uid active? get-linked-refs {:model @default-model
+                                                                                  :max-tokens @default-msg-value
+                                                                                  :temperature @default-temp}))))]]]]))))
 
 
 (defn main [{:keys [:block-uid]} & args]
