@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.components :as comp :refer [send-message-component chin chat-context chat-history]]
+            [ui.components :as comp :refer [bottom-bar-buttons send-message-component chin chat-context chat-history]]
             [ui.utils :refer [q get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
@@ -62,8 +62,30 @@
 
 
 (defn main [{:keys [:block-uid]} & args]
-  #_(println "main args"  args)
   (let [parent-el (.getElementById js/document (str (second args)))]
-    #_(println "parent el" (first args) parent-el block-uid)
     (.addEventListener parent-el "mousedown" (fn [e] (.stopPropagation e)))
     (rd/render [chat-ui block-uid] parent-el)))
+
+
+(defn bottom-bar []
+  [:div.bottom-bar
+   {:style {:display "flex"
+            :flex-direction "row"
+            :background-color "#eeebeb"
+            :height "40px"
+            :justify-content "center"
+            :font-size "10px"
+            :padding-right "11px"
+            :align-items "center"
+            :border "1px"}}
+   [bottom-bar-buttons]])
+
+(defn bottom-bar-main []
+  (let [parent-el (.querySelector js/document ".roam-body")
+        new-child (.createElement js/document "div")]
+    (set! (.-className new-child) "llm-bottom-bar")
+    (.appendChild parent-el new-child)
+    (rd/render [bottom-bar] new-child)
+    (when parent-el
+     (j/assoc-in! parent-el [:style :display] "flex")
+     (j/assoc-in! parent-el [:style :flex-direction] "column"))))

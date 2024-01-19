@@ -118,5 +118,6 @@
   ;; observe for new chat-llm buttons
  (start-observing)
   ;; a way to add the chat-llm button
- (add-new-option-to-context-menu))
+ (add-new-option-to-context-menu)
+ (rc/bottom-bar-main))
 

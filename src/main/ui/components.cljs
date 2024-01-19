@@ -1,7 +1,7 @@
 (ns ui.components
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
+            ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
   [& args]  (apply js/console.log args))
@@ -113,16 +113,19 @@
               :on-click #(do #_(println "clicked send message compt")
                              (callback {}))}])
 
-(defn button-popover [button-text render-comp]
-
-  [:> Popover
-   {:position "bottom"}
-   [:> Button {:minimal true
-               :small true}
-    button-text]
-   [:> Menu
-    {:style {:padding "20px"}}
-    render-comp]])
+(defn button-popover
+  ([button-text render-comp]
+   (button-popover button-text render-comp "#eeebeb"))
+  ([button-text render-comp bg-color]
+   [:> Popover
+    {:position "bottom"}
+    [:> Button {:minimal true
+                :small true
+                :style {:background-color bg-color}}
+     button-text]
+    [:> Menu
+     {:style {:padding "20px"}}
+     render-comp]]))
 
 
 (defn chin [default-model default-msg-value default-temp get-linked-refs active? callback]
@@ -208,17 +211,67 @@
      callback]])
 
 
+(defn control-gp []
+  [:> ControlGroup
+   [:> Button {:minimal true
+               :small true
+               :on-click #(js/alert "clicked")}
+    "Summarise this page in:"]
+   [:> HTMLSelect
+    {:options [{:value "last block" :label "Last block"}
+               {:value "daily notes" :label "Daily notes"}
+               {:value "daily notes" :label "daily notes"}]
+     :style {:width "100px"}
+     :minimal true
+     :iconProps {:size 13}}]])
 
-(defn bottom-bar []
-  [:div.bottom-bar
-   {:style {:display "flex"
-            :flex-direction "row"
-            :border-radius "0px 0px 8px 8px"
-            :margin "10px"
-            :background-color "#eeebeb"
-            :height "27px"
-            :justify-content "space-between"
-            :font-size "10px"
-            :padding-right "11px"
-            :align-items "center"
-            :border "1px"}}])
+(defn control-gp1 []
+  [:> ButtonGroup
+   [:> Button {:minimal true
+               :small true
+               :on-click #(js/alert "clicked")}
+    "Start chat on"]
+   [:> HTMLSelect
+    {:options [{:value "last block" :label "Last block"}
+               {:value "daily notes" :label "Daily notes"}]
+     :style {:width "100px"}
+     :minimal true
+     :iconProps {:size 13}}]])
+
+(defn control-gp2 []
+  [:> ButtonGroup
+
+   [:> HTMLSelect
+    {:options [{:value "last block" :label "Last block"}
+               {:value "daily notes" :label "Daily notes"}]
+     :style {:width "100px"}
+     :minimal true
+     :iconProps {:size 13}}]])
+
+
+(defn bottom-bar-buttons []
+  (let [default-model (r/atom "gm")
+        default-msg-value (r/atom "morning")
+        default-temp (r/atom 0.9)
+        get-linked-refs (r/atom true)]
+    (fn []
+      [:> ButtonGroup
+       [:> Button {:minimal true
+                   :small true
+                   :on-click #(js/alert "clicked")}
+        "Summarise this page"]
+       [:> Divider]
+       [:> Button {:minimal true
+                   :small true
+                   :on-click #(js/alert "clicked")}
+        "Chat with this page"]
+       [:> Divider]
+       [:> Button {:minimal true
+                          :small true
+                          :on-click #(js/alert "clicked")}
+        "Open daily notes chat in right sidebar"]
+       [:> Divider]
+       [:> Button {:minimal true
+                   :small true
+                   :on-click #(js/alert "clicked")}
+        "Load filtered pages and chat"]])))
