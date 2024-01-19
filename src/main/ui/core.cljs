@@ -3,7 +3,7 @@
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp :as rc]
-            [ui.extract-data :refer [q]]
+            [ui.utils :refer [q]]
             [reagent.dom :as rd]))
 
 
@@ -12,7 +12,7 @@
   [& args]  (apply js/console.log args))
 
 (defn create-new-block-with-id [parent-uid block-uid order string]
-  (println "create new block" parent-uid)
+  #_(println "create new block" parent-uid)
   (j/call-in js/window [:roamAlphaAPI :data :block :create]
     (clj->js {:location {:parent-uid parent-uid
                          :order       order}
@@ -49,7 +49,7 @@
 
 
 (defn add-new-option-to-context-menu []
-    (println "add new option to context menu")
+    #_(println "add new option to context menu")
     (j/call-in js/window [:roamAlphaAPI :ui :blockContextMenu :addCommand]
       ;; Returns
       #_{:block-uid "8CskYJbhx"
@@ -63,7 +63,7 @@
                                       true)
                :callback (fn [e]
                            (let [block-uid (j/get e :block-uid)]
-                             (log "add new chat block" block-uid)
+                             #_(log "add new chat block" block-uid)
                              (j/call-in js/window [:roamAlphaAPI :data  :block :update]
                                (clj->js {:block
                                          {:uid block-uid

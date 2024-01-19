@@ -1,105 +1,9 @@
 (ns ui.extract-data
   (:require
     [applied-science.js-interop :as j]
+    [ui.utils :as utils :refer [replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
-(defn q
-  ([query]
-   (let [serialised-query (pr-str query)
-         roam-api         (.-data (.-roamAlphaAPI js/window))
-         q-fn             (.-q roam-api)]
-     (-> (.apply q-fn roam-api (array serialised-query))
-       (js->clj :keywordize-keys true))))
-  ([query & args]
-   (let [serialised-query (pr-str query)
-         roam-api         (.-data (.-roamAlphaAPI js/window))
-         q-fn             (.-q roam-api)]
-     (-> (.apply q-fn roam-api (apply array (concat [serialised-query] args)))
-       (js->clj :keywordize-keys true)))))
-
-(def roam-pages [{
-                  :text "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**",
-                  :text-uid "TVZUdVlcj"
-                  :uid "TVZUdVlcj"}
-
-                 {
-                  :text "[[ISS]] - Look for opposite-strand binding of arp2/3 complex on an actin filament filament?",
-                  :text-uid "bN071CLdV",
-                  :uid "bN071CLdV"}
-
-                 {
-                  :text "@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments",
-                  :text-uid "W08QSZAKF"
-                  :uid "W08QSZAKF"}
-
-                 {
-                  :text "[[RES]] - The number of filaments per cluster plateaued at about 15 filaments after 10 nm actin lattice size - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
-                  :text-uid "XSGDmwLn-",
-                  :uid "XSGDmwLn-"}
-
-                 {
-                  :text "[[ISS]] - We should make a metric of actin radial asymmetry",
-                  :text-uid "Rv1Bja1NI",
-                  :uid "Rv1Bja1NI"}
-
-                 {
-                  :text "[[RES]] - For Arp2/3 complex binding periodicity values <= 8.25 nm, simulated endocytic internalization was > 50 nm - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
-                  :text-uid "5dWHrEExv",
-                  :uid "5dWHrEExv"}
-
-                 {
-                  :text "[[ISS]] - Report binding periodicity in endocytic actin simulations",
-                  :text-uid "VOTx1blmq",
-                  :uid "VOTx1blmq"}
-
-                 {
-                  :text "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?",
-                  :text-uid "UxA7wfVez",
-                  :uid "UxA7wfVez"}
-
-                 {
-                  :text "[[QUE]] - What is the stoichiometry of Arp2/3 complex binding to actin filaments?",
-                  :text-uid "LHDUx2MOQ",
-                  :uid "LHDUx2MOQ"}
-
-                 {
-                  :text "[[CON]] - For realistic values of Arp2/3 complex binding periodicity, internalization remains robust while the number of filaments per cluster decreases closer to experimentally determined values",
-                  :text-uid "fo1Xw4SNo",
-                  :uid "fo1Xw4SNo"}])
-
-
-
-(defn remove-entry [block-str]
-  (let [patterns ["Entry:SmartBlock:"
-                  "\\{\\{Create Today's Entry:SmartBlock"
-                  "\\{\\{Pick A Day:SmartBlock"
-                  "\\#.sticky"]
-        regex-pattern (str/join "|"
-                        (map #(str % ".*?(\\s|$)") patterns))]
-    (str/replace block-str (re-pattern regex-pattern) "")))
-
-(defn uid-to-block [uid]
-  (q '[:find (pull ?e [*])
-       :in $ ?uid
-       :where [?e :block/uid ?uid]]
-    uid))
-
-
-(defn replace-block-uids [block-str]
-  (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
-        matches (re-seq re block-str)]
-    (-> (reduce (fn [s [whole-match uid]]
-
-                  (let [replace-str (str
-                                      (:string (ffirst (uid-to-block uid))))
-
-                        replacement (if (str/starts-with? whole-match "(((")
-                                      (str "(" replace-str ")")
-                                      replace-str)]
-                    (str/replace s whole-match replacement)))
-          block-str
-          matches)
-      remove-entry)))
 
 (defn extract-strings [node]
   (let [current-string (:string node)
@@ -115,12 +19,6 @@
       [(get item :string) (-> (clojure.string/join "\n" (extract-strings item))
                             (replace-block-uids))])))
 
-
-(defn get-eid [title]
-  (ffirst (q '[:find ?eid
-               :in $ ?title
-               :where [?eid :node/title ?title]]
-            title)))
 
 (defn get-children-for [p]
   (let [eid               (if (int? p) p (get-eid p))
@@ -192,11 +90,6 @@
     @res))
 
 
-#_(data-for-pages)
-
-
-#_(get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
-
 
 (comment
   (data-for-pages [
@@ -205,12 +98,58 @@
                     :text-uid "YEbfS-WDB",
                     :uid "YEbfS-WDB"}
                    {:text "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."}]
-    (atom false)))
+    (atom false))
 
+  (get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 
+  (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."))
 
-(defn is-a-page? [s]
-  (second (re-find #"\[\[(.+)\]\]" s)))
+  (def roam-pages [{
+                    :text "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**",
+                    :text-uid "TVZUdVlcj"
+                    :uid "TVZUdVlcj"}
 
-(comment
-  (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.")))
+                   {
+                    :text "[[ISS]] - Look for opposite-strand binding of arp2/3 complex on an actin filament filament?",
+                    :text-uid "bN071CLdV",
+                    :uid "bN071CLdV"}
+
+                   {
+                    :text "@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments",
+                    :text-uid "W08QSZAKF"
+                    :uid "W08QSZAKF"}
+
+                   {
+                    :text "[[RES]] - The number of filaments per cluster plateaued at about 15 filaments after 10 nm actin lattice size - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
+                    :text-uid "XSGDmwLn-",
+                    :uid "XSGDmwLn-"}
+
+                   {
+                    :text "[[ISS]] - We should make a metric of actin radial asymmetry",
+                    :text-uid "Rv1Bja1NI",
+                    :uid "Rv1Bja1NI"}
+
+                   {
+                    :text "[[RES]] - For Arp2/3 complex binding periodicity values <= 8.25 nm, simulated endocytic internalization was > 50 nm - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
+                    :text-uid "5dWHrEExv",
+                    :uid "5dWHrEExv"}
+
+                   {
+                    :text "[[ISS]] - Report binding periodicity in endocytic actin simulations",
+                    :text-uid "VOTx1blmq",
+                    :uid "VOTx1blmq"}
+
+                   {
+                    :text "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?",
+                    :text-uid "UxA7wfVez",
+                    :uid "UxA7wfVez"}
+
+                   {
+                    :text "[[QUE]] - What is the stoichiometry of Arp2/3 complex binding to actin filaments?",
+                    :text-uid "LHDUx2MOQ",
+                    :uid "LHDUx2MOQ"}
+
+                   {
+                    :text "[[CON]] - For realistic values of Arp2/3 complex binding periodicity, internalization remains robust while the number of filaments per cluster decreases closer to experimentally determined values",
+                    :text-uid "fo1Xw4SNo",
+                    :uid "fo1Xw4SNo"}]))

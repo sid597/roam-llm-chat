@@ -1,13 +1,7 @@
 (ns ui.components
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [clojure.pprint :as pp :refer [pprint]]
-            ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [cljs-http.client :as http]
-            [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [cljs.core.async.interop :as asy :refer [<p!]]
-            [ui.extract-data :as ed :refer [data-for-pages q]]
-            [reagent.dom :as rd]))
+            ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
   [& args]  (apply js/console.log args))
@@ -27,7 +21,7 @@
                                         :el context-el}))
                           (.then
                             (fn [_]
-                              (println "5. chat context block rendered successfully")))
+                              #_(println "5. chat context block rendered successfully")))
                           (.catch (fn [e]
                                     (log "Error in chat context block" e))))))]
     (r/create-class
@@ -36,7 +30,7 @@
        :reagent-render
        (fn []
          (let [cmsg (:children @context)]
-           (println "3. chat context insdie component")
+           #_(println "3. chat context insdie component")
            [:div.chat-loader
             {:ref (fn [el] (reset! context-ref el))
              :on-key-down handle-keydown-event
@@ -52,7 +46,7 @@
                      :max-height "700px"}}]))})))
 
 (defn chat-history [messages]
-  (println "load chat-history")
+  #_(println "load chat-history")
   ;(pprint (sort-by :order (:children @messages)))
   (let [history-ref (r/atom nil)
         update-fn   (fn [this]
@@ -116,7 +110,7 @@
               :fill false
               :small true
               :loading @active?
-              :on-click #(do (println "clicked send message compt")
+              :on-click #(do #_(println "clicked send message compt")
                              (callback {}))}])
 
 (defn button-popover [button-text render-comp]
@@ -153,14 +147,14 @@
        [:> Menu.Item
         {:text "gpt-4-1106-preview"
          :on-click (fn [e]
-                     (js/console.log "clicked menu item" e)
+                     #_(js/console.log "clicked menu item" e)
                      (reset! default-model "gpt-4-1106-preview"))}]
        [:> Divider]
        [:> Menu
         [:> Menu.Item
          {:text "gpt-3.5-turbo-1106"
           :on-click (fn [e]
-                      (js/console.log "clicked menu item" e)
+                      #_(js/console.log "clicked menu item" e)
                       (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
      [:> Divider]
      [button-popover
@@ -175,7 +169,7 @@
                    :on-change (fn [e]
                                 (reset! default-msg-value e))
                    :on-release (fn [e]
-                                 (log "slider value" e)
+                                 #_(log "slider value" e)
                                  (reset! default-msg-value e))}]]]
      [:> Divider]
      [button-popover
