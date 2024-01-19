@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [clojure.pprint :as pp :refer [pprint]]
-            ["@blueprintjs/core" :as bp :refer [Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
+            ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [cljs-http.client :as http]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [cljs.core.async.interop :as asy :refer [<p!]]
@@ -11,6 +11,89 @@
 
 (defn log
   [& args]  (apply js/console.log args))
+
+(defn chat-context [context handle-keydown-event]
+  ;(println "2. load chat-content")
+  (let [context-ref (r/atom nil)
+        chat-loaded (r/atom nil)
+        update-fn   (fn [this]
+                      (when-let [context-el @context-ref]
+                        ;(println "4. chat context update fn")
+                        ;(pprint @context)
+                        ;(set! (.-innerHTML context-el ) "")
+                        (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                              (clj->js {:uid (:uid @context)
+                                        :zoom-path true
+                                        :el context-el}))
+                          (.then
+                            (fn [_]
+                              (println "5. chat context block rendered successfully")))
+                          (.catch (fn [e]
+                                    (log "Error in chat context block" e))))))]
+    (r/create-class
+      {:component-did-mount  update-fn
+       :component-did-update update-fn
+       :reagent-render
+       (fn []
+         (let [cmsg (:children @context)]
+           (println "3. chat context insdie component")
+           [:div.chat-loader
+            {:ref (fn [el] (reset! context-ref el))
+             :on-key-down handle-keydown-event
+             :style {:flex "1 1 auto"
+                     :height "100%"
+                     :overflow "auto"
+                     :flex-direction "column"
+                     :display "flex"
+                     :align-items "stretch"
+                     :background-color "whitesmoke"
+                     :min-height "100px"
+                     :border-radius "8px 8px 0px 0px"
+                     :max-height "700px"}}]))})))
+
+(defn chat-history [messages]
+  (println "load chat-history")
+  ;(pprint (sort-by :order (:children @messages)))
+  (let [history-ref (r/atom nil)
+        update-fn   (fn [this]
+                      (when-let [hist-el @history-ref]
+                        (set! (.-innerHTML hist-el ) "")
+                        (doall
+                          (for [child (reverse (sort-by :order (:children @messages)))]
+                            ^{:key child}
+                            (let [uid (:uid child)
+                                  msg-block-div (.createElement js/document (str "div.msg-" uid))]
+                              (do
+                                ;(log "chat-history ref" hist-el)
+                                #_(println "chat histor child ---->" child)
+                                (if (.hasChildNodes hist-el)
+                                  (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
+                                  (.appendChild hist-el msg-block-div (.-firstChild hist-el)))
+                                (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                                      (clj->js {:uid uid
+                                                :zoom-path true
+                                                :el msg-block-div}))
+                                  (.then (fn [_])))))))
+                        (.scrollTo hist-el 0 (.-scrollHeight hist-el))))]
+
+    (r/create-class
+      {:component-did-update update-fn
+       :component-did-mount  update-fn
+       :reagent-render       (fn []
+                               (let [msgs @messages
+                                     id (random-uuid)]
+                                 [:div
+                                  {:ref   (fn [el] (reset! history-ref el))
+                                   :class (str "chat-history-" id)
+                                   :style {:flex "1"
+                                           :overflow-y "auto"
+                                           :margin "10px"
+                                           :min-height "300px"
+                                           :max-height "700px"
+                                           :border-radius "8px"
+                                           :background "aliceblue"}}]))})))
+
+
 
 (defn inject-style []
   (let [style-element (.createElement js/document "style")
@@ -28,12 +111,13 @@
   (inject-style)
   [:> Button {:class-name "sp"
               :style {:width "30px"}
-              :icon (if @active? "send-message" nil)
+              :icon (if @active? nil "send-message")
               :minimal true
               :fill false
               :small true
-              :loading (not @active?)
-              :on-click callback}])
+              :loading @active?
+              :on-click #(do (println "clicked send message compt")
+                             (callback {}))}])
 
 (defn button-popover [button-text render-comp]
 
@@ -47,45 +131,100 @@
     render-comp]])
 
 
-#_(defn settings-menu [{:keys [default-model default-msg-value default-temp]}]
-     [:div
-      [:> Popover
-       {:arrow true
-        :position "bottom"
-        :style {:width "200px"
-                :padding "20px"}}
-       [:> Button {:class-name "sp"
-                   :icon "cog"
-                   :minimal true
-                   :small true
-                   :fill true
-                   :style {:height "10px"
-                           :border "none"}}]
+(defn chin [default-model default-msg-value default-temp get-linked-refs active? callback]
+   [:div.chin
+    {:style {:display "flex"
+             :flex-direction "row"
+             :border-radius "0px 0px 8px 8px"
+             :margin "10px"
+             :background-color "#eeebeb"
+             :min-height "27px"
+             :justify-content "space-between"
+             :font-size "10px"
+             :padding-right "11px"
+             :align-items "center"
+             :border "1px"}}
+    [:> ButtonGroup
+     [button-popover
+      (str "Model: " @default-model)
+      [:div
+       [:span {:style {:margin-bottom "5px"}} "Select Model:"]
+       [:> Divider]
+       [:> Menu.Item
+        {:text "gpt-4-1106-preview"
+         :on-click (fn [e]
+                     (js/console.log "clicked menu item" e)
+                     (reset! default-model "gpt-4-1106-preview"))}]
+       [:> Divider]
        [:> Menu
-        {:style {:padding "20px"}}
-        [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-        [:> HTMLSelect
-         {:fill true
-          :style {:margin-bottom "10px"}
-          :on-change (fn [e]
-                       (reset! default-model (j/get-in e [:currentTarget :value])))
-          :value @default-model}
+        [:> Menu.Item
+         {:text "gpt-3.5-turbo-1106"
+          :on-click (fn [e]
+                      (js/console.log "clicked menu item" e)
+                      (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
+     [:> Divider]
+     [button-popover
+      (str "Max Tokens: " @default-msg-value)
+      [:div.bp3-popover-dismiss
+       [:span {:style {:margin-bottom "5px"}} "Max output length:"]
+       [:> Slider {:min 0
+                   :max 2048
+                   :label-renderer @default-msg-value
+                   :value @default-msg-value
+                   :label-values [0 2048]
+                   :on-change (fn [e]
+                                (reset! default-msg-value e))
+                   :on-release (fn [e]
+                                 (log "slider value" e)
+                                 (reset! default-msg-value e))}]]]
+     [:> Divider]
+     [button-popover
+      (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
+      [:div.bp3-popover-dismiss
+       {:style {:margin-bottom "10px"}}
+       [:span {:style {:margin-bottom "5px"}} "Temperature:"]
+       [:> Slider {:min 0
+                   :max 2
+                   :step-size 0.1
+                   :label-renderer @default-temp
+                   :value @default-temp
+                   :label-values [0 2]
+                   :on-change (fn [e]
+                                (reset! default-temp e))
+                   :on-release (fn [e]
+                                 (reset! default-temp e))}]]]
 
-         [:option {:value "gpt-4-1106-preview"} "gpt-4-1106-preview"]
-         [:option {:value "gpt-3.5-turbo-1106"} "gpt-3.5-turbo-1106"]]
-        [:> MenuDivider {:style {:margin "5px"}}]
-        [:div
-         {:style {:margin-bottom "10px"}}
-         [:span {:style {:margin-bottom "5px"}} "Max output length:"]
-         [:> Slider {:min 0
-                     :max 2048
-                     :label-renderer @default-msg-value
-                     :value @default-msg-value
-                     :label-values [0 2048]
-                     :on-change (fn [e]
-                                  (reset! default-msg-value e))
-                     :on-release (fn [e]
-                                   (log "slider value" e)
-                                   (reset! default-msg-value e))}]]
-        [:> MenuDivider {:style {:margin "5px"}}]]]])
+     [:> Divider]
+     [:div.chk
+      {:style {:align-self "center"
+               :margin-left "5px"}}
+      [:> Checkbox
+       {:style {:margin-bottom "0px"}
+        :checked @get-linked-refs
+        :on-change (fn [x]
+                     (reset! get-linked-refs (not @get-linked-refs)))}
+       [:span.bp3-button-text
+        {:style {:font-size "14px"
+                 :font-family "initial"
+                 :font-weight "initial"}} "Include linked references?"]]]]
 
+
+    [send-message-component
+     active?
+     callback]])
+
+
+
+(defn bottom-bar []
+  [:div.bottom-bar
+   {:style {:display "flex"
+            :flex-direction "row"
+            :border-radius "0px 0px 8px 8px"
+            :margin "10px"
+            :background-color "#eeebeb"
+            :height "27px"
+            :justify-content "space-between"
+            :font-size "10px"
+            :padding-right "11px"
+            :align-items "center"
+            :border "1px"}}])
