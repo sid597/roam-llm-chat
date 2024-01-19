@@ -211,51 +211,12 @@
      callback]])
 
 
-(defn control-gp []
-  [:> ControlGroup
-   [:> Button {:minimal true
-               :small true
-               :on-click #(js/alert "clicked")}
-    "Summarise this page in:"]
-   [:> HTMLSelect
-    {:options [{:value "last block" :label "Last block"}
-               {:value "daily notes" :label "Daily notes"}
-               {:value "daily notes" :label "daily notes"}]
-     :style {:width "100px"}
-     :minimal true
-     :iconProps {:size 13}}]])
-
-(defn control-gp1 []
-  [:> ButtonGroup
-   [:> Button {:minimal true
-               :small true
-               :on-click #(js/alert "clicked")}
-    "Start chat on"]
-   [:> HTMLSelect
-    {:options [{:value "last block" :label "Last block"}
-               {:value "daily notes" :label "Daily notes"}]
-     :style {:width "100px"}
-     :minimal true
-     :iconProps {:size 13}}]])
-
-(defn control-gp2 []
-  [:> ButtonGroup
-
-   [:> HTMLSelect
-    {:options [{:value "last block" :label "Last block"}
-               {:value "daily notes" :label "Daily notes"}]
-     :style {:width "100px"}
-     :minimal true
-     :iconProps {:size 13}}]])
-
 
 (defn bottom-bar-buttons []
-  (let [default-model (r/atom "gm")
-        default-msg-value (r/atom "morning")
-        default-temp (r/atom 0.9)
-        get-linked-refs (r/atom true)]
+  (let []
     (fn []
       [:> ButtonGroup
+       [:> Divider]
        [:> Button {:minimal true
                    :small true
                    :on-click #(js/alert "clicked")}
@@ -269,9 +230,10 @@
        [:> Button {:minimal true
                           :small true
                           :on-click #(js/alert "clicked")}
-        "Open daily notes chat in right sidebar"]
+        "Start chat in daily notes, show in sidebar"]
        [:> Divider]
        [:> Button {:minimal true
                    :small true
                    :on-click #(js/alert "clicked")}
-        "Load filtered pages and chat"]])))
+        "Load filtered pages into chat"]
+       [:> Divider]])))
