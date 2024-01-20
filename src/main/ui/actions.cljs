@@ -30,6 +30,8 @@
                                                                                     (reset! message-atom (get-child-with-str block-uid "Messages"))
                                                                                     (reset! active? false))
                                                                                   500))))})))
+
+
 (defn load-context [context-atom messages-atom parent-id active? get-linked-refs? settings]
   #_(println "load context ")
   ;(pprint context)
@@ -77,8 +79,6 @@
                                               page-data
                                               m-uid
                                               order)))
-
-
 
               :else                     (<p!
                                           (move-block

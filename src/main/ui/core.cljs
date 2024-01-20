@@ -4,6 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp :as rc]
             [ui.utils :refer [q]]
+            [ui.graph-overview-ai.client :as goai :refer [toolbar-button dialog-box]]
             [reagent.dom :as rd]))
 
 
@@ -111,8 +112,21 @@
   (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
     (load-ui match)))
 
+
+
+(defn append-and-render-component []
+  (let [target-node (.querySelector js/document ".rm-graph-view-control-panel__main-options")
+        new-element (.createElement js/document "div")]
+    (when target-node
+     (.appendChild target-node new-element)
+     (rd/render
+       [toolbar-button "predictive-analysis"]
+       new-element))))
+
+
 (defn init []
  (js/console.log "Hello from  chat-llm! PROD")
+ ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
   ;; observe for new chat-llm buttons
