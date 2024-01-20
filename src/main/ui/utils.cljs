@@ -1,6 +1,7 @@
 (ns ui.utils
   (:require
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
+    [cljs.core.async.interop :as asy :refer [<p!]]
     [cljs-http.client :as http]
     [applied-science.js-interop :as j]
     [clojure.string :as str]))
@@ -13,13 +14,17 @@
 
 (defn q
   ([query]
-   (let [serialised-query (pr-str query)
+   (let [serialised-query (if (string? query)
+                            query
+                            (pr-str query))
          roam-api         (.-data (.-roamAlphaAPI js/window))
          q-fn             (.-q roam-api)]
      (-> (.apply q-fn roam-api (array serialised-query))
        (js->clj :keywordize-keys true))))
   ([query & args]
-   (let [serialised-query (pr-str query)
+   (let [serialised-query (if (string? query)
+                            query
+                            (pr-str query))
          roam-api         (.-data (.-roamAlphaAPI js/window))
          q-fn             (.-q roam-api)]
      (-> (.apply q-fn roam-api (apply array (concat [serialised-query] args)))
@@ -69,6 +74,16 @@
                [?p2 :block/string "{{ chat-llm }}"]
                [?p2 :block/uid ?p]]
             uid)))
+
+(defn get-block-parent-with-order [block-uid]
+  (first (q '[:find ?pu ?o
+              :in $ ?uid
+              :where [?e :block/uid ?uid]
+              [?e :block/parents ?p]
+              [?p :block/uid ?pu]
+              [?e :block/order ?o]]
+           block-uid)))
+
 
 ;; --- Roam specific ---
 
@@ -125,6 +140,81 @@
              #_(println "-- updated block string now moving --")
              (move-block parent-uid order block-uid)))))
 
+
+(defn create-new-block-with-id [{:keys [parent-uid block-uid order string callback open]}]
+  (println "create new block" parent-uid)
+  (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
+        (clj->js {:location {:parent-uid parent-uid
+                             :order       order}
+                  :block    {:uid    block-uid
+                             :string string
+                             :open   open}}))
+    (.then (fn []
+             callback))))
+
+(defn get-todays-uid []
+  (->> (js/Date.)
+    (j/call-in js/window [:roamAlphaAPI :util :dateToPageUid])))
+(get-todays-uid)
+
+(defn gen-new-uid []
+  (j/call-in js/window [:roamAlphaAPI :util :generateUID]))
+
+(defn get-open-page-uid []
+  (j/call-in js/window [:roamAlphaAPI :ui :mainWindow :getOpenPageOrBlockUid]))
+
+(get-open-page-uid)
+
+;; The keys s - string, c - children, u - uid, op - open, o - order
+#_(extract-struct
+    {:s "AI chats"
+     :c [{:s "{{ chat-llm }}"
+          :c [{:s "Messages"}
+              {:s "Context"}]}]}
+    "8yCGreTXI")
+
+(defn create-struct [struct top-parent chat-block-uid open-in-sidebar?]
+  (let [stack (atom [struct])
+        res   (atom [top-parent])]
+    (go
+      (while (not-empty @stack)
+         (let [cur (first @stack)
+               {:keys [u s o op]} cur
+               new-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+               parent (first @res)
+               args {:parent-uid parent
+                     :block-uid  (if (some? u) u new-uid)
+                     :order      (if (some? o) o "last")
+                     :string     s
+                     :open      (if (some? op) op true)
+                     :callback   (println "callback")}]
+             (println "args" args)
+             (swap! stack rest)
+             (swap! stack #(vec (concat % (:c cur))))
+             ;(println "block-" string "-parent-" parent #_(first @res))
+             (<p! (create-new-block-with-id args))
+             (cljs.pprint/pprint  args)
+             (swap! res rest)
+             (swap! res #(vec (concat % (vec (repeat (count (:c cur))
+                                               (if (some? (:u cur))
+                                                 (:u cur)
+                                                 new-uid))))))))
+      (when open-in-sidebar?
+        (<p! (-> (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :addWindow]
+                   (clj->js {:window {:type "block"
+                                      :block-uid chat-block-uid
+                                      :order 0}}))
+               (.then (fn []
+                         (do
+                          (println "window added to right sidebar")
+                          (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open]))))))))))
+
+(defn get-focused-block []
+  (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
+    (j/get :block-uid)))
+
+(get-block-parent-with-order "khffC8IRS")
+
 ;; ---- Open ai specific ----
 
 (goog-define url-endpoint "")
@@ -140,3 +230,85 @@
                                 :headers headers
                                 :json-params data})]
     (take! res-ch callback)))
+
+;; ----- Graph overview specific -----
+
+
+(defn default-chat-struct
+  ([]
+   (default-chat-struct nil nil nil))
+  ([chat-block-uid]
+   (default-chat-struct chat-block-uid nil nil))
+  ([chat-block-uid context-block-uid]
+   (default-chat-struct chat-block-uid context-block-uid nil))
+  ([chat-block-uid context-block-uid chat-block-order]
+   {:s "{{ chat-llm }}"
+    :op false
+    :o chat-block-order
+    :u (or chat-block-uid nil)
+    :c [{:s "Messages"}
+        {:s "Context"
+         :c [{:s ""}]
+         :u (or nil context-block-uid)}]}))
+
+(default-chat-struct)
+
+(defn is-discourse-node [s]
+  ;(println "-->" s)
+  (let [node ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "EXP" "CON"]
+        node-regex (re-pattern (str "\\[\\[" (clojure.string/join "\\]\\]|\\[\\[" node) "\\]\\]"))
+        src-regex (re-pattern "^@[^\\s]+")]
+    (if (or (re-find node-regex s)
+          (re-find src-regex s))
+      s
+      nil)))
+
+;(is-discourse-node "a [QUE]] - Is this a question?")
+;(is-discourse-node "[[QUE]] - How do Hip1R binding kinetics and periodicity affect endocytic actin architecture and integrity?")
+
+
+(defn generate-query-pattern [depth]
+  (let [queries (concat
+                  [[(symbol  "?e"  ) :node/title (symbol (str "?page"))]]
+                  (mapcat (fn [d]
+                            (let [base-index (- d 1)]
+                              [[(symbol (str "?d" base-index)) :block/refs (symbol
+                                                                             (if (= 0 base-index)
+                                                                               "?e"
+                                                                               (str "?r"  (- base-index 1))))]
+                               [(symbol (str "?d" base-index)) :block/parents (symbol (str "?r" base-index))]]))
+                    (range 1 (inc depth)))
+                  [[(symbol (str "?r" (- depth 1) )) :node/title (symbol (str "?title"))]])]
+    (pr-str (vec (concat [:find (symbol (str "?title" )) :in '$ '?page :where]
+                   queries)))))
+
+(generate-query-pattern 2)
+
+(defn get-in-refs [page-name depth]
+  (let [qry-res  (q
+                   (generate-query-pattern depth)
+                   page-name)
+        filtered-discourse-nodes (reduce (fn [acc x]
+                                           (if (some? (is-discourse-node (first x)))
+                                             (conj acc (first x))
+                                             acc))
+                                   #{}
+                                   qry-res)]
+    filtered-discourse-nodes))
+
+
+(get-in-refs
+  "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?"
+  1)
+
+(defn get-explorer-pages []
+  (println "get explorer pages")
+  (let [page-name (str (js->clj (first (j/call-in js/window [:roamAlphaAPI :ui :graphView :wholeGraph :getExplorePages]))))
+        [in out]  (->> (j/call js/document :querySelectorAll ".bp3-slider-handle > .bp3-slider-label")
+                    (map (fn [x]
+                           (j/get x :textContent))))
+        in-pages (get-in-refs page-name  (js/parseInt in))]
+    (println "page-name" page-name in)
+    (println "in-pages")
+    in-pages))
+
