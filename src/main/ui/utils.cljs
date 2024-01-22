@@ -142,7 +142,6 @@
 
 
 (defn create-new-block-with-id [{:keys [parent-uid block-uid order string callback open]}]
-  (println "create new block" parent-uid)
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
         (clj->js {:location {:parent-uid parent-uid
                              :order       order}
@@ -188,7 +187,7 @@
                      :string     s
                      :open      (if (some? op) op true)
                      :callback   (println "callback")}]
-             (println "args" args)
+             #_(println "args" args)
              (swap! stack rest)
              (swap! stack #(vec (concat % (:c cur))))
              ;(println "block-" string "-parent-" parent #_(first @res))
@@ -206,7 +205,7 @@
                                       :order 0}}))
                (.then (fn []
                          (do
-                          (println "window added to right sidebar")
+                          #_(println "window added to right sidebar")
                           (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open]))))))))))
 
 (defn get-focused-block []
