@@ -214,24 +214,6 @@
 
 (get-block-parent-with-order "khffC8IRS")
 
-;; ---- Open ai specific ----
-
-(goog-define url-endpoint "")
-
-(defn call-openai-api [{:keys [messages settings callback]}]
-  (let [passphrase (j/get-in js/window [:localStorage :passphrase])
-        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
-        data    (clj->js {:documents messages
-                          :settings settings
-                          :passphrase passphrase})
-        headers {"Content-Type" "application/json"}
-        res-ch  (http/post url {:with-credentials? false
-                                :headers headers
-                                :json-params data})]
-    (take! res-ch callback)))
-
-;; ----- Graph overview specific -----
-
 
 (defn default-chat-struct
   ([]
@@ -250,64 +232,23 @@
          :c [{:s ""}]
          :u (or nil context-block-uid)}]}))
 
-(default-chat-struct)
+;; ---- Open ai specific ----
 
-(defn is-discourse-node [s]
-  ;(println "-->" s)
-  (let [node ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "EXP" "CON"]
-        node-regex (re-pattern (str "\\[\\[" (clojure.string/join "\\]\\]|\\[\\[" node) "\\]\\]"))
-        src-regex (re-pattern "^@[^\\s]+")]
-    (if (or (re-find node-regex s)
-          (re-find src-regex s))
-      s
-      nil)))
+(goog-define url-endpoint "")
 
-;(is-discourse-node "a [QUE]] - Is this a question?")
-;(is-discourse-node "[[QUE]] - How do Hip1R binding kinetics and periodicity affect endocytic actin architecture and integrity?")
-
-
-(defn generate-query-pattern [depth]
-  (let [queries (concat
-                  [[(symbol  "?e"  ) :node/title (symbol (str "?page"))]]
-                  (mapcat (fn [d]
-                            (let [base-index (- d 1)]
-                              [[(symbol (str "?d" base-index)) :block/refs (symbol
-                                                                             (if (= 0 base-index)
-                                                                               "?e"
-                                                                               (str "?r"  (- base-index 1))))]
-                               [(symbol (str "?d" base-index)) :block/parents (symbol (str "?r" base-index))]]))
-                    (range 1 (inc depth)))
-                  [[(symbol (str "?r" (- depth 1) )) :node/title (symbol (str "?title"))]])]
-    (pr-str (vec (concat [:find (symbol (str "?title" )) :in '$ '?page :where]
-                   queries)))))
-
-(generate-query-pattern 2)
-
-(defn get-in-refs [page-name depth]
-  (let [qry-res  (q
-                   (generate-query-pattern depth)
-                   page-name)
-        filtered-discourse-nodes (reduce (fn [acc x]
-                                           (if (some? (is-discourse-node (first x)))
-                                             (conj acc (first x))
-                                             acc))
-                                   #{}
-                                   qry-res)]
-    filtered-discourse-nodes))
+(defn call-openai-api [{:keys [messages settings callback]}]
+  (let [passphrase (j/get-in js/window [:localStorage :passphrase])
+        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+        data    (clj->js {:documents messages
+                          :settings settings
+                          :passphrase passphrase})
+        headers {"Content-Type" "application/json"}
+        res-ch  (http/post url {:with-credentials? false
+                                :headers headers
+                                :json-params data})]
+    (take! res-ch callback)))
 
 
-(get-in-refs
-  "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?"
-  1)
 
-(defn get-explorer-pages []
-  (println "get explorer pages")
-  (let [page-name (str (js->clj (first (j/call-in js/window [:roamAlphaAPI :ui :graphView :wholeGraph :getExplorePages]))))
-        [in out]  (->> (j/call js/document :querySelectorAll ".bp3-slider-handle > .bp3-slider-label")
-                    (map (fn [x]
-                           (j/get x :textContent))))
-        in-pages (get-in-refs page-name  (js/parseInt in))]
-    (println "page-name" page-name in)
-    (println "in-pages")
-    in-pages))
+
 

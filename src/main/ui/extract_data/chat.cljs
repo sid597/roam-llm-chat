@@ -1,4 +1,4 @@
-(ns ui.extract-data
+(ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
     [ui.utils :as utils :refer [replace-block-uids q uid-to-block get-eid]]
@@ -102,54 +102,5 @@
 
   (get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 
-  (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."))
+  (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.")))
 
-  (def roam-pages [{
-                    :text "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**",
-                    :text-uid "TVZUdVlcj"
-                    :uid "TVZUdVlcj"}
-
-                   {
-                    :text "[[ISS]] - Look for opposite-strand binding of arp2/3 complex on an actin filament filament?",
-                    :text-uid "bN071CLdV",
-                    :uid "bN071CLdV"}
-
-                   {
-                    :text "@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments",
-                    :text-uid "W08QSZAKF"
-                    :uid "W08QSZAKF"}
-
-                   {
-                    :text "[[RES]] - The number of filaments per cluster plateaued at about 15 filaments after 10 nm actin lattice size - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
-                    :text-uid "XSGDmwLn-",
-                    :uid "XSGDmwLn-"}
-
-                   {
-                    :text "[[ISS]] - We should make a metric of actin radial asymmetry",
-                    :text-uid "Rv1Bja1NI",
-                    :uid "Rv1Bja1NI"}
-
-                   {
-                    :text "[[RES]] - For Arp2/3 complex binding periodicity values <= 8.25 nm, simulated endocytic internalization was > 50 nm - [[@Simulations varying Arp2/3 complex periodicity on endocytic actin filaments]]",
-                    :text-uid "5dWHrEExv",
-                    :uid "5dWHrEExv"}
-
-                   {
-                    :text "[[ISS]] - Report binding periodicity in endocytic actin simulations",
-                    :text-uid "VOTx1blmq",
-                    :uid "VOTx1blmq"}
-
-                   {
-                    :text "[[QUE]] - How does frequency of Arp2/3 complex binding to actin filaments affect endocytic actin architecture and integrity?",
-                    :text-uid "UxA7wfVez",
-                    :uid "UxA7wfVez"}
-
-                   {
-                    :text "[[QUE]] - What is the stoichiometry of Arp2/3 complex binding to actin filaments?",
-                    :text-uid "LHDUx2MOQ",
-                    :uid "LHDUx2MOQ"}
-
-                   {
-                    :text "[[CON]] - For realistic values of Arp2/3 complex binding periodicity, internalization remains robust while the number of filaments per cluster decreases closer to experimentally determined values",
-                    :text-uid "fo1Xw4SNo",
-                    :uid "fo1Xw4SNo"}]))

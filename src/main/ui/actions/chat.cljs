@@ -1,9 +1,9 @@
-(ns ui.actions
+(ns ui.actions.chat
  (:require
    [applied-science.js-interop :as j]
    [ui.utils :refer [q get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
    [cljs.core.async.interop :as asy :refer [<p!]]
-   [ui.extract-data :as ed :refer [data-for-pages]]
+   [ui.extract-data.chat :as ed :refer [data-for-pages]]
    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
 
 

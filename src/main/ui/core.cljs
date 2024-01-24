@@ -2,9 +2,10 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
-            [ui.render-comp :as rc]
+            [ui.render-comp.chat :as rc :refer [main]]
+            [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
             [ui.utils :refer [q]]
-            [ui.graph-overview-ai.client :as goai :refer [toolbar-button dialog-box]]
+            [ui.render-comp.graph-overview-ai :as goai :refer [toolbar-button dialog-box]]
             [reagent.dom :as rd]))
 
 
@@ -81,7 +82,7 @@
         pbuid    (extract-last-substring dom-id)
         children? (children-exist? pbuid)]
     (if children?
-      (rc/main {:block-uid pbuid} "filler"  dom-id)
+      (main {:block-uid pbuid} "filler"  dom-id)
       (create-blocks
         pbuid
         #(rc/main {:block-uid pbuid} "filler"  dom-id)))))
@@ -125,7 +126,7 @@
 
 
 (defn init []
- (js/console.log "Hello from  chat-llm! PROD")
+ (js/console.log "Hello from  chat-llm! LOCAL")
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
@@ -133,5 +134,5 @@
  (start-observing)
   ;; a way to add the chat-llm button
  (add-new-option-to-context-menu)
- (rc/bottom-bar-main))
+ (bottom-bar-main))
 
