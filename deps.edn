@@ -10,9 +10,6 @@
         http-kit/http-kit {:mvn/version "2.8.0-beta3"}
         cljs-http/cljs-http          {:mvn/version "0.1.46"}
         compojure/compojure {:mvn/version "1.7.0"}
-        com.taoensso/sente {:mvn/version "1.19.2"}
-        com.taoensso/timbre {:mvn/version "6.2.2"}
-        com.taoensso/encore {:mvn/version "2.106.0"}
         net.clojars.wkok/openai-clojure {:mvn/version "0.13.0"}
         reagent/reagent           {:mvn/version "0.10.0"
                                    :exclusions [cljsjs/react
