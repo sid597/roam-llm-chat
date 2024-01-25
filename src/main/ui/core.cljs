@@ -5,7 +5,6 @@
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
             [ui.utils :refer [q]]
-            [ui.render-comp.graph-overview-ai :as goai :refer [toolbar-button dialog-box]]
             [reagent.dom :as rd]))
 
 
@@ -114,19 +113,8 @@
     (load-ui match)))
 
 
-
-(defn append-and-render-component []
-  (let [target-node (.querySelector js/document ".rm-graph-view-control-panel__main-options")
-        new-element (.createElement js/document "div")]
-    (when target-node
-     (.appendChild target-node new-element)
-     (rd/render
-       [toolbar-button "predictive-analysis"]
-       new-element))))
-
-
 (defn init []
- (js/console.log "Hello from  chat-llm! LOCAL")
+ (js/console.log "Hello from  chat-llm! PROD")
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)
