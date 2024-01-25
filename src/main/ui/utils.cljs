@@ -185,14 +185,14 @@
                      :block-uid  (if (some? u) u new-uid)
                      :order      (if (some? o) o "last")
                      :string     s
-                     :open      (if (some? op) op true)
-                     :callback   (println "callback")}]
+                     :open      (if (some? op) op true)}]
+
              #_(println "args" args)
              (swap! stack rest)
              (swap! stack #(vec (concat % (:c cur))))
              ;(println "block-" string "-parent-" parent #_(first @res))
              (<p! (create-new-block-with-id args))
-             (cljs.pprint/pprint  args)
+             ;(cljs.pprint/pprint  args)
              (swap! res rest)
              (swap! res #(vec (concat % (vec (repeat (count (:c cur))
                                                (if (some? (:u cur))

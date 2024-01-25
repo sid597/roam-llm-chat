@@ -45,7 +45,7 @@
                                              acc))
                                    #{}
                                    qry-res)]
-    (println "qry res" qry-res)
+    ;(println "qry res" qry-res)
     filtered-discourse-nodes))
 
 (comment
@@ -87,7 +87,7 @@
                                              acc))
                                    #{}
                                    qry-res)]
-    (println "out qry res" qry-res)
+    ;(println "out qry res" qry-res)
     filtered-discourse-nodes))
 
 
@@ -98,7 +98,7 @@
 
 
 (defn get-explorer-pages []
-  (println "get explorer pages")
+  ;(println "get explorer pages")
   (let [page-name (str (js->clj (first (j/call-in js/window [:roamAlphaAPI :ui :graphView :wholeGraph :getExplorePages]))))
         [in out]  (->> (j/call js/document :querySelectorAll ".bp3-slider-handle > .bp3-slider-label")
                     (map (fn [x]
@@ -109,8 +109,11 @@
         out-pages (if (> out 0)
                     (get-out-refs page-name (js/parseInt out))
                     #{})]
-    (println "in out - pages" in out)
-    {:in-pages in-pages
+    ;(println "in out - pages" in out)
+    {:page-name page-name
+     :in-pages in-pages
      :out-pages out-pages}))
 
-(comment (get-explorer-pages))
+
+(comment
+  (get-explorer-pages))
