@@ -27,7 +27,7 @@
                                                                              (if (= 0 base-index)
                                                                                "?e"
                                                                                (str "?r"  (- base-index 1))))]
-                               [(symbol (str "?d" base-index)) :block/parents (symbol (str "?r" base-index))]]))
+                               [(symbol (str "?d" base-index)) :block/page (symbol (str "?r" base-index))]]))
                     (range 1 (inc depth)))
                   [[(symbol (str "?r" (- depth 1) )) :node/title (symbol (str "?title"))]])]
     (pr-str (vec (concat [:find (symbol (str "?title" )) :in '$ '?page :where]
@@ -45,7 +45,9 @@
                                              acc))
                                    #{}
                                    qry-res)]
-    ;(println "qry res" qry-res)
+
+   ; (println "In qry res count:" (count qry-res))
+   ; (cljs.pprint/pprint qry-res)
     filtered-discourse-nodes))
 
 (comment
@@ -59,10 +61,10 @@
                   (mapcat (fn [d]
                             (let [base-index (- d 1)]
                               [[(symbol (str "?d" base-index)) :block/refs (symbol (str "?e"  base-index))]
-                               [(symbol (str "?d" base-index)) :block/parents (symbol
-                                                                                (if (= 0 base-index)
-                                                                                  "?p"
-                                                                                  (str "?e" (- base-index 1))))]]))
+                               [(symbol (str "?d" base-index)) :block/page (symbol
+                                                                             (if (= 0 base-index)
+                                                                               "?p"
+                                                                               (str "?e" (- base-index 1))))]]))
                     (range 1 (inc depth)))
                   [[(symbol (str "?e" (- depth 1) )) :node/title (symbol (str "?title"))]])]
     (pr-str (vec (concat [:find (symbol (str "?title" )) :in '$ '?page :where]
@@ -87,7 +89,8 @@
                                              acc))
                                    #{}
                                    qry-res)]
-    ;(println "out qry res" qry-res)
+    ;(println "Out qry res count:" (count qry-res))
+    ;(cljs.pprint/pprint qry-res)
     filtered-discourse-nodes))
 
 
