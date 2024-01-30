@@ -128,87 +128,90 @@
      render-comp]]))
 
 
-(defn chin [default-model default-msg-value default-temp get-linked-refs active? callback]
+(defn chin
+  ([default-model default-msg-value default-temp get-linked-refs active?]
+   (chin default-model default-msg-value default-temp get-linked-refs active? nil))
+  ([default-model default-msg-value default-temp get-linked-refs active? callback]
    [:div.chin
-    {:style {:display "flex"
-             :flex-direction "row"
-             :border-radius "0px 0px 8px 8px"
-             :margin "10px"
-             :background-color "#eeebeb"
-             :min-height "27px"
-             :justify-content "space-between"
-             :font-size "10px"
-             :padding-right "11px"
-             :align-items "center"
-             :border "1px"}}
-    [:> ButtonGroup
-     [button-popover
-      (str "Model: " @default-model)
-      [:div
-       [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-       [:> Divider]
-       [:> Menu.Item
-        {:text "gpt-4-1106-preview"
-         :on-click (fn [e]
-                     #_(js/console.log "clicked menu item" e)
-                     (reset! default-model "gpt-4-1106-preview"))}]
-       [:> Divider]
-       [:> Menu
+     {:style {:display "flex"
+              :flex-direction "row"
+              :border-radius "0px 0px 8px 8px"
+              :margin "10px"
+              :background-color "#eeebeb"
+              :min-height "27px"
+              :justify-content "space-between"
+              :font-size "10px"
+              :padding-right "11px"
+              :align-items "center"
+              :border "1px"}}
+     [:> ButtonGroup
+      [button-popover
+       (str "Model: " @default-model)
+       [:div
+        [:span {:style {:margin-bottom "5px"}} "Select Model:"]
+        [:> Divider]
         [:> Menu.Item
-         {:text "gpt-3.5-turbo-1106"
+         {:text "gpt-4-1106-preview"
           :on-click (fn [e]
                       #_(js/console.log "clicked menu item" e)
-                      (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
-     [:> Divider]
-     [button-popover
-      (str "Max Tokens: " @default-msg-value)
-      [:div.bp3-popover-dismiss
-       [:span {:style {:margin-bottom "5px"}} "Max output length:"]
-       [:> Slider {:min 0
-                   :max 2048
-                   :label-renderer @default-msg-value
-                   :value @default-msg-value
-                   :label-values [0 2048]
-                   :on-change (fn [e]
-                                (reset! default-msg-value e))
-                   :on-release (fn [e]
-                                 #_(log "slider value" e)
-                                 (reset! default-msg-value e))}]]]
-     [:> Divider]
-     [button-popover
-      (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
-      [:div.bp3-popover-dismiss
-       {:style {:margin-bottom "10px"}}
-       [:span {:style {:margin-bottom "5px"}} "Temperature:"]
-       [:> Slider {:min 0
-                   :max 2
-                   :step-size 0.1
-                   :label-renderer @default-temp
-                   :value @default-temp
-                   :label-values [0 2]
-                   :on-change (fn [e]
-                                (reset! default-temp e))
-                   :on-release (fn [e]
-                                 (reset! default-temp e))}]]]
+                      (reset! default-model "gpt-4-1106-preview"))}]
+        [:> Divider]
+        [:> Menu
+         [:> Menu.Item
+          {:text "gpt-3.5-turbo-1106"
+           :on-click (fn [e]
+                       #_(js/console.log "clicked menu item" e)
+                       (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
+      [:> Divider]
+      [button-popover
+       (str "Max Tokens: " @default-msg-value)
+       [:div.bp3-popover-dismiss
+        [:span {:style {:margin-bottom "5px"}} "Max output length:"]
+        [:> Slider {:min 0
+                    :max 2048
+                    :label-renderer @default-msg-value
+                    :value @default-msg-value
+                    :label-values [0 2048]
+                    :on-change (fn [e]
+                                 (reset! default-msg-value e))
+                    :on-release (fn [e]
+                                  #_(log "slider value" e)
+                                  (reset! default-msg-value e))}]]]
+      [:> Divider]
+      [button-popover
+       (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
+       [:div.bp3-popover-dismiss
+        {:style {:margin-bottom "10px"}}
+        [:span {:style {:margin-bottom "5px"}} "Temperature:"]
+        [:> Slider {:min 0
+                    :max 2
+                    :step-size 0.1
+                    :label-renderer @default-temp
+                    :value @default-temp
+                    :label-values [0 2]
+                    :on-change (fn [e]
+                                 (reset! default-temp e))
+                    :on-release (fn [e]
+                                  (reset! default-temp e))}]]]
 
-     [:> Divider]
-     [:div.chk
-      {:style {:align-self "center"
-               :margin-left "5px"}}
-      [:> Checkbox
-       {:style {:margin-bottom "0px"}
-        :checked @get-linked-refs
-        :on-change (fn [x]
-                     (reset! get-linked-refs (not @get-linked-refs)))}
-       [:span.bp3-button-text
-        {:style {:font-size "14px"
-                 :font-family "initial"
-                 :font-weight "initial"}} "Include linked references?"]]]]
+      [:> Divider]
+      [:div.chk
+       {:style {:align-self "center"
+                :margin-left "5px"}}
+       [:> Checkbox
+        {:style {:margin-bottom "0px"}
+         :checked @get-linked-refs
+         :on-change (fn [x]
+                      (reset! get-linked-refs (not @get-linked-refs)))}
+        [:span.bp3-button-text
+         {:style {:font-size "14px"
+                  :font-family "initial"
+                  :font-weight "initial"}} "Include linked references?"]]]]
 
-
-    [send-message-component
-     active?
-     callback]])
+    (when (not (nil? callback))
+     [send-message-component
+      active?
+      callback])]))
 
 
 

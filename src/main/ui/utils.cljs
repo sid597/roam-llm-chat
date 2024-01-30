@@ -64,6 +64,25 @@
             block-uid
             s)))
 
+(defn get-child-of-child-with-str-on-page [page p1 p2 p3]
+  (ffirst (q '[:find  (pull ?c3 [:block/string :block/uid :block/order {:block/children ...}])
+               :in $ ?page ?p1 ?p2 ?p3
+               :where
+               [?e :node/title ?page]
+               [?e :block/children ?c1]
+               [?c1 :block/string ?p1]
+               [?c1 :block/children ?c2]
+               [?c2 :block/string ?p2]
+               [?c2 :block/children ?c3]
+               [?c3 :block/string ?p3]]
+            page
+            p1
+            p2
+            p3)))
+
+(get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" "Summarise this page" "Context")
+
+
 (defn get-parent-parent [uid]
   (ffirst (q '[:find  ?p
                :in $ ?uid
