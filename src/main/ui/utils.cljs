@@ -52,6 +52,12 @@
                :where [?eid :node/title ?title]]
             title)))
 
+(defn uid->eid [uid]
+  (ffirst (q '[:find ?eid
+               :in $ ?uid
+               :where [?eid :block/uid ?uid]]
+            uid)))
+
 (defn is-a-page? [s]
   (second (re-find #"\[\[(.+)\]\]" s)))
 
@@ -291,7 +297,10 @@
   ([chat-block-uid context-block-uid]
    (chat-ui-with-context-struct chat-block-uid context-block-uid nil))
   ([chat-block-uid context-block-uid  context-structure]
+   (chat-ui-with-context-struct chat-block-uid context-block-uid context-structure nil))
+  ([chat-block-uid context-block-uid  context-structure chat-block-order]
    {:s "AI chats"
+    :o chat-block-order
     :c [{:s "{{ chat-llm }}"
          :op false
          :u (or chat-block-uid nil)

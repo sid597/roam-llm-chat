@@ -91,7 +91,9 @@
                                        top-parent          (if (nil? already-summarised?)
                                                              current-page-uid
                                                              already-summarised?)
-                                       context             (extract-context-children-data-as-str (r/atom (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context")))
+                                       context             (extract-context-children-data-as-str
+                                                             (r/atom (get-child-of-child-with-str-on-page
+                                                                       "llm chat" "Quick action buttons" button-name "Context")))
                                        page-data           (data-for-pages [{:text (str title)}] get-linked-refs?)
                                        send-data           (str @context "\n" page-data)]
                                    (do
