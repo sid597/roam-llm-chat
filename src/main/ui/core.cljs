@@ -114,7 +114,7 @@
 
 
 (defn init []
- (js/console.log "Hello from  chat-llm! PROD")
+ (js/console.log "Hello from  chat-llm! LOCAL")
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)

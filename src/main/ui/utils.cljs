@@ -37,6 +37,14 @@
        :where [?e :block/uid ?uid]]
     uid))
 
+(defn uid->title [uid]
+  (ffirst (q '[:find ?title
+               :in $ ?uid
+               :where
+               [?e :block/uid ?uid]
+               [?e :node/title ?title]]
+
+            uid)))
 
 (defn get-eid [title]
   (ffirst (q '[:find ?eid
@@ -150,6 +158,12 @@
                              :open   true}}))
     (.then (fn []
              callback))))
+
+(defn update-block-string [block-uid string]
+  (-> (j/call-in js/window [:roamAlphaAPI :data :block :update]
+        (clj->js {:block {:uid    block-uid
+                          :string string}}))))
+
 
 (defn update-block-string-and-move [block-uid string parent-uid order]
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :update]
