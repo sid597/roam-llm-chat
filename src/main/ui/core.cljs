@@ -46,8 +46,6 @@
                                              puid))))
         messages? (= "Messages" (-> children first :string))
         context?  (= "Context" (-> children second :string))]
-    (println "childrend --->")
-    (cljs.pprint/pprint children)
     (and messages? context?)))
 
 

@@ -4,20 +4,24 @@
     [ui.utils :as utils :refer [replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
+(def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats"})
+
+(contains? skip-blocks-with-string "{{ chat-llm }}")
 
 (defn extract-strings [node]
-  (let [current-string (:string node)
-        children (or (:children node) [])]
-    (concat
-      (if current-string [current-string] [])
-      (mapcat extract-strings children))))
+  (when-not (contains? skip-blocks-with-string (:string node))
+    (let [current-string (:string node)
+          children (or (:children node) [])]
+      (concat
+        (if current-string [current-string] [])
+        (mapcat extract-strings children)))))
 
 
 (defn build-map [lst]
   (into {}
     (for [item lst]
-      [(get item :string) (-> (clojure.string/join "\n" (extract-strings item))
-                            (replace-block-uids))])))
+       [(get item :string) (-> (clojure.string/join "\n" (extract-strings item))
+                             (replace-block-uids))])))
 
 
 (defn get-children-for [p]
@@ -33,16 +37,22 @@
      #_#_:map-format map-format}))
 
 (defn extract-ref-data-for [title ref-eid ref-data]
-  (let [ breadcrumbs (str/join " > " (map #(when (not-empty %)
-                                             (replace-block-uids (:string %)))
-                                       (-> ref-data
-                                         :parents)))
+  (let [crumbs-set (into #{} (map #(when (not-empty %)
+                                     (replace-block-uids (:string %)))
+                               (-> ref-data
+                                 :parents)))
+        breadcrumbs (when-not (empty? crumbs-set)
+                      (str/join " > " crumbs-set))
         children     (:plain-text (get-children-for ref-eid))
-        full-context (str/join " > " [title breadcrumbs children])]
-    {:parents breadcrumbs
-     :children children
-     :page title
-     :full-context full-context}))
+        full-context (str/join " > " (concat [title
+                                              children]
+                                       (when-not (nil? breadcrumbs)
+                                             [breadcrumbs])))]
+    (when (empty? (clojure.set/intersection crumbs-set skip-blocks-with-string))
+      {:parents breadcrumbs
+       :children children
+       :page title
+       :full-context full-context})))
 
 
 (defn get-all-refs-for [title]
@@ -62,9 +72,12 @@
              page-eid
              ref-eid
              ref-data] refs]
-      (let [ref-data (extract-ref-data-for ref-parent-title ref-eid ref-data)]
-        (swap! res conj (str (:full-context ref-data) title))))
+      (let [ex-ref-data (extract-ref-data-for ref-parent-title ref-eid ref-data)]
+        (println "ref-data" ex-ref-data)
+        (swap! res conj (str (:full-context ex-ref-data) title))))
     @res))
+
+(get-all-refs-for "llm chat")
 
 
 (defn get-all-data-for [title get-linked-refs?]
@@ -89,6 +102,7 @@
                              (print "\n"))))))))
     @res))
 
+(data-for-pages [{:text "llm chat"}] (atom false))
 
 
 (comment
