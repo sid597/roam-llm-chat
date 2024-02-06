@@ -1,7 +1,7 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats"})
@@ -24,17 +24,30 @@
                              (replace-block-uids))])))
 
 
-(defn get-children-for [p]
-  (let [eid               (if (int? p) p (get-eid p))
-        raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
-                                       :in $ ?eid]
-                                    eid))
-        sorted-by-children (sort-by :order (:children raw-children-data))
-        plain-text         (replace-block-uids (str/join "\n " (extract-strings {:children sorted-by-children})))
-        map-format         (build-map  sorted-by-children)]
 
-    {:plain-text plain-text
-     #_#_:map-format map-format}))
+(defn get-children-for
+  ([p] (get-children-for p false))
+  ([p block?]
+   (let [eid               (cond
+                             (int? p) p
+                             block?   (uid->eid p)
+                             :else    (get-eid p))
+         raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
+                                        :in $ ?eid]
+                                     eid))
+         sorted-by-children (sort-by :order (:children raw-children-data))
+         block-string        (:string raw-children-data)
+         plain-text         (replace-block-uids (str/join "\n " (concat
+                                                                  (when block-string
+                                                                    [block-string])
+                                                                  (extract-strings {:children sorted-by-children}))))
+         map-format         (build-map  sorted-by-children)]
+     {:plain-text plain-text
+      #_#_:map-format map-format})))
+
+(comment
+ (get-children-for "1owvT89TK" true)
+ (get-children-for "llm chat"))
 
 (defn extract-ref-data-for [title ref-eid ref-data]
   (let [crumbs-set (into #{} (map #(when (not-empty %)
@@ -102,10 +115,26 @@
                              (print "\n"))))))))
     @res))
 
-(data-for-pages [{:text "llm chat"}] (atom false))
+
+
+(defn data-for-blocks [block-uids]
+  (let [res (atom [])]
+    (doall
+      (for [block-uid block-uids]
+        (swap! res (fn [old-res]
+                     (let [block-data (:plain-text (get-children-for block-uid true))]
+                        (conj old-res
+                            (with-out-str
+                              (print "\n")
+                              (print block-data)
+                              (print "\n"))))))))
+    @res))
 
 
 (comment
+  (data-for-blocks ["1owvT89TK"])
+  (data-for-pages [{:text "llm chat"}] (atom true))
+
   (data-for-pages [
                    {:text
                     "[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
