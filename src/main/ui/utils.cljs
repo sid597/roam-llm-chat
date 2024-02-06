@@ -111,6 +111,21 @@
               [?e :block/order ?o]]
            block-uid)))
 
+(defn block-with-str-on-page? [page bstr]
+  (ffirst
+    (q '[:find ?uid
+         :in $ ?today ?bstr
+         :where
+         [?e :block/uid ?today]
+         [?e :block/children ?c]
+         [?c :block/string ?bstr]
+         [?c :block/uid ?uid]]
+      page
+      bstr)))
+
+(defn ai-block-exists? [page]
+  (block-with-str-on-page? page "AI chats"))
+
 
 ;; --- Roam specific ---
 
@@ -256,14 +271,35 @@
   ([chat-block-uid context-block-uid]
    (default-chat-struct chat-block-uid context-block-uid nil))
   ([chat-block-uid context-block-uid chat-block-order]
+   (default-chat-struct chat-block-uid context-block-uid chat-block-order nil))
+  ([chat-block-uid context-block-uid chat-block-order context-structure]
    {:s "{{ chat-llm }}"
     :op false
     :o chat-block-order
     :u (or chat-block-uid nil)
     :c [{:s "Messages"}
         {:s "Context"
-         :c [{:s ""}]
-         :u (or nil context-block-uid)}]}))
+         :c (or context-structure [{:s ""}])
+         :u (or context-block-uid nil)}]}))
+
+
+(defn chat-ui-with-context-struct
+  ([]
+   (chat-ui-with-context-struct nil nil nil))
+  ([chat-block-uid]
+   (chat-ui-with-context-struct chat-block-uid nil nil))
+  ([chat-block-uid context-block-uid]
+   (chat-ui-with-context-struct chat-block-uid context-block-uid nil))
+  ([chat-block-uid context-block-uid  context-structure]
+   {:s "AI chats"
+    :c [{:s "{{ chat-llm }}"
+         :op false
+         :u (or chat-block-uid nil)
+         :c [{:s "Messages"}
+             {:s "Context"
+              :u (or context-block-uid nil)
+              :c (or context-structure [{:s ""}])}]}]}))
+
 
 ;; ---- Open ai specific ----
 

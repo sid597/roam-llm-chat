@@ -1,6 +1,6 @@
 (ns ui.actions.graph-overview-ai
   (:require
-    [ui.utils :refer [q create-new-block create-new-block-with-id get-todays-uid create-struct]]
+    [ui.utils :refer [ai-block-exists? chat-ui-with-context-struct default-chat-struct q create-new-block create-new-block-with-id get-todays-uid create-struct]]
     [ui.extract-data.graph-overview-ai :refer [get-explorer-pages]]))
 
 
@@ -28,27 +28,14 @@
                                            {:s  (make-page %)}) in-pages))
                            (concat [{:s "**Outgoing pages:** "}]
                             (map #(do {:s  (make-page %)}) out-pages)))]
-    (if (some? ai-block)
+    (if (some? (ai-block-exists? (get-todays-uid)))
       (create-struct
-        {:s "{{ chat-llm }}"
-         :op false
-         :u chat-block-uid
-         :c [{:s "Messages"}
-             {:s "Context"
-              :c context-structure
-              :u context-block-uid}]}
-        ai-block
+        (default-chat-struct chat-block-uid context-block-uid nil context-structure)
+        ai-block-exists?
         chat-block-uid
         true)
       (create-struct
-        {:s "AI chats"
-         :c [{:s "{{ chat-llm }}"
-              :op false
-              :u chat-block-uid
-              :c [{:s "Messages"}
-                  {:s "Context"
-                   :u context-block-uid
-                   :c context-structure}]}]}
+        (chat-ui-with-context-struct chat-block-uid context-block-uid context-structure)
         (get-todays-uid)
         chat-block-uid
         true))))

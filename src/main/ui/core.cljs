@@ -4,7 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
-            [ui.utils :refer [q]]
+            [ui.utils :refer [ q]]
             [reagent.dom :as rd]))
 
 
@@ -46,6 +46,8 @@
                                              puid))))
         messages? (= "Messages" (-> children first :string))
         context?  (= "Context" (-> children second :string))]
+    (println "childrend --->")
+    (cljs.pprint/pprint children)
     (and messages? context?)))
 
 
@@ -101,7 +103,9 @@
       (doseq [node (array-seq (.-addedNodes mutation))]
         (when (instance? js/Element node)
           (doseq [match (get-matches node "bp3-button" "BUTTON")]
-            (load-ui match)))))))
+            (js/setTimeout
+             (fn [] (load-ui match))
+             100)))))))
 
 (defn start-observing []
   (let [observer (js/MutationObserver. mutation-callback)]
@@ -114,7 +118,7 @@
 
 
 (defn init []
- (js/console.log "Hello from  chat-llm! LOCAL")
+ (js/console.log "Hello from  chat-llm! PROD")
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)

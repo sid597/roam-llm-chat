@@ -3,7 +3,7 @@
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components.quick-buttons :refer [button-with-settings]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -21,12 +21,20 @@
                               (go
                                 (let [chat-block-uid (gen-new-uid)
                                       open-page-uid (<p! (get-open-page-uid))
-                                      chat-struct (default-chat-struct chat-block-uid)]
-                                  (create-struct
-                                    chat-struct
-                                    open-page-uid
-                                    chat-block-uid
-                                    true))))}
+                                      page-title    (uid->title open-page-uid)
+                                      context-struct [{:s (str "[[" page-title "]]")}]
+                                      ai-block? (ai-block-exists? open-page-uid)]
+                                  (if (some? ai-block?)
+                                    (create-struct
+                                      (default-chat-struct chat-block-uid nil nil context-struct)
+                                      ai-block?
+                                      chat-block-uid
+                                      true)
+                                   (create-struct
+                                     (chat-ui-with-context-struct chat-block-uid nil context-struct)
+                                     open-page-uid
+                                     chat-block-uid
+                                     true)))))}
        "Chat with this page"]
       [:> Divider]
       [:> Button {:minimal true
