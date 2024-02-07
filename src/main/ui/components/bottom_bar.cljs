@@ -34,9 +34,9 @@
                                                       {:s ""}]
                                       ai-block? (ai-block-exists? open-page-uid)]
 
-                                  (println "open page uid" open-page-uid)
-                                  (println "page title" page-title)
-                                  (println "extract block" block-data)
+                                  ;(println "open page uid" open-page-uid)
+                                  ;(println "page title" page-title)
+                                  ;(println "extract block" block-data)
                                   (if (some? ai-block?)
                                     (create-struct
                                       (default-chat-struct chat-block-uid nil nil context-struct)

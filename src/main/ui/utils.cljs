@@ -180,10 +180,14 @@
     (.then (fn []
              callback))))
 
-(defn update-block-string [block-uid string]
-  (-> (j/call-in js/window [:roamAlphaAPI :data :block :update]
-        (clj->js {:block {:uid    block-uid
-                          :string string}}))))
+(defn update-block-string
+  ([block-uid string]
+   (update-block-string block-uid string #()))
+  ([block-uid string callback]
+   (-> (j/call-in js/window [:roamAlphaAPI :data :block :update]
+         (clj->js {:block {:uid    block-uid
+                           :string string}}))
+     (.then (fn [] callback)))))
 
 
 (defn update-block-string-and-move [block-uid string parent-uid order]

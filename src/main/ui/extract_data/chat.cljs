@@ -4,7 +4,7 @@
     [ui.utils :as utils :refer [uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
-(def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats"})
+(def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
 
 (contains? skip-blocks-with-string "{{ chat-llm }}")
 
@@ -46,6 +46,7 @@
       #_#_:map-format map-format})))
 
 (comment
+  (get-children-for "7RBKIHk-V" true)
  (get-children-for "1owvT89TK" true)
  (get-children-for "llm chat"))
 
@@ -86,7 +87,7 @@
              ref-eid
              ref-data] refs]
       (let [ex-ref-data (extract-ref-data-for ref-parent-title ref-eid ref-data)]
-        (println "ref-data" ex-ref-data)
+        ;(println "ref-data" ex-ref-data)
         (swap! res conj (str (:full-context ex-ref-data) title))))
     @res))
 
