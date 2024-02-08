@@ -40,7 +40,7 @@
   ;; then we extract the context append the page data,data and send it to the llm
 
 
-(get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" "Summarise this page" "Context")
+(get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context")
 
 
 (defn button-with-settings [button-name]
@@ -49,7 +49,7 @@
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
         default-model (r/atom "gpt-4-1106-preview")
-        context (r/atom (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))]
+        context (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
@@ -101,7 +101,7 @@
                                                              already-summarised?)
                                        context             (extract-context-children-data-as-str
                                                              (r/atom (get-child-of-child-with-str-on-page
-                                                                       "llm chat" "Quick action buttons" button-name "Context")))
+                                                                       "LLM chat settings" "Quick action buttons" button-name "Context")))
                                        page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
                                        send-data           (if (nil? title)
                                                                (str @context "\n" block-data)

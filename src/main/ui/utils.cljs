@@ -94,7 +94,7 @@
             p2
             p3)))
 
-(get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" "Summarise this page" "Context")
+(get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context")
 
 
 (defn get-parent-parent [uid]
