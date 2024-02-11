@@ -4,7 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
-            [ui.utils :refer [ q]]
+            [ui.utils :refer [q llm-chat-settings-page-struct]]
             [reagent.dom :as rd]))
 
 
@@ -117,6 +117,7 @@
 
 (defn init []
  (js/console.log "Hello from  chat-llm! PROD")
+ (llm-chat-settings-page-struct)
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)

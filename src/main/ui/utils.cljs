@@ -135,6 +135,18 @@
 
 ;; --- Roam specific ---
 
+(defn get-todays-uid []
+  (->> (js/Date.)
+    (j/call-in js/window [:roamAlphaAPI :util :dateToPageUid])))
+(get-todays-uid)
+
+(defn gen-new-uid []
+  (j/call-in js/window [:roamAlphaAPI :util :generateUID]))
+
+(defn get-open-page-uid []
+  (j/call-in js/window [:roamAlphaAPI :ui :mainWindow :getOpenPageOrBlockUid]))
+
+(get-open-page-uid)
 (defn remove-entry [block-str]
   (let [patterns ["Entry:SmartBlock:"
                   "\\{\\{Create Today's Entry:SmartBlock"
@@ -209,18 +221,16 @@
     (.then (fn []
              callback))))
 
-(defn get-todays-uid []
-  (->> (js/Date.)
-    (j/call-in js/window [:roamAlphaAPI :util :dateToPageUid])))
-(get-todays-uid)
-
-(defn gen-new-uid []
-  (j/call-in js/window [:roamAlphaAPI :util :generateUID]))
-
-(defn get-open-page-uid []
-  (j/call-in js/window [:roamAlphaAPI :ui :mainWindow :getOpenPageOrBlockUid]))
-
-(get-open-page-uid)
+(defn create-new-page
+  ([title]
+   (let [uid (gen-new-uid)]
+     (create-new-page title uid)))
+  ([title uid]
+   (-> (j/call-in js/window [:roamAlphaAPI :data :page :create]
+         (clj->js {:page {:title title
+                          :uid   uid}}))
+     (.then (fn []
+              #_(println "new page created"))))))
 
 ;; The keys s - string, c - children, u - uid, op - open, o - order
 #_(extract-struct
@@ -232,24 +242,25 @@
 
 (defn create-struct [struct top-parent chat-block-uid open-in-sidebar?]
   (let [stack (atom [struct])
+        t?    (:t struct)
         res   (atom [top-parent])]
     (go
       (while (not-empty @stack)
-         (let [cur (first @stack)
-               {:keys [u s o op]} cur
-               new-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
-               parent (first @res)
-               args {:parent-uid parent
-                     :block-uid  (if (some? u) u new-uid)
-                     :order      (if (some? o) o "last")
-                     :string     s
-                     :open      (if (some? op) op true)}]
-
-             #_(println "args" args)
+         (let [cur                  (first @stack)
+               {:keys [t u s o op]} cur
+               new-uid              (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+               parent               (first @res)
+               args                 {:parent-uid parent
+                                      :block-uid  (if (some? u) u new-uid)
+                                      :order      (if (some? o) o "last")
+                                      :string     s
+                                      :open      (if (some? op) op true)}]
              (swap! stack rest)
              (swap! stack #(vec (concat % (:c cur))))
              ;(println "block-" string "-parent-" parent #_(first @res))
-             (<p! (create-new-block-with-id args))
+             (if (some? t)
+               (<p! (create-new-page t (if (some? u) u new-uid)))
+               (<p! (create-new-block-with-id args)))
              ;(cljs.pprint/pprint  args)
              (swap! res rest)
              (swap! res #(vec (concat % (vec (repeat (count (:c cur))
@@ -266,11 +277,28 @@
                           #_(println "window added to right sidebar")
                           (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open]))))))))))
 
+
 (defn get-focused-block []
   (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
     (j/get :block-uid)))
 
 (get-block-parent-with-order "khffC8IRS")
+
+(defn llm-chat-settings-page-struct []
+  (let [page-uid   (gen-new-uid)
+        page-title "LLM chat settings"]
+    (when (not (some? (get-eid page-title)))
+      (create-struct
+        {:t  page-title
+         :u page-uid
+         :c [{:s "Quick action buttons"
+              :c [{:s "Summarise this page"
+                   :c [{:s "Context"
+                        :c [{:s "Pre prompt:"}
+                            {:s "Given the following data from a page summarise it for me you the expert in this field. Use the linked references for your answers, go in depth."}
+                            {:s "Data from page:"}]}]}]}]}
+        page-uid
+        nil nil))))
 
 
 (defn default-chat-struct
