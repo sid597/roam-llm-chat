@@ -33,14 +33,8 @@
         (swap! res str  (str child-str "\n"))))
     res))
 
-
-(defn handle-on-click [get-linked-refs? button-name])
-  ;; create a new block in last position on the page
-  ;; structure of the page should be "ai summary" and last block under that
-  ;; then we extract the context append the page data,data and send it to the llm
-
-
-(get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context")
+(comment
+  (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context"))
 
 
 (defn button-with-settings [button-name]
@@ -109,7 +103,7 @@
 
 
                                    (do
-                                      (cljs.pprint/pprint (str @context "\n" page-data))
+                                     (cljs.pprint/pprint (str @context "\n" page-data))
                                      (create-struct struct top-parent res-block-uid false)
                                      (<p! (js/Promise.
                                             (fn [_]
