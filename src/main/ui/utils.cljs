@@ -146,7 +146,9 @@
 (defn get-open-page-uid []
   (j/call-in js/window [:roamAlphaAPI :ui :mainWindow :getOpenPageOrBlockUid]))
 
-(get-open-page-uid)
+(comment
+  (get-open-page-uid))
+
 (defn remove-entry [block-str]
   (let [patterns ["Entry:SmartBlock:"
                   "\\{\\{Create Today's Entry:SmartBlock"
@@ -155,6 +157,7 @@
         regex-pattern (str/join "|"
                         (map #(str % ".*?(\\s|$)") patterns))]
     (str/replace block-str (re-pattern regex-pattern) "")))
+
 
 (defn replace-block-uids [block-str]
   (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
@@ -171,6 +174,22 @@
           block-str
           matches)
       remove-entry)))
+
+(comment
+  (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") "((hello))"))
+
+(defn extract-embeds [block-str]
+  (let [uid (second (first (re-seq
+                             (re-pattern "\\{\\{\\[\\[embed\\]\\]\\: \\(\\(\\(?([^)]*)\\)?\\)\\)")
+                             block-str)))
+        c  (when (some? uid)
+             (q '[:find (pull ?e [:block/string {:block/children ...}])
+                  :in $ ?uid
+                  :where
+                  [?e :block/uid ?uid]]
+               uid))]
+    c))
+
 
 (defn move-block [parent-uid order block-uid]
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :move]

@@ -1,19 +1,29 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
 
-(contains? skip-blocks-with-string "{{ chat-llm }}")
+(comment
+  (contains? skip-blocks-with-string "{{ chat-llm }}"))
 
 (defn extract-strings [node]
   (when-not (contains? skip-blocks-with-string (:string node))
-    (let [current-string (:string node)
-          children (or (:children node) [])]
+    (let [block?          (some? (:string node))
+          embed?         (when block? (ffirst (not-empty (extract-embeds (:string node)))))
+          current-string (if embed?
+                           (:string embed?)
+                           (:string node))
+          children       (or (:children (if (some? embed?)
+                                          embed?
+                                          node))
+                           [])]
       (concat
-        (if current-string [current-string] [])
+        (if  current-string
+          [(replace-block-uids current-string)]
+          [])
         (mapcat extract-strings children)))))
 
 
@@ -22,7 +32,6 @@
     (for [item lst]
        [(get item :string) (-> (clojure.string/join "\n" (extract-strings item))
                              (replace-block-uids))])))
-
 
 
 (defn get-children-for
@@ -35,20 +44,26 @@
          raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
                                         :in $ ?eid]
                                      eid))
+         embed?            (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
          sorted-by-children (sort-by :order (:children raw-children-data))
          block-string        (:string raw-children-data)
          plain-text         (replace-block-uids (str/join "\n " (concat
                                                                   (when block-string
                                                                     [block-string])
-                                                                  (extract-strings {:children sorted-by-children}))))
+                                                                  (extract-strings (if embed? embed? {:children sorted-by-children})))))
          map-format         (build-map  sorted-by-children)]
      {:plain-text plain-text
       #_#_:map-format map-format})))
 
+
 (comment
-  (get-children-for "7RBKIHk-V" true)
+ (get-children-for "7RBKIHk-V" true)
+ (build-map (get-children-for "7RBKIHk-V" true))
  (get-children-for "1owvT89TK" true)
- (get-children-for "llm chat"))
+ (get-children-for "llm chat")
+
+ (get-children-for "mJ6ZmSQip" true)
+ (get-children-for "testing 5"))
 
 (defn extract-ref-data-for [title ref-eid ref-data]
   (let [crumbs-set (into #{} (map #(when (not-empty %)
@@ -91,7 +106,8 @@
         (swap! res conj (str (:full-context ex-ref-data) title))))
     @res))
 
-(get-all-refs-for "llm chat")
+(comment
+  (get-all-refs-for "llm chat"))
 
 
 (defn get-all-data-for [title get-linked-refs?]
