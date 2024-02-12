@@ -145,54 +145,57 @@
               :align-items "center"
               :border "1px"}}
      [:> ButtonGroup
-      [button-popover
-       (str "Model: " @default-model)
-       [:div
-        [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-        [:> Divider]
-        [:> Menu.Item
-         {:text "gpt-4-1106-preview"
-          :on-click (fn [e]
-                      #_(js/console.log "clicked menu item" e)
-                      (reset! default-model "gpt-4-1106-preview"))}]
-        [:> Divider]
-        [:> Menu
+      [:div {:style {:overflow  "hidden"}}
+       [button-popover
+        (str "Model: " @default-model)
+        [:div
+         [:span {:style {:margin-bottom "5px"}} "Select Model:"]
+         [:> Divider]
          [:> Menu.Item
-          {:text "gpt-3.5-turbo-1106"
+          {:text "gpt-4-1106-preview"
            :on-click (fn [e]
                        #_(js/console.log "clicked menu item" e)
-                       (reset! default-model "gpt-3.5-turbo-1106"))}]]]]
+                       (reset! default-model "gpt-4-1106-preview"))}]
+         [:> Divider]
+         [:> Menu
+          [:> Menu.Item
+           {:text "gpt-3.5-turbo-1106"
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (reset! default-model "gpt-3.5-turbo-1106"))}]]]]]
       [:> Divider]
-      [button-popover
-       (str "Max Tokens: " @default-msg-value)
-       [:div.bp3-popover-dismiss
-        [:span {:style {:margin-bottom "5px"}} "Max output length:"]
-        [:> Slider {:min 0
-                    :max 2048
-                    :label-renderer @default-msg-value
-                    :value @default-msg-value
-                    :label-values [0 2048]
-                    :on-change (fn [e]
-                                 (reset! default-msg-value e))
-                    :on-release (fn [e]
-                                  #_(log "slider value" e)
-                                  (reset! default-msg-value e))}]]]
+      [:div {:style {:overflow  "hidden"}}
+        [button-popover
+         (str "Max Tokens: " @default-msg-value)
+         [:div.bp3-popover-dismiss
+          [:span {:style {:margin-bottom "5px"}} "Max output length:"]
+          [:> Slider {:min 0
+                      :max 2048
+                      :label-renderer @default-msg-value
+                      :value @default-msg-value
+                      :label-values [0 2048]
+                      :on-change (fn [e]
+                                   (reset! default-msg-value e))
+                      :on-release (fn [e]
+                                    #_(log "slider value" e)
+                                    (reset! default-msg-value e))}]]]]
       [:> Divider]
-      [button-popover
-       (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
-       [:div.bp3-popover-dismiss
-        {:style {:margin-bottom "10px"}}
-        [:span {:style {:margin-bottom "5px"}} "Temperature:"]
-        [:> Slider {:min 0
-                    :max 2
-                    :step-size 0.1
-                    :label-renderer @default-temp
-                    :value @default-temp
-                    :label-values [0 2]
-                    :on-change (fn [e]
-                                 (reset! default-temp e))
-                    :on-release (fn [e]
-                                  (reset! default-temp e))}]]]
+      [:div {:style {:overflow  "hidden"}}
+        [button-popover
+         (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
+         [:div.bp3-popover-dismiss
+          {:style {:margin-bottom "10px"}}
+          [:span {:style {:margin-bottom "5px"}} "Temperature:"]
+          [:> Slider {:min 0
+                      :max 2
+                      :step-size 0.1
+                      :label-renderer @default-temp
+                      :value @default-temp
+                      :label-values [0 2]
+                      :on-change (fn [e]
+                                   (reset! default-temp e))
+                      :on-release (fn [e]
+                                    (reset! default-temp e))}]]]]
 
       [:> Divider]
       [:div.chk
