@@ -13,76 +13,85 @@
    (fn []
      [:> ButtonGroup
       [:> Divider]
-      [button-with-settings "Summarise this page"]
-      [:> Divider]
-      [:> Button {:minimal true
-                  :small true
-                  :on-click (fn [e]
-                              (go
-                                (let [chat-block-uid (gen-new-uid)
-                                      open-page-uid (<p! (get-open-page-uid))
-                                      page-title    (uid->title open-page-uid)
-                                      block-data    (when (nil? page-title)
-                                                      (str
-                                                        "```"
-                                                        (clojure.string/join "\n -----" (data-for-blocks [open-page-uid]))
-                                                        "```"))
-                                      page-data     (str "[[" page-title "]]")
-                                      context-struct [{:s (if (nil? page-title)
-                                                            block-data
-                                                            page-data)}
-                                                      {:s ""}]
-                                      ai-block? (ai-block-exists? open-page-uid)]
+      [:div {:style {:flex "1 1 1"}}
+       [button-with-settings "Summarise this page"]]
 
-                                  ;(println "open page uid" open-page-uid)
-                                  ;(println "page title" page-title)
-                                  ;(println "extract block" block-data)
-                                  (if (some? ai-block?)
+      [:> Divider]
+      [:div
+       {:style {:flex "1 1 1"}}
+       [:> Button {:minimal true
+                   :small true
+                   :style {:flex "1 1 1"}
+                   :on-click (fn [e]
+                               (go
+                                 (let [chat-block-uid (gen-new-uid)
+                                       open-page-uid (<p! (get-open-page-uid))
+                                       page-title    (uid->title open-page-uid)
+                                       block-data    (when (nil? page-title)
+                                                       (str
+                                                         "```"
+                                                         (clojure.string/join "\n -----" (data-for-blocks [open-page-uid]))
+                                                         "```"))
+                                       page-data     (str "[[" page-title "]]")
+                                       context-struct [{:s (if (nil? page-title)
+                                                             block-data
+                                                             page-data)}
+                                                       {:s ""}]
+                                       ai-block? (ai-block-exists? open-page-uid)]
+
+                                   ;(println "open page uid" open-page-uid)
+                                   ;(println "page title" page-title)
+                                   ;(println "extract block" block-data)
+                                   (if (some? ai-block?)
+                                     (create-struct
+                                       (default-chat-struct chat-block-uid nil nil context-struct)
+                                       ai-block?
+                                       chat-block-uid
+                                       true)
                                     (create-struct
-                                      (default-chat-struct chat-block-uid nil nil context-struct)
-                                      ai-block?
+                                      (chat-ui-with-context-struct chat-block-uid nil context-struct)
+                                      open-page-uid
                                       chat-block-uid
-                                      true)
+                                      true)))))}
+        "Chat with this page"]]
+      [:> Divider]
+      [:div
+       {:style {:flex "1 1 1"}}
+       [:> Button {:minimal true
+                   :small true
+                   :on-click (fn [e]
+                               (let [chat-block-uid (gen-new-uid)
+                                     ai-block?      (ai-block-exists? (get-todays-uid))]
+                                 (if (some? ai-block?)
                                    (create-struct
-                                     (chat-ui-with-context-struct chat-block-uid nil context-struct)
-                                     open-page-uid
+                                     (default-chat-struct chat-block-uid)
+                                     ai-block?
                                      chat-block-uid
-                                     true)))))}
-       "Chat with this page"]
+                                     true)
+                                   (create-struct
+                                     (chat-ui-with-context-struct chat-block-uid)
+                                     (get-todays-uid)
+                                     chat-block-uid
+                                     true))))}
+        "Start chat in daily notes, show in sidebar"]]
       [:> Divider]
-      [:> Button {:minimal true
-                  :small true
-                  :on-click (fn [e]
-                              (let [chat-block-uid (gen-new-uid)
-                                    ai-block?      (ai-block-exists? (get-todays-uid))]
-                                (if (some? ai-block?)
-                                  (create-struct
-                                    (default-chat-struct chat-block-uid)
-                                    ai-block?
-                                    chat-block-uid
-                                    true)
-                                  (create-struct
-                                    (chat-ui-with-context-struct chat-block-uid)
-                                    (get-todays-uid)
-                                    chat-block-uid
-                                    true))))}
-
-       "Start chat in daily notes, show in sidebar"]
+      [:div
+       {:style {:flex "1 1 1"}}
+       [:> Button {:minimal true
+                   :small true
+                   :style {:flex "1 1 1"}
+                   :on-click (fn [e]
+                               (let [chat-block-uid (gen-new-uid)
+                                     [parent-uid
+                                      block-order] (get-block-parent-with-order (get-focused-block))
+                                     chat-struct   (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
+                                 (create-struct
+                                   chat-struct
+                                   parent-uid
+                                   chat-block-uid
+                                   false)))}
+        "Start chat in focused block"]]
       [:> Divider]
-      [:> Button {:minimal true
-                  :small true
-                  :on-click (fn [e]
-                              (let [chat-block-uid (gen-new-uid)
-                                    [parent-uid
-                                     block-order] (get-block-parent-with-order (get-focused-block))
-                                    chat-struct   (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
-                                (create-struct
-                                  chat-struct
-                                  parent-uid
-                                  chat-block-uid
-                                  false)))}
-
-       "Start chat in focused block"]
-      [:> Divider]
-      [filtered-pages-button]
+      [:div {:style {:flex "1 1 1"}}
+       [filtered-pages-button]]
       [:> Divider]]))

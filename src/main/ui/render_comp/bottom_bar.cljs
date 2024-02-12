@@ -10,7 +10,6 @@
    {:style {:display "flex"
             :flex-direction "row"
             :background-color "#eeebeb"
-            :height "40px"
             :justify-content "center"
             :font-size "10px"
             :padding-right "11px"

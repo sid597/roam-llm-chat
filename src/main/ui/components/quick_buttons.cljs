@@ -47,82 +47,89 @@
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
-       {:minimal true
-        :small true}
-       [button-popover
-        [:> Card {:elevation 3
-                  :style {:flex "1"
-                          :margin "0"
-                          :display "flex"
-                          :flex-direction "column"
-                          :border "2px solid rgba(0, 0, 0, 0.2)"
-                          :border-radius "8px"}}
-         [:div.chat-input-container
-          {:style {:display "flex"
-                   :flex-direction "row"
-                   :border-radius "8px"
-                   :margin "10px 10px -10px 10px  "
-                   :background-color "whitesmoke"
-                   :border "1px"}}
-          [chat-context context #()]]
-         [chin default-model default-msg-value default-temp get-linked-refs? active?]]]
-       [:> Button {:minimal true
-                   :small true
-                   :loading @active?
-                   :on-click (fn [e]
-                               (when (not @active?)
-                                 (reset! active? true)
-                                (go
-                                 (let [current-page-uid    (<p! (get-open-page-uid))
-                                       title               (uid->title current-page-uid)
-                                       block-data          (when (nil? title)
-                                                             (str
-                                                               "```"
-                                                               (clojure.string/join "\n -----" (data-for-blocks [current-page-uid]))
-                                                               "```"))
-                                       already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
-                                       parent-block-uid    (gen-new-uid)
-                                       res-block-uid       (gen-new-uid)
-                                       struct              (if (nil? already-summarised?)
-                                                             {:s "AI summary"
-                                                              :u parent-block-uid
-                                                              :c [{:s ""
-                                                                   :u res-block-uid}]}
-                                                             {:s ""
-                                                              :u res-block-uid})
-                                       top-parent          (if (nil? already-summarised?)
-                                                             current-page-uid
-                                                             already-summarised?)
-                                       context             (extract-context-children-data-as-str
-                                                             (r/atom (get-child-of-child-with-str-on-page
-                                                                       "LLM chat settings" "Quick action buttons" button-name "Context")))
-                                       page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
-                                       send-data           (if (nil? title)
-                                                               (str @context "\n" block-data)
-                                                               (str @context "\n" page-data))]
+       {:class-name "button-with-settings"
+        :style {:overflow "hidden"
+                :display "flex"
+                :flex-direction "row"
+                :justify-content "space-between"
+                :align-items "center"
+                :flex "1 1 1"}
+        :minimal true}
+       [:div {:style {:flex "1 1 1"}}
+        [button-popover
+         [:> Card {:elevation 3
+                   :style {:flex "1"
+                           :margin "0"
+                           :display "flex"
+                           :flex-direction "column"
+                           :border "2px solid rgba(0, 0, 0, 0.2)"
+                           :border-radius "8px"}}
+          [:div.chat-input-container
+           {:style {:display "flex"
+                    :flex-direction "row"
+                    :border-radius "8px"
+                    :margin "10px 10px -10px 10px  "
+                    :background-color "whitesmoke"
+                    :border "1px"}}
+           [chat-context context #()]]
+          [chin default-model default-msg-value default-temp get-linked-refs? active?]]]]
+       [:div {:style {:flex "1 1 1"}}
+         [:> Button {:minimal true
+                     :small true
+                     :loading @active?
+                     :on-click (fn [e]
+                                 (when (not @active?)
+                                   (reset! active? true)
+                                  (go
+                                   (let [current-page-uid    (<p! (get-open-page-uid))
+                                         title               (uid->title current-page-uid)
+                                         block-data          (when (nil? title)
+                                                               (str
+                                                                 "```"
+                                                                 (clojure.string/join "\n -----" (data-for-blocks [current-page-uid]))
+                                                                 "```"))
+                                         already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
+                                         parent-block-uid    (gen-new-uid)
+                                         res-block-uid       (gen-new-uid)
+                                         struct              (if (nil? already-summarised?)
+                                                               {:s "AI summary"
+                                                                :u parent-block-uid
+                                                                :c [{:s ""
+                                                                     :u res-block-uid}]}
+                                                               {:s ""
+                                                                :u res-block-uid})
+                                         top-parent          (if (nil? already-summarised?)
+                                                               current-page-uid
+                                                               already-summarised?)
+                                         context             (extract-context-children-data-as-str
+                                                               (r/atom (get-child-of-child-with-str-on-page
+                                                                         "LLM chat settings" "Quick action buttons" button-name "Context")))
+                                         page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
+                                         send-data           (if (nil? title)
+                                                                 (str @context "\n" block-data)
+                                                                 (str @context "\n" page-data))]
+                                     (println "LLM chat:send data" send-data)
+                                     (do
+                                       (cljs.pprint/pprint (str @context "\n" page-data))
+                                       (create-struct struct top-parent res-block-uid false)
+                                       (<p! (js/Promise.
+                                              (fn [_]
+                                                (call-openai-api
+                                                  {:messages [{:role "user"
+                                                               :content send-data}]
+                                                   :settings {:model @default-model
+                                                              :max-tokens @default-msg-value
+                                                              :temperature @default-temp}
+                                                   :callback (fn [response]
+                                                               (let [res-str (-> response
+                                                                               :body)]
+                                                                 (update-block-string
+                                                                   res-block-uid
+                                                                   (str res-str)
+                                                                   (js/setTimeout
+                                                                     (fn []
+                                                                       (reset! active? false))
+                                                                     500))))})))))))))}
 
-
-                                   (do
-                                     (cljs.pprint/pprint (str @context "\n" page-data))
-                                     (create-struct struct top-parent res-block-uid false)
-                                     (<p! (js/Promise.
-                                            (fn [_]
-                                              (call-openai-api
-                                                {:messages [{:role "user"
-                                                             :content send-data}]
-                                                 :settings {:model @default-model
-                                                            :max-tokens @default-msg-value
-                                                            :temperature @default-temp}
-                                                 :callback (fn [response]
-                                                             (let [res-str (-> response
-                                                                             :body)]
-                                                               (update-block-string
-                                                                 res-block-uid
-                                                                 (str res-str)
-                                                                 (js/setTimeout
-                                                                   (fn []
-                                                                     (reset! active? false))
-                                                                   500))))})))))))))}
-
-        "Summarise this page"]])))
+          "Summarise this page"]]])))
 
