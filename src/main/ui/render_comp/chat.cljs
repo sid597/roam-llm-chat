@@ -14,6 +14,7 @@
   (let [settings (get-child-with-str block-uid "Settings")
         context  (r/atom (get-child-with-str block-uid "Context"))
         messages (r/atom (get-child-with-str block-uid "Messages"))
+        chat     (r/atom (get-child-with-str block-uid "Chat"))
         active? (r/atom false)
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
@@ -28,9 +29,9 @@
                                  (do
                                    #_(println "---- clicked send button ----")
                                    (reset! active? true)
-                                   (load-context context messages b-uid active? get-linked-refs {:model @default-model
-                                                                                                 :max-tokens @default-msg-value
-                                                                                                 :temperature @default-temp}))))
+                                   (load-context chat messages b-uid active? get-linked-refs {:model @default-model
+                                                                                              :max-tokens @default-msg-value
+                                                                                              :temperature @default-temp}))))
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
@@ -49,7 +50,17 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-          [chat-history messages]
+         [:div.chat-input-container
+                   {:style {:display "flex"
+                            :flex-direction "row"
+                            :border-radius "8px"
+                            :margin "10px 10px "
+                            :background-color "whitesmoke"
+                            :border "1px"}}
+                   [chat-context context #() {:min-height ""
+                                              :padding-bottom "10px"}]]
+
+         [chat-history messages]
          [:div.chat-input-container
           {:style {:display "flex"
                    :flex-direction "row"
@@ -57,7 +68,7 @@
                    :margin "10px 10px -10px 10px  "
                    :background-color "whitesmoke"
                    :border "1px"}}
-          [chat-context context handle-key-event]]
+          [chat-context chat handle-key-event]]
          [chin default-model default-msg-value default-temp get-linked-refs active? callback]]]))))
 
 

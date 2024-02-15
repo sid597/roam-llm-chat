@@ -32,15 +32,17 @@
                                                                                   500))))})))
 
 
-(defn load-context [context-atom messages-atom parent-id active? get-linked-refs? settings]
+(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings]
   #_(println "load context ")
   ;(pprint context)
   (let [messages (get-child-with-str parent-id "Messages")
+        chat     (get-child-with-str parent-id "Chat")
         context  (get-child-with-str parent-id "Context")
+        con-uid  (:uid context)
         m-len    (count (:children messages))
         m-uid    (:uid messages)
-        children (:children context)
-        c-uid    (:uid context)
+        children (:children chat)
+        c-uid    (:uid chat)
         count    (count children)]
     (go
       (doseq [child children]
@@ -61,12 +63,16 @@
                                                                           "```"
                                                                           (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
                                                                           "```")]
+                                                          (create-new-block
+                                                            m-uid
+                                                            order
+                                                            page-data
+                                                            #())
                                                           (update-block-string-and-move
                                                             child-uid
-                                                            page-data
-                                                            m-uid
-                                                            order))))))
-
+                                                            cstr
+                                                            con-uid
+                                                            "last"))))))
               (some? (is-a-page? cstr)) (<p!
                                           (let [page-data (str
                                                             "```"
@@ -74,12 +80,16 @@
                                                                                               [{:text (is-a-page? cstr)}]
                                                                                               get-linked-refs?))
                                                             "```")]
+                                            (create-new-block
+                                              m-uid
+                                              order
+                                              page-data
+                                              #())
                                             (update-block-string-and-move
                                               child-uid
-                                              page-data
-                                              m-uid
-                                              order)))
-
+                                              cstr
+                                              con-uid
+                                              "last")))
               :else                     (<p!
                                           (move-block
                                             m-uid
@@ -87,8 +97,9 @@
                                             child-uid))))))
 
       (<p! (create-new-block c-uid "first" "" ()))
-      (<p! (js/Promise. (fn [_]
-                          (reset! messages-atom (get-child-with-str parent-id "Messages"))
-                          #_(println "messages atom reset")
-                          (send-context-and-message messages-atom parent-id active? settings))))
-      (<p! (js/Promise. (fn [_] (reset! context-atom (get-child-with-str parent-id "Context"))))))))
+      (<p! (js/Promise. (fn [_] (reset! messages-atom (get-child-with-str parent-id "Messages")))))
+      #_(<p! (js/Promise. (fn [_]
+                            (reset! messages-atom (get-child-with-str parent-id "Messages"))
+                            #_(println "messages atom reset")
+                            (send-context-and-message messages-atom parent-id active? settings))))
+      (<p! (js/Promise. (fn [_] (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))

@@ -6,44 +6,50 @@
 (defn log
   [& args]  (apply js/console.log args))
 
-(defn chat-context [context handle-keydown-event]
-  ;(println "2. load chat-content")
-  (let [context-ref (r/atom nil)
-        chat-loaded (r/atom nil)
-        update-fn   (fn [this]
-                      (when-let [context-el @context-ref]
-                        ;(println "4. chat context update fn")
-                        ;(pprint @context)
-                        ;(set! (.-innerHTML context-el ) "")
-                        (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                              (clj->js {:uid (:uid @context)
-                                        :zoom-path true
-                                        :el context-el}))
-                          (.then
-                            (fn [_]
-                              #_(println "5. chat context block rendered successfully")))
-                          (.catch (fn [e]
-                                    (log "Error in chat context block" e))))))]
-    (r/create-class
-      {:component-did-mount  update-fn
-       :component-did-update update-fn
-       :reagent-render
-       (fn []
-         (let [cmsg (:children @context)]
-           #_(println "3. chat context insdie component")
-           [:div.chat-loader
-            {:ref (fn [el] (reset! context-ref el))
-             :on-key-down handle-keydown-event
-             :style {:flex "1 1 auto"
-                     :height "100%"
-                     :overflow "auto"
-                     :flex-direction "column"
-                     :display "flex"
-                     :align-items "stretch"
-                     :background-color "whitesmoke"
-                     :min-height "100px"
-                     :border-radius "8px 8px 0px 0px"
-                     :max-height "700px"}}]))})))
+(defn chat-context
+  ([context handle-keydown-event]
+   (chat-context context handle-keydown-event {}))
+  ([context handle-keydown-event style-map]
+   ;(println "2. load chat-content")
+   (let [context-ref (r/atom nil)
+         chat-loaded (r/atom nil)
+         update-fn   (fn [this]
+                       (when-let [context-el @context-ref]
+                         ;(println "4. chat context update fn")
+                         ;(pprint @context)
+                         ;(set! (.-innerHTML context-el ) "")
+                         (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                               (clj->js {:uid (:uid @context)
+                                         :zoom-path true
+                                         :el context-el}))
+                           (.then
+                             (fn [_]
+                               #_(println "5. chat context block rendered successfully")))
+                           (.catch (fn [e]
+                                     (log "Error in chat context block" e))))))]
+     (r/create-class
+       {:component-did-mount  update-fn
+        :component-did-update update-fn
+        :reagent-render
+        (fn []
+          (let [cmsg (:children @context)]
+            #_(println "3. chat context insdie component")
+            [:div.chat-loader
+             {:ref (fn [el] (reset! context-ref el))
+              :on-key-down handle-keydown-event
+              :style (merge {:flex "1 1 auto"
+                             :height "100%"
+                             :overflow "auto"
+                             :flex-direction "column"
+                             :display "flex"
+                             :align-items "stretch"
+                             :background-color "whitesmoke"
+                             :min-height "100px"
+                             :border-radius "8px 8px 0px 0px"
+                             :max-height "700px"}
+                       style-map)}]))}))))
+
+
 
 (defn chat-history [messages]
   #_(println "load chat-history")

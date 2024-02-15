@@ -44,6 +44,7 @@
         default-temp (r/atom 0.9)
         default-model (r/atom "gpt-4-1106-preview")
         context (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
+
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup

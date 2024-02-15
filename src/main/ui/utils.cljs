@@ -312,7 +312,8 @@
          :u page-uid
          :c [{:s "Quick action buttons"
               :c [{:s "Summarise this page"
-                   :c [{:s "Context"
+                   :c [{:s "Context"}
+                       {:s "Chat"
                         :c [{:s "Pre prompt:"}
                             {:s "Given the following data from a page summarise it for me you the expert in this field. Use the linked references for your answers, go in depth."}
                             {:s "Data from page:"}]}]}]}]}
@@ -335,7 +336,8 @@
     :o chat-block-order
     :u (or chat-block-uid nil)
     :c [{:s "Messages"}
-        {:s "Context"
+        {:s "Context"}
+        {:s "Chat"
          :c (or context-structure [{:s ""}])
          :u (or context-block-uid nil)}]}))
 
@@ -356,7 +358,8 @@
          :op false
          :u (or chat-block-uid nil)
          :c [{:s "Messages"}
-             {:s "Context"
+             {:s "Context"}
+             {:s "Chat"
               :u (or context-block-uid nil)
               :c (or context-structure [{:s ""}])}]}]}))
 
