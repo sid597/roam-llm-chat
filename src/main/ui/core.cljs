@@ -13,7 +13,7 @@
   [& args]  (apply js/console.log args))
 
 (defn create-new-block-with-id [parent-uid block-uid order string]
-  #_(println "create new block" parent-uid)
+  (println "create new block: core" parent-uid)
   (j/call-in js/window [:roamAlphaAPI :data :block :create]
     (clj->js {:location {:parent-uid parent-uid
                          :order       order}
@@ -23,16 +23,16 @@
 
 
 (defn create-blocks [puid cb]
-  (let [m-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
-        c-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
-        cc-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])]
-    (-> (create-new-block-with-id puid m-uid 0 "Messages")
-        (.then (fn [] (create-new-block-with-id puid c-uid 1 "Context")))
-        (.then (fn [] (create-new-block-with-id c-uid cc-uid 0 "")))
-        (.then (fn [] (j/call-in js/window [:roamAlphaAPI :data :block :update]
-                                 (clj->js {:block    {:uid    puid
-                                                      :open   false}}))))
-        (.finally (fn [] (js/setTimeout cb 200))))))
+   (let [m-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+         c-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+         cc-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])]
+     (-> (create-new-block-with-id puid m-uid 0 "Messages")
+         (.then (fn [] (create-new-block-with-id puid c-uid 1 "Context")))
+         (.then (fn [] (create-new-block-with-id c-uid cc-uid 0 "")))
+         (.then (fn [] (j/call-in js/window [:roamAlphaAPI :data :block :update]
+                                  (clj->js {:block    {:uid    puid
+                                                       :open   false}}))))
+         (.finally (fn [] (js/setTimeout cb 200))))))
 
 
 (defn children-exist? [puid]
@@ -76,15 +76,13 @@
     s))
 
 (defn load-ui [node]
-  (let [dom-id (-> (j/call node :closest "div")
-                 (j/get :id))
-        pbuid    (extract-last-substring dom-id)
-        children? (children-exist? pbuid)]
-    (if children?
-      (main {:block-uid pbuid} "filler"  dom-id)
-      (create-blocks
-        pbuid
-        #(rc/main {:block-uid pbuid} "filler"  dom-id)))))
+  (let [dom-id (-> (j/call node :closest "div") (j/get :id))
+        pbuid (and (not (empty? dom-id)) (extract-last-substring dom-id))]
+    (when pbuid
+      (let [children-exist? (children-exist? pbuid)]
+        (if children-exist?
+          (main {:block-uid pbuid} "filler" dom-id)
+          (create-blocks pbuid #(rc/main {:block-uid pbuid} "filler" dom-id)))))))
 
 
 (defn get-matches [d class-name tag-name]
