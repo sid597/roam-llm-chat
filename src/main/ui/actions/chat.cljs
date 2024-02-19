@@ -22,6 +22,7 @@
                    :content @res}]
        :settings settings
        :callback (fn [response]
+                   (println "received response from llm")
                    (let [res-str (-> response
                                    :body)]
                      (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
@@ -97,9 +98,8 @@
                                             child-uid))))))
 
       (<p! (create-new-block c-uid "first" "" ()))
-      (<p! (js/Promise. (fn [_] (reset! messages-atom (get-child-with-str parent-id "Messages")))))
-      #_(<p! (js/Promise. (fn [_]
-                            (reset! messages-atom (get-child-with-str parent-id "Messages"))
-                            #_(println "messages atom reset")
-                            (send-context-and-message messages-atom parent-id active? settings))))
+      (<p! (js/Promise. (fn [_]
+                          (reset! messages-atom (get-child-with-str parent-id "Messages"))
+                          #_(println "messages atom reset")
+                          (send-context-and-message messages-atom parent-id active? settings))))
       (<p! (js/Promise. (fn [_] (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))
