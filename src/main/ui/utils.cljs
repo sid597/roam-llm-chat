@@ -312,8 +312,7 @@
          :u page-uid
          :c [{:s "Quick action buttons"
               :c [{:s "Summarise this page"
-                   :c [{:s "Context"}
-                       {:s "Chat"
+                   :c [{:s "Context"
                         :c [{:s "Pre prompt:"}
                             {:s "Given the following data from a page summarise it for me you the expert in this field. Use the linked references for your answers, go in depth."}
                             {:s "Data from page:"}]}]}]}]}
