@@ -8,7 +8,7 @@
 
 
 (defn send-context-and-message [message-atom block-uid active? settings]
-  #_(println "send-context-and-message" block-uid)
+  (println "send-context-and-message" block-uid)
   (let [res           (atom "")
         message-block (get-child-with-str block-uid "Messages")
         messages      (sort-by :order (:children message-block))
@@ -99,6 +99,7 @@
 
       (<p! (create-new-block c-uid "first" "" ()))
       (<p! (js/Promise. (fn [_]
+                          (println "send llm a message")
                           (reset! messages-atom (get-child-with-str parent-id "Messages"))
                           #_(println "messages atom reset")
                           (send-context-and-message messages-atom parent-id active? settings))))
