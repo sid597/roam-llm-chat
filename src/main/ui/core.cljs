@@ -4,7 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
-            [ui.utils :refer [q llm-chat-settings-page-struct]]
+            [ui.utils :refer [p pp chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
             [reagent.dom :as rd]))
 
 
@@ -13,7 +13,7 @@
   [& args]  (apply js/console.log args))
 
 (defn create-new-block-with-id [parent-uid block-uid order string]
-  (println "create new block: core" parent-uid)
+  (p "Create new *" string "* child block with uid:" block-uid " and parent uid:" parent-uid)
   (j/call-in js/window [:roamAlphaAPI :data :block :create]
     (clj->js {:location {:parent-uid parent-uid
                          :order       order}
@@ -50,7 +50,7 @@
 
 
 (defn add-new-option-to-context-menu []
-    #_(println "add new option to context menu")
+    (p "Add option to create chat block using context menu")
     (j/call-in js/window [:roamAlphaAPI :ui :blockContextMenu :addCommand]
       ;; Returns
       #_{:block-uid "8CskYJbhx"
@@ -63,12 +63,17 @@
                :display-conditional (fn [e]
                                       true)
                :callback (fn [e]
-                           (let [block-uid (j/get e :block-uid)]
-                             #_(log "add new chat block" block-uid)
-                             (j/call-in js/window [:roamAlphaAPI :data  :block :update]
-                               (clj->js {:block
-                                         {:uid block-uid
-                                          :string (str "{{ chat-llm }}")}}))))})))
+                           (let [block-uid (j/get e :block-uid)
+                                 chat-block-uid (gen-new-uid)
+                                 [parent-uid
+                                  block-order] (get-block-parent-with-order block-uid)]
+                             (p "Using context menu option to create chat block with Parent uid: " parent-uid "Block order: " block-order)
+                             (create-struct (chat-ui-with-context-struct chat-block-uid nil nil block-order)
+                               parent-uid
+                               chat-block-uid
+                               false
+                               (p "Created chat block using context menu option, chat block uid" chat-block-uid))))})))
+
 
 (defn extract-last-substring [s]
   (if (>= (count s) 9)
@@ -79,10 +84,15 @@
   (let [dom-id (-> (j/call node :closest "div") (j/get :id))
         pbuid (and (not (empty? dom-id)) (extract-last-substring dom-id))]
     (when pbuid
+      (p "Load plugin ui for block with uid: " pbuid)
       (let [children-exist? (children-exist? pbuid)]
-        (if children-exist?
-          (main {:block-uid pbuid} "filler" dom-id)
-          (create-blocks pbuid #(rc/main {:block-uid pbuid} "filler" dom-id)))))))
+        (p "Does this {{ chat-llm }} block have Context, Messages and Chat as children?: " children-exist?)
+        (main {:block-uid pbuid} "filler" dom-id)
+        #_(if children-exist?
+            (main {:block-uid pbuid} "filler" dom-id)
+            (do
+             (p "Seems like the block was created by directly typing in {{ chat-llm }}, so creating children for the plugin. ")
+             (create-blocks pbuid #(rc/main {:block-uid pbuid} "filler" dom-id))))))))
 
 
 (defn get-matches [d class-name tag-name]
@@ -109,12 +119,14 @@
                                         :subtree true})))
 
 (defn setup []
+  (p "Load the plugin UI for each chat-llm roam render button i.e all blocks with text: `{{ chat-llm }}` ")
   (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
     (load-ui match)))
 
 
 (defn init []
- (js/console.log "Hello from  chat-llm! PROD")
+ (p "Hello from  chat-llm! PROD")
+ (p "Starting initial setup.")
  (llm-chat-settings-page-struct)
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
@@ -123,5 +135,6 @@
  (start-observing)
   ;; a way to add the chat-llm button
  (add-new-option-to-context-menu)
- (bottom-bar-main))
+ (bottom-bar-main)
+ (p "Finished initial setup."))
 

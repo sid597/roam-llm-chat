@@ -10,6 +10,12 @@
 (defn log
   [& args]  (apply js/console.log args))
 
+(defn p [& args]
+  (apply println (str "CL: ") args))
+
+(defn pp [arg]
+  (cljs.pprint/pprint arg))
+
 ;; ---- Datascript specific ------
 
 (defn q
@@ -259,42 +265,48 @@
               {:s "Context"}]}]}
     "8yCGreTXI")
 
-(defn create-struct [struct top-parent chat-block-uid open-in-sidebar?]
-  (let [stack (atom [struct])
-        t?    (:t struct)
-        res   (atom [top-parent])]
-    (go
-      (while (not-empty @stack)
-         (let [cur                  (first @stack)
-               {:keys [t u s o op]} cur
-               new-uid              (j/call-in js/window [:roamAlphaAPI :util :generateUID])
-               parent               (first @res)
-               args                 {:parent-uid parent
-                                      :block-uid  (if (some? u) u new-uid)
-                                      :order      (if (some? o) o "last")
-                                      :string     s
-                                      :open      (if (some? op) op true)}]
-             (swap! stack rest)
-             (swap! stack #(vec (concat % (:c cur))))
-             ;(println "block-" string "-parent-" parent #_(first @res))
-             (if (some? t)
-               (<p! (create-new-page t (if (some? u) u new-uid)))
-               (<p! (create-new-block-with-id args)))
-             ;(cljs.pprint/pprint  args)
-             (swap! res rest)
-             (swap! res #(vec (concat % (vec (repeat (count (:c cur))
-                                               (if (some? (:u cur))
-                                                 (:u cur)
-                                                 new-uid))))))))
-      (when open-in-sidebar?
-        (<p! (-> (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :addWindow]
-                   (clj->js {:window {:type "block"
-                                      :block-uid chat-block-uid
-                                      :order 0}}))
-               (.then (fn []
-                         (do
-                          #_(println "window added to right sidebar")
-                          (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open]))))))))))
+(defn create-struct
+  ([struct top-parent chat-block-uid open-in-sidebar?]
+   (create-struct struct top-parent chat-block-uid open-in-sidebar? #()))
+  ([struct top-parent chat-block-uid open-in-sidebar? cb]
+   (let [stack (atom [struct])
+         t?    (:t struct)
+         res   (atom [top-parent])]
+     (go
+       (while (not-empty @stack)
+          (let [cur                  (first @stack)
+                {:keys [t u s o op]} cur
+                new-uid              (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+                parent               (first @res)
+                args                 {:parent-uid parent
+                                       :block-uid  (if (some? u) u new-uid)
+                                       :order      (if (some? o) o "last")
+                                       :string     s
+                                       :open      (if (some? op) op true)}]
+              (swap! stack rest)
+              (swap! stack #(vec (concat % (:c cur))))
+              ;(println "block-" string "-parent-" parent #_(first @res))
+              (if (some? t)
+                (<p! (create-new-page t (if (some? u) u new-uid)))
+                (<p! (create-new-block-with-id args)))
+              ;(cljs.pprint/pprint  args)
+              (swap! res rest)
+              (swap! res #(vec (concat % (vec (repeat (count (:c cur))
+                                                (if (some? (:u cur))
+                                                  (:u cur)
+                                                  new-uid))))))))
+       (when open-in-sidebar?
+         (p "open window in sidebar? " open-in-sidebar?)
+         (<p! (-> (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :addWindow]
+                    (clj->js {:window {:type "block"
+                                       :block-uid chat-block-uid
+                                       :order 0}}))
+                (.then (fn []
+                          (do
+                           (p "Window added to right sidebar")
+                           (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open])))))))
+
+      (<p! (js/Promise. (fn [_] cb)))))))
 
 
 (defn get-focused-block []
@@ -304,9 +316,12 @@
 (get-block-parent-with-order "khffC8IRS")
 
 (defn llm-chat-settings-page-struct []
-  (let [page-uid   (gen-new-uid)
-        page-title "LLM chat settings"]
-    (when (not (some? (get-eid page-title)))
+  (let [page-uid    (gen-new-uid)
+        page-title  "LLM chat settings"
+        page-exist? (some? (get-eid page-title))]
+    (p "*" page-title "* page exists?" page-exist?)
+    (when (not page-exist?)
+      (p "*" page-title "* page does NOT exist, so creating it")
       (create-struct
         {:t  page-title
          :u page-uid
@@ -317,7 +332,17 @@
                             {:s "Given the following data from a page summarise it for me you the expert in this field. Use the linked references for your answers, go in depth."}
                             {:s "Data from page:"}]}]}]}]}
         page-uid
-        nil nil))))
+        nil
+        nil
+        (p "*" page-title "* page Created")))))
+
+
+(defn common-chat-struct [context-structure context-block-uid]
+  [{:s "Messages"}
+   {:s "Context"}
+   {:s "Chat"
+    :c (or context-structure [{:s ""}])
+    :u (or context-block-uid nil)}])
 
 
 (defn default-chat-struct
@@ -334,11 +359,7 @@
     :op false
     :o chat-block-order
     :u (or chat-block-uid nil)
-    :c [{:s "Messages"}
-        {:s "Context"}
-        {:s "Chat"
-         :c (or context-structure [{:s ""}])
-         :u (or context-block-uid nil)}]}))
+    :c (common-chat-struct context-structure context-block-uid)}))
 
 
 (defn chat-ui-with-context-struct
@@ -356,11 +377,7 @@
     :c [{:s "{{ chat-llm }}"
          :op false
          :u (or chat-block-uid nil)
-         :c [{:s "Messages"}
-             {:s "Context"}
-             {:s "Chat"
-              :u (or context-block-uid nil)
-              :c (or context-structure [{:s ""}])}]}]}))
+         :c (common-chat-struct context-structure context-block-uid)}]}))
 
 
 ;; ---- Open ai specific ----
