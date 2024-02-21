@@ -1,7 +1,7 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [p pp extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
@@ -34,29 +34,41 @@
                              (replace-block-uids))])))
 
 
+(defn sort-children [node]
+  (if (contains? node :children)
+    (assoc node :children (vec (->> (:children node)
+                                 (map sort-children)
+                                 (sort-by :order))))
+    node))
+
+
 (defn get-children-for
-  ([p] (get-children-for p false))
-  ([p block?]
+  ([node] (get-children-for node false))
+  ([node block?]
+   (p "Inside get children for particular page or block function")
    (let [eid               (cond
-                             (int? p) p
-                             block?   (uid->eid p)
-                             :else    (get-eid p))
+                             (int? node) node
+                             block?   (uid->eid node)
+                             :else    (get-eid node))
          raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
                                         :in $ ?eid]
                                      eid))
-         embed?            (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
-         sorted-by-children (sort-by :order (:children raw-children-data))
-         block-string        (:string raw-children-data)
-         plain-text         (replace-block-uids (str/join "\n " (concat
-                                                                  (when block-string
-                                                                    [block-string])
-                                                                  (extract-strings (if embed? embed? {:children sorted-by-children})))))
-         map-format         (build-map  sorted-by-children)]
-     {:plain-text plain-text
-      #_#_:map-format map-format})))
+         embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
+         sorted-by-children (sort-children raw-children-data)
+         block-string       (:string raw-children-data)
+         plain-text         (str/join "\n " (concat
+                                              (when block-string
+                                                [block-string])
+                                              (extract-strings (if embed? embed? sorted-by-children))))]
+     (p "Successfully extracted children for page or block with node: " node)
+     {:plain-text plain-text})))
 
 
 (comment
+
+  (get-children-for "4llnpJ5Ae" true)
+
+  (time (get-children-for "[[ISS]] - scope other options for the LLM chat interface"))
  (get-children-for "7RBKIHk-V" true)
  (build-map (get-children-for "7RBKIHk-V" true))
  (get-children-for "1owvT89TK" true)
@@ -66,6 +78,7 @@
  (get-children-for "testing 5"))
 
 (defn extract-ref-data-for [title ref-eid ref-data]
+  (p "Inside extract ref data for particular page function")
   (let [crumbs-set (into #{} (map #(when (not-empty %)
                                      (replace-block-uids (:string %)))
                                (-> ref-data
@@ -77,6 +90,7 @@
                                               children]
                                        (when-not (nil? breadcrumbs)
                                              [breadcrumbs])))]
+    (p "Successfully extracted ref data for page: " title)
     (when (empty? (clojure.set/intersection crumbs-set skip-blocks-with-string))
       {:parents breadcrumbs
        :children children
@@ -85,6 +99,7 @@
 
 
 (defn get-all-refs-for [title]
+  (p "Inside get all refs for particular page function")
   (let [refs (q '[:find ?title ?page  ?refs (pull ?refs [:block/string {:block/parents [:block/string]}
                                                          :block/uid
                                                          {:block/page [:node/title]}])
@@ -104,6 +119,7 @@
       (let [ex-ref-data (extract-ref-data-for ref-parent-title ref-eid ref-data)]
         ;(println "ref-data" ex-ref-data)
         (swap! res conj (str (:full-context ex-ref-data) title))))
+    (p "Successfully extracted ref data for all pages ")
     @res))
 
 (comment
@@ -111,6 +127,7 @@
 
 
 (defn get-all-data-for [title get-linked-refs?]
+  (p "Inside get all data for particular page function")
   (let [children (get-children-for title)]
     (merge
      {:title     title
@@ -120,6 +137,7 @@
 
 
 (defn data-for-pages [pages get-linked-refs?]
+  (p "Inside extract data for pages function")
   (let [res (atom [])]
     (doall
      (for [page pages]
@@ -135,6 +153,7 @@
 
 
 (defn data-for-blocks [block-uids]
+  (p "Inside extract data for blocks function")
   (let [res (atom [])]
     (doall
       (for [block-uid block-uids]
@@ -151,6 +170,8 @@
 (comment
   (data-for-blocks ["1owvT89TK"])
   (data-for-pages [{:text "llm chat"}] (atom true))
+  (data-for-pages [{:text "[[ISS]] - scope other options for the LLM chat interface"}] (atom false))
+
 
   (data-for-pages [
                    {:text
