@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [ui.actions.graph-overview-ai :refer [create-chat-ui-blocks-for-selected-overview]]
+            [ui.utils :refer [p ]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -23,7 +24,9 @@
                                                     child-class)
                                                 (= "rm-graph-view"
                                                   parent-class))
-                                            (reset! disabled? false)
+                                            (do
+                                              (p "ON Graph Overview Page, enable the *Load filtered pages into chat* button")
+                                              (reset! disabled? false))
                                             (reset! disabled? true))))))))
             star-observing    (let [observer (js/MutationObserver. mutation-callback)]
                                 (.observe observer js/document #js {:childList true
@@ -33,6 +36,7 @@
                   :small true
                   :disabled @disabled?
                   :on-click (fn []
+                              (p "*Load filtered pages into chat* :button clicked")
                               (let [chat-block-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])
                                     context-block-uid (j/call-in js/window [:roamAlphaAPI :util :generateUID])]
                                 ;(println "chat-block-uid" chat-block-uid context-block-uid)

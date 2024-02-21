@@ -2,6 +2,7 @@
   (:require [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.components.bottom-bar :as bcomp :refer [bottom-bar-buttons]]
+            [ui.utils :refer [p]]
             [reagent.dom :as rd]))
 
 
@@ -18,6 +19,7 @@
    [bottom-bar-buttons]])
 
 (defn bottom-bar-main []
+  (p "Creating bottom bar")
   (let [parent-el (.querySelector js/document ".roam-body")
         new-child (.createElement js/document "div")
         already-present? (.querySelector js/document ".llm-bottom-bar")]
