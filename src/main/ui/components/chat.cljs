@@ -1,6 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
+            [ui.utils :refer [p pp]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -10,7 +11,6 @@
   ([context handle-keydown-event]
    (chat-context context handle-keydown-event {}))
   ([context handle-keydown-event style-map]
-   ;(println "2. load chat-content")
    (let [context-ref (r/atom nil)
          chat-loaded (r/atom nil)
          update-fn   (fn [this]
@@ -26,7 +26,7 @@
                              (fn [_]
                                #_(println "5. chat context block rendered successfully")))
                            (.catch (fn [e]
-                                     (log "Error in chat context block" e))))))]
+                                     (log "Error in chat context block" (:uid @context) e @context))))))]
      (r/create-class
        {:component-did-mount  update-fn
         :component-did-update update-fn
@@ -48,7 +48,6 @@
                              :border-radius "8px 8px 0px 0px"
                              :max-height "700px"}
                        style-map)}]))}))))
-
 
 
 (defn chat-history [messages]

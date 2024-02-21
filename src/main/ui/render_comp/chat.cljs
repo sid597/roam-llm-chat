@@ -3,7 +3,7 @@
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.components.chat :as comp :refer [send-message-component chin chat-context chat-history]]
-            [ui.utils :refer [q get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions.chat :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
 
@@ -26,8 +26,8 @@
            callback          (fn [{:keys [b-uid] :or {b-uid block-uid}}]
                                ;(println "called callback to load context")
                                (when (not @active?)
+                                 (p "*Send* Button clicked")
                                  (do
-                                   #_(println "---- clicked send button ----")
                                    (reset! active? true)
                                    (load-context chat messages b-uid active? get-linked-refs {:model @default-model
                                                                                               :max-tokens @default-msg-value

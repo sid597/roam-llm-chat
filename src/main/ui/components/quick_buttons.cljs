@@ -5,7 +5,7 @@
             [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks]]
             [ui.components.chat :refer [chat-context chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p pp q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -79,10 +79,12 @@
                      :small true
                      :loading @active?
                      :on-click (fn [e]
+                                 (p "*Summarise this page* :button clicked")
                                  (when (not @active?)
                                    (reset! active? true)
                                   (go
-                                   (let [current-page-uid    (<p! (get-open-page-uid))
+                                   (let [pre               "*Summarise this page* :"
+                                         current-page-uid    (<p! (get-open-page-uid))
                                          title               (uid->title current-page-uid)
                                          block-data          (when (nil? title)
                                                                (str
@@ -108,20 +110,29 @@
                                          page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
-                                                                 (str @context "\n" page-data))]
-                                     (println "LLM chat:send data" send-data)
-                                     (do
-                                       (cljs.pprint/pprint (str @context "\n" page-data))
-                                       (create-struct struct top-parent res-block-uid false)
-                                       (<p! (js/Promise.
-                                              (fn [_]
-                                                (call-openai-api
-                                                  {:messages [{:role "user"
-                                                               :content send-data}]
-                                                   :settings {:model @default-model
+                                                                 (str @context "\n" page-data))
+                                         settings            {:model @default-model
                                                               :max-tokens @default-msg-value
                                                               :temperature @default-temp}
+                                         messages            [{:role "user"
+                                                               :content send-data}]]
+                                     (do
+                                       (create-struct struct top-parent res-block-uid false
+                                         (p (str pre "Created a new `AI summary` block with uid: " res-block-uid " and parent uid: " parent-block-uid "and with context: ")))
+
+                                       (<p! (js/Promise.
+                                              (fn [_]
+                                                (p (str pre "Calling openai api, with settings :"))
+                                                (pp settings)
+                                                (p (str pre "and messages :"))
+                                                (pp messages)
+                                                (p (str pre "Now sending message and wait for response ....."))
+                                                (call-openai-api
+                                                  {:messages messages
+                                                   :settings settings
                                                    :callback (fn [response]
+                                                               (p (str pre "openai api response received:"))
+                                                               (pp response)
                                                                (let [res-str (-> response
                                                                                :body)]
                                                                  (update-block-string
@@ -129,8 +140,9 @@
                                                                    (str res-str)
                                                                    (js/setTimeout
                                                                      (fn []
+                                                                       (p (str pre "Updated block " res-block-uid " with response from openai api"))
                                                                        (reset! active? false))
                                                                      500))))})))))))))}
 
-          "Summarise this page"]]])))
+                    "Summarise this page"]]])))
 

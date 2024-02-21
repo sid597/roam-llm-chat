@@ -211,7 +211,7 @@
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :create]
         (clj->js {:location {:parent-uid parent-uid
                              :order       order}
-                  :block    {:uid    (j/call-in js/window [:roamAlphaAPI :util :generateUID])
+                  :block    {:uid    (gen-new-uid)
                              :string string
                              :open   true}}))
     (.then (fn []
