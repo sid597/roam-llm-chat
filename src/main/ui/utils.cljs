@@ -52,6 +52,14 @@
 
             uid)))
 
+(defn title->uid [title]
+  (ffirst (q '[:find ?uid
+               :in $ ?title
+               :where
+               [?e :node/title ?title]
+               [?e :block/uid ?uid]]
+            title)))
+
 (defn get-eid [title]
   (ffirst (q '[:find ?eid
                :in $ ?title
@@ -83,6 +91,29 @@
                [?c :block/string ?s]]
             block-uid
             s)))
+
+(defn get-child-of-child-with-str
+  ([block-uid p1 p2]
+   (get-child-of-child-with-str block-uid p1 p2 true))
+  ([block-uid p1 p2 only-string?]
+   (let [res (ffirst (q '[:find  (pull ?c3 [:block/string :block/uid])
+                          :in $ ?uid ?p1 ?p2
+                          :where
+                          [?e :block/uid ?uid]
+                          [?e :block/children ?c1]
+                          [?c1 :block/string ?p1]
+                          [?c1 :block/children ?c2]
+                          [?c2 :block/string ?p2]
+                          [?c2 :block/children ?c3]
+                          [?c3 :block/string ?p3]]
+                       block-uid
+                       p1
+                       p2))]
+      (if only-string?
+        (:string res)
+        (:uid res)))))
+
+(get-child-of-child-with-str "RyYJ7OMti" "Settings" "Model")
 
 (defn get-child-of-child-with-str-on-page [page p1 p2 p3]
   (ffirst (q '[:find  (pull ?c3 [:block/string :block/uid :block/order {:block/children ...}])
@@ -134,6 +165,7 @@
          [?c :block/uid ?uid]]
       page
       bstr)))
+
 
 (defn ai-block-exists? [page]
   (block-with-str-on-page? page "AI chats"))
@@ -225,6 +257,10 @@
          (clj->js {:block {:uid    block-uid
                            :string string}}))
      (.then (fn [] callback)))))
+
+(defn update-block-string-for-block-with-child [block-uid c1 c2 new-string]
+  (let [uid (get-child-of-child-with-str block-uid c1 c2 false)]
+    (update-block-string uid new-string)))
 
 
 (defn update-block-string-and-move [block-uid string parent-uid order]
@@ -337,12 +373,28 @@
         (p "*" page-title "* page Created")))))
 
 
+
+(def settings-struct
+  {:s "Settings"
+   :c [{:s "Token count"
+        :c [{:s "0"}]}
+       {:s "Model"
+        :c [{:s "gpt-3.5"}]}
+       {:s "Max tokens"
+        :c [{:s "400"}]}
+       {:s "Temperature"
+        :c [{:s "0.9"}]}
+       {:s "Get linked refs"
+        :c [{:s "true"}]}]})
+
+
 (defn common-chat-struct [context-structure context-block-uid]
   [{:s "Messages"}
    {:s "Context"}
    {:s "Chat"
     :c (or context-structure [{:s ""}])
-    :u (or context-block-uid nil)}])
+    :u (or context-block-uid nil)}
+   settings-struct])
 
 
 (defn default-chat-struct
@@ -396,7 +448,7 @@
                                 :json-params data})]
     (take! res-ch callback)))
 
-(defn count-tokens-api [{:keys [model message token-count-atom update?]}]
+(defn count-tokens-api [{:keys [model message token-count-atom update? block-uid]}]
   (p "Count tokens api called")
   (let [url    "http://localhost:8080/count-tokens"
         data    (clj->js {:model model
@@ -407,13 +459,16 @@
                                 :json-params data})]
     (take! res-ch (fn [res]
                     (let [count (-> res
-                                   :body)]
-                      (p "*Old Token count* :" count)
-                      (if (some? update?)
-                       (reset! token-count-atom (+ (js/parseInt  @token-count-atom)
-                                                  (js/parseInt count)))
-                       (reset! token-count-atom count))
-                      (p "*New Token count* :" count))))))
+                                   :body)
+                          _ (println "==" count @token-count-atom)
+                          new-count (if update?
+                                      (+ (js/parseInt  @token-count-atom)
+                                         (js/parseInt count))
+                                      count)]
+                      (p "*Old Token count* :" @token-count-atom)
+                      (update-block-string-for-block-with-child block-uid "Settings" "Token count" (str new-count))
+                      (reset! token-count-atom new-count)
+                      (p "*New Token count* :" new-count))))))
 
 
 
