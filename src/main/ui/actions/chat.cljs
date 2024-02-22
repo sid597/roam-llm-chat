@@ -1,13 +1,13 @@
 (ns ui.actions.chat
  (:require
    [applied-science.js-interop :as j]
-   [ui.utils :refer [q p pp get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+   [ui.utils :refer [count-tokens-api q p pp get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
    [cljs.core.async.interop :as asy :refer [<p!]]
    [ui.extract-data.chat :as ed :refer [data-for-pages]]
    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
 
 
-(defn send-context-and-message [message-atom block-uid active? settings]
+(defn send-context-and-message [message-atom block-uid active? settings token-count-atom]
   (p "*load context* send message to llm for uid: " block-uid)
   (let [pre            "*load context* :"
         res           (atom "")
@@ -23,6 +23,10 @@
     (pp settings)
     (p (str pre "and messages :"))
     (pp @res)
+    (p (str pre "Counting tokens for message:"))
+    (count-tokens-api {:message @res
+                       :model (:model settings)
+                       :token-count-atom token-count-atom})
     (p (str pre "Now sending message and wait for response ....."))
     (call-openai-api
       {:messages [{:role "user"
@@ -37,13 +41,18 @@
                      (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
                                                                                   (fn []
                                                                                     #_(println "new block in messages")
+                                                                                    (p (str pre "Update token count, after llm response"))
+                                                                                    (count-tokens-api {:message res-str
+                                                                                                       :model (:model settings)
+                                                                                                       :update? true
+                                                                                                       :token-count-atom token-count-atom})
                                                                                     (p (str pre "Add assistant response block in messages: " m-uid))
                                                                                     (reset! message-atom (get-child-with-str block-uid "Messages"))
                                                                                     (reset! active? false))
                                                                                   500))))})))
 
 
-(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings]
+(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
   #_(println "load context ")
   ;(pprint context)
   (p "*load context* for block with uid:" parent-id)
@@ -125,7 +134,7 @@
                           (p (str pre "refresh messages window with parent-id: " parent-id))
                           (reset! messages-atom (get-child-with-str parent-id "Messages"))
                           #_(println "messages atom reset")
-                          (send-context-and-message messages-atom parent-id active? settings))))
+                          (send-context-and-message messages-atom parent-id active? settings token-count-atom))))
       (<p! (js/Promise. (fn [_]
                           (p (str pre "refresh chat window with parent-id: " parent-id))
                           (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))
