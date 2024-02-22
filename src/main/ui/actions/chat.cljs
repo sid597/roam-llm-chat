@@ -7,7 +7,7 @@
    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
 
 
-(defn send-context-and-message [message-atom block-uid active? settings token-count-atom]
+(defn send-context-and-message [message-atom block-uid active? settings token-count-atom ]
   (p "*load context* send message to llm for uid: " block-uid)
   (let [pre            "*load context* :"
         res           (atom "")
@@ -26,7 +26,8 @@
     (p (str pre "Counting tokens for message:"))
     (count-tokens-api {:message @res
                        :model (:model settings)
-                       :token-count-atom token-count-atom})
+                       :token-count-atom token-count-atom
+                       :block-uid block-uid})
     (p (str pre "Now sending message and wait for response ....."))
     (call-openai-api
       {:messages [{:role "user"
@@ -45,6 +46,7 @@
                                                                                     (count-tokens-api {:message res-str
                                                                                                        :model (:model settings)
                                                                                                        :update? true
+                                                                                                       :block-uid block-uid
                                                                                                        :token-count-atom token-count-atom})
                                                                                     (p (str pre "Add assistant response block in messages: " m-uid))
                                                                                     (reset! message-atom (get-child-with-str block-uid "Messages"))
@@ -52,7 +54,7 @@
                                                                                   500))))})))
 
 
-(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
+(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom ]
   #_(println "load context ")
   ;(pprint context)
   (p "*load context* for block with uid:" parent-id)

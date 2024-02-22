@@ -460,7 +460,6 @@
     (take! res-ch (fn [res]
                     (let [count (-> res
                                    :body)
-                          _ (println "==" count @token-count-atom)
                           new-count (if update?
                                       (+ (js/parseInt  @token-count-atom)
                                          (js/parseInt count))

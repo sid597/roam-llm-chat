@@ -1,7 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [p pp]]
+            [ui.utils :refer [p pp update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -85,8 +85,9 @@
                                      id (random-uuid)]
                                  (p "TOKEN COUNT" tc)
                                  [:div
-                                  {:display "flex"
-                                   :flex-direction "column"}
+                                  {:style
+                                    {:display "flex"
+                                     :flex-direction "column"}}
                                   [:div.messages
                                    {:ref   (fn [el] (reset! history-ref el))
                                     :class (str "chat-history-" id)
@@ -175,9 +176,9 @@
 
 
 (defn chin
-  ([default-model default-msg-value default-temp get-linked-refs active?]
-   (chin default-model default-msg-value default-temp get-linked-refs active? nil))
-  ([default-model default-msg-value default-temp get-linked-refs active? callback]
+  ([default-model default-msg-value default-temp get-linked-refs active? block-uid]
+   (chin default-model default-msg-value default-temp get-linked-refs active? block-uid nil))
+  ([default-model default-msg-value default-temp get-linked-refs active? block-uid callback]
    [:div.chin
      {:style {:display "flex"
               :flex-direction "row"
@@ -201,6 +202,7 @@
           {:text "gpt-4"
            :on-click (fn [e]
                        #_(js/console.log "clicked menu item" e)
+                       (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4")
                        (reset! default-model "gpt-4"))}]
          [:> Divider]
          [:> Menu
@@ -208,6 +210,7 @@
            {:text "gpt-3.5"
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-3.5")
                         (reset! default-model "gpt-3.5"))}]]]]]
       [:> Divider]
       [:div {:style {:overflow  "hidden"}}
@@ -221,9 +224,12 @@
                       :value @default-msg-value
                       :label-values [0 2048]
                       :on-change (fn [e]
+
+                                   (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
                                    (reset! default-msg-value e))
                       :on-release (fn [e]
                                     #_(log "slider value" e)
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
                                     (reset! default-msg-value e))}]]]]
       [:> Divider]
       [:div {:style {:overflow  "hidden"}}
@@ -239,8 +245,10 @@
                       :value @default-temp
                       :label-values [0 2]
                       :on-change (fn [e]
+                                   (update-block-string-for-block-with-child block-uid "Settings" "Temperature" (str e))
                                    (reset! default-temp e))
                       :on-release (fn [e]
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Temperature" (str e))
                                     (reset! default-temp e))}]]]]
 
       [:> Divider]
@@ -251,6 +259,7 @@
         {:style {:margin-bottom "0px"}
          :checked @get-linked-refs
          :on-change (fn [x]
+                      (update-block-string-for-block-with-child block-uid "Settings" "Get linked refs" (str (not @get-linked-refs)))
                       (reset! get-linked-refs (not @get-linked-refs)))}
         [:span.bp3-button-text
          {:style {:font-size "14px"
