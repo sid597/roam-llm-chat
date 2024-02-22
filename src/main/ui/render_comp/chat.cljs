@@ -16,9 +16,10 @@
         messages (r/atom (get-child-with-str block-uid "Messages"))
         chat     (r/atom (get-child-with-str block-uid "Chat"))
         active? (r/atom false)
+        token-count (r/atom 0)
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
-        default-model (r/atom "gpt-4-1106-preview")
+        default-model (r/atom "gpt-4")
         get-linked-refs (r/atom true)]
    (fn [_]
      (let [msg               @messages
@@ -29,9 +30,12 @@
                                  (p "*Send* Button clicked")
                                  (do
                                    (reset! active? true)
-                                   (load-context chat messages b-uid active? get-linked-refs {:model @default-model
+                                   (load-context chat messages b-uid active? get-linked-refs {:model (if (= "gpt-4" @default-model)
+                                                                                                       "gpt-4-0125-preview"
+                                                                                                       "gpt-3.5-turbo-0125")
                                                                                               :max-tokens @default-msg-value
-                                                                                              :temperature @default-temp}))))
+                                                                                              :temperature @default-temp}
+                                                token-count))))
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
@@ -59,8 +63,7 @@
                             :border "1px"}}
                    [chat-context context #() {:min-height ""
                                               :padding-bottom "10px"}]]
-
-         [chat-history messages]
+         [chat-history messages token-count]
          [:div.chat-input-container
           {:style {:display "flex"
                    :flex-direction "row"
@@ -70,6 +73,7 @@
                    :border "1px"}}
           [chat-context chat handle-key-event]]
          [chin default-model default-msg-value default-temp get-linked-refs active? callback]]]))))
+
 
 
 (defn main [{:keys [:block-uid]} & args]
