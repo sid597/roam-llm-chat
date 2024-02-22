@@ -4,8 +4,33 @@
             [ring.middleware.params :refer [wrap-params]]
             [wkok.openai-clojure.api :as api]
             [cheshire.core :as json]
+            [tolkien.core :as token]
             [server.env :as env :refer [oai-key pass-key]]
             [ring.adapter.jetty :as jetty]))
+
+
+(defn extract-gpt-version [s]
+  (let [pattern (re-pattern "(gpt-3\\.5-turbo|gpt-4)")]
+    (first (re-find pattern s))))
+(extract-gpt-version "\"gpt-3.5\"")
+
+
+
+(defn count-tokens [request]
+  (println "got request to count tokens")
+  (let [rq       (-> request
+                    :body
+                    slurp
+                    (json/parse-string true))
+        message   (str (-> rq
+                         :message))
+        model     (extract-gpt-version (str (-> rq
+                                              :model)))
+        count    (token/count-tokens model message)]
+    (println "message" message "model" model "count" count)
+    {:status 200
+     :headers {"Content-Type" "text/plain"}
+     :body   (str count)}))
 
 
 (defn oai [request]
@@ -41,6 +66,7 @@
               :content)}))
 
 
+
 #_(comment
     ;;Returns
     {:id "chatcmpl-8NiFe8FGpUIGLGZXETzr0VuMcz2ZN",
@@ -71,7 +97,9 @@
 
 (defroutes app-routes
   (OPTIONS "/chat-complete" [] handle-preflight)   ; Handle preflight OPTIONS request
-  (POST "/chat-complete" request (cors-headers (oai request))))
+  (POST "/chat-complete" request (cors-headers (oai request)))
+  (OPTIONS "/count-tokens" [] handle-preflight)
+  (POST "/count-tokens" request (cors-headers (count-tokens request))))
 
 (def app
   (-> app-routes

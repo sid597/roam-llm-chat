@@ -396,7 +396,24 @@
                                 :json-params data})]
     (take! res-ch callback)))
 
-
+(defn count-tokens-api [{:keys [model message token-count-atom update?]}]
+  (p "Count tokens api called")
+  (let [url    "http://localhost:8080/count-tokens"
+        data    (clj->js {:model model
+                          :message message})
+        headers {"Content-Type" "application/json"}
+        res-ch  (http/post url {:with-credentials? false
+                                :headers headers
+                                :json-params data})]
+    (take! res-ch (fn [res]
+                    (let [count (-> res
+                                   :body)]
+                      (p "*Old Token count* :" count)
+                      (if (some? update?)
+                       (reset! token-count-atom (+ (js/parseInt  @token-count-atom)
+                                                  (js/parseInt count)))
+                       (reset! token-count-atom count))
+                      (p "*New Token count* :" count))))))
 
 
 
