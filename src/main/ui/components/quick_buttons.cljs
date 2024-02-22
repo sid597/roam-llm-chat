@@ -5,7 +5,7 @@
             [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks]]
             [ui.components.chat :refer [chat-context chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p title->uid pp q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p get-child-of-child-with-str title->uid pp q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -38,12 +38,14 @@
 
 
 (defn button-with-settings [button-name]
-  (let [get-linked-refs? (r/atom true)
+  (let [block-uid (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        get-linked-refs? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+                                   true
+                                   false))
         active? (r/atom false)
-        default-msg-value (r/atom 400)
-        default-temp (r/atom 0.9)
-        default-model (r/atom "gpt-4")
-        block-uid (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        default-msg-value (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
+        default-temp (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
+        default-model (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
         context (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
 
     (fn [_]
