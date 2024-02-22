@@ -42,7 +42,7 @@
         active? (r/atom false)
         default-msg-value (r/atom 400)
         default-temp (r/atom 0.9)
-        default-model (r/atom "gpt-4-1106-preview")
+        default-model (r/atom "gpt-4")
         context (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
 
     (fn [_]

@@ -50,12 +50,13 @@
                        style-map)}]))}))))
 
 
-(defn chat-history [messages]
+(defn chat-history [messages token-count]
   #_(println "load chat-history")
   ;(pprint (sort-by :order (:children @messages)))
   (let [history-ref (r/atom nil)
         update-fn   (fn [this]
                       (when-let [hist-el @history-ref]
+                        (p "chat history update fn")
                         (set! (.-innerHTML hist-el ) "")
                         (doall
                           (for [child (reverse (sort-by :order (:children @messages)))]
@@ -80,17 +81,57 @@
        :component-did-mount  update-fn
        :reagent-render       (fn []
                                (let [msgs @messages
+                                     tc @token-count
                                      id (random-uuid)]
+                                 (p "TOKEN COUNT" tc)
                                  [:div
-                                  {:ref   (fn [el] (reset! history-ref el))
-                                   :class (str "chat-history-" id)
-                                   :style {:flex "1"
-                                           :overflow-y "auto"
-                                           :margin "10px"
-                                           :min-height "300px"
-                                           :max-height "700px"
-                                           :border-radius "8px"
-                                           :background "aliceblue"}}]))})))
+                                  {:display "flex"
+                                   :flex-direction "column"}
+                                  [:div.messages
+                                   {:ref   (fn [el] (reset! history-ref el))
+                                    :class (str "chat-history-" id)
+                                    :style {:flex "1"
+                                            :overflow-y "auto"
+                                            :margin "10px 10px -10px"
+                                            :min-height "300px"
+                                            :max-height "700px"
+                                            :border-radius "8px 8px 0px 0px"
+                                            :background "aliceblue"}}]
+
+                                  [:div.messages-chin
+                                   {:style {:display "flex"
+                                            :flex-direction "row"
+                                            :border-radius "0px 0px 8px 8px"
+                                            :margin "-10px 10px 10px"
+                                            :background-color "aliceblue"
+                                            :min-height "27px"
+                                            :justify-content "end"
+                                            :font-size "10px"
+                                            :padding-right "11px"
+                                            :padding-top "10px"
+                                            :align-items "center"
+                                            :border "1px"}}
+                                   [:span (str "Tokens used: " tc)]
+                                   [:> Button {:class-name "scroll-down-button"
+                                               :style {:width "30px"}
+                                               :icon "chevron-down"
+                                               :minimal true
+                                               :fill false
+                                               :small true
+                                               :on-click #(let [el @history-ref]
+                                                            (p "scroll down button clicked")
+                                                            (when el
+                                                              (set! (.-scrollTop el) (.-scrollHeight el))))}]
+                                   [:> Button {:class-name "scroll-up-button"
+                                               :style {:width "30px"}
+                                               :icon "chevron-up"
+                                               :minimal true
+                                               :fill false
+                                               :small true
+                                               :on-click #(let [el @history-ref]
+                                                            (p "scroll up button clicked")
+                                                            (when el
+                                                              (set! (.-scrollTop el) 0)))}]]]))})))
 
 
 
@@ -157,17 +198,17 @@
          [:span {:style {:margin-bottom "5px"}} "Select Model:"]
          [:> Divider]
          [:> Menu.Item
-          {:text "gpt-4-1106-preview"
+          {:text "gpt-4"
            :on-click (fn [e]
                        #_(js/console.log "clicked menu item" e)
-                       (reset! default-model "gpt-4-1106-preview"))}]
+                       (reset! default-model "gpt-4"))}]
          [:> Divider]
          [:> Menu
           [:> Menu.Item
-           {:text "gpt-3.5-turbo-1106"
+           {:text "gpt-3.5"
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
-                        (reset! default-model "gpt-3.5-turbo-1106"))}]]]]]
+                        (reset! default-model "gpt-3.5"))}]]]]]
       [:> Divider]
       [:div {:style {:overflow  "hidden"}}
         [button-popover
@@ -187,7 +228,7 @@
       [:> Divider]
       [:div {:style {:overflow  "hidden"}}
         [button-popover
-         (str "Temperature: " (js/parseFloat (.toFixed @default-temp 1)))
+         (str "Temp: " (js/parseFloat (.toFixed @default-temp 1)))
          [:div.bp3-popover-dismiss
           {:style {:margin-bottom "10px"}}
           [:span {:style {:margin-bottom "5px"}} "Temperature:"]
@@ -214,7 +255,7 @@
         [:span.bp3-button-text
          {:style {:font-size "14px"
                   :font-family "initial"
-                  :font-weight "initial"}} "Include linked references?"]]]]
+                  :font-weight "initial"}} "Include linked refs?"]]]]
 
     (when (not (nil? callback))
      [send-message-component
