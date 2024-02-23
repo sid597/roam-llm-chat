@@ -310,7 +310,7 @@
          t? (:t struct)
          res (atom [top-parent])]
      (p pre)
-     (pp struct)
+     ;(pp struct)
      (p (str pre "open in sidebar?") open-in-sidebar?)
      (go
        (while (not-empty @stack)
