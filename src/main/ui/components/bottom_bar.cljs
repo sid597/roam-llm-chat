@@ -45,6 +45,7 @@
                                                       {:s ""}]
                                       ai-block? (ai-block-exists? open-page-uid)]
                                   (p (str pre "block with `AI chats` exist? " ai-block?))
+                                  (pp context)
 
                                   ;(println "open page uid" open-page-uid)
                                   ;(println "page title" page-title)

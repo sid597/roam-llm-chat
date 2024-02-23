@@ -305,9 +305,13 @@
   ([struct top-parent chat-block-uid open-in-sidebar?]
    (create-struct struct top-parent chat-block-uid open-in-sidebar? #()))
   ([struct top-parent chat-block-uid open-in-sidebar? cb]
-   (let [stack (atom [struct])
-         t?    (:t struct)
-         res   (atom [top-parent])]
+   (let [pre   "*Creating struct*: "
+         stack (atom [struct])
+         t? (:t struct)
+         res (atom [top-parent])]
+     (p pre)
+     (pp struct)
+     (p (str pre "open in sidebar?") open-in-sidebar?)
      (go
        (while (not-empty @stack)
           (let [cur                  (first @stack)
@@ -322,6 +326,7 @@
               (swap! stack rest)
               (swap! stack #(vec (concat % (:c cur))))
               ;(println "block-" string "-parent-" parent #_(first @res))
+              (p (str pre "creating with args: " t  " -- " args))
               (if (some? t)
                 (<p! (create-new-page t (if (some? u) u new-uid)))
                 (<p! (create-new-block-with-id args)))
