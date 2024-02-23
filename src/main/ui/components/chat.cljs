@@ -27,6 +27,9 @@
                                #_(println "5. chat context block rendered successfully")))
                            (.catch (fn [e]
                                      (log "Error in chat context block" (:uid @context) e @context))))
+                         (p "Scroll to bottom")
+                         (.scrollTo context-el 0 (.-scrollHeight context-el))
+                         (.scrollTo context-el 0 (.-scrollHeight context-el))
                          (.scrollTo context-el 0 (.-scrollHeight context-el))))]
      (r/create-class
        {:component-did-mount  update-fn
