@@ -60,6 +60,8 @@
                [?e :block/uid ?uid]]
             title)))
 
+(println "=======" (title->uid "[[ISS]] - scope other options for the LLM chat interface"))
+
 (defn get-eid [title]
   (ffirst (q '[:find ?eid
                :in $ ?title
@@ -113,7 +115,6 @@
         (:string res)
         (:uid res)))))
 
-(get-child-of-child-with-str "RyYJ7OMti" "Settings" "Model")
 
 (defn get-child-of-child-with-str-on-page [page p1 p2 p3]
   (ffirst (q '[:find  (pull ?c3 [:block/string :block/uid :block/order {:block/children ...}])
@@ -131,7 +132,6 @@
             p2
             p3)))
 
-(get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context")
 
 
 (defn get-parent-parent [uid]
