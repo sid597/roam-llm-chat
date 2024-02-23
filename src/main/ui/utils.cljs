@@ -450,7 +450,7 @@
 
 (defn count-tokens-api [{:keys [model message token-count-atom update? block-uid]}]
   (p "Count tokens api called")
-  (let [url    "http://localhost:8080/count-tokens"
+  (let [url    "https://roam-llm-chat-falling-haze-86.fly.dev/count-tokens"
         data    (clj->js {:model model
                           :message message})
         headers {"Content-Type" "application/json"}
