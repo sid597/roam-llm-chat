@@ -1,37 +1,42 @@
 (ns ui.actions.chat
- (:require
-   [applied-science.js-interop :as j]
-   [ui.utils :refer [count-tokens-api q p pp get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
-   [cljs.core.async.interop :as asy :refer [<p!]]
-   [ui.extract-data.chat :as ed :refer [data-for-pages]]
-   [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
+  (:require
+    [applied-science.js-interop :as j]
+    [reagent.core :as r]
+    [ui.utils :refer [count-tokens-api q p pp get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [cljs.core.async.interop :as asy :refer [<p!]]
+    [ui.extract-data.chat :as ed :refer [data-for-pages]]
+    [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
 
 
-(defn send-context-and-message [message-atom block-uid active? settings token-count-atom ]
+(defn send-context-and-message [message-atom block-uid active? settings token-count-atom]
   (p "*load context* send message to llm for uid: " block-uid)
   (let [pre            "*load context* :"
-        res           (atom "")
         message-block (get-child-with-str block-uid "Messages")
         messages      (sort-by :order (:children message-block))
+        message-by-role (r/atom [])
         m-uid         (:uid message-block)]
     (doall
       (for [msg messages]
         (let [msg-str (:string msg)]
-          (swap! res str (extract-from-code-block msg-str)))))
+          (p "---"(re-find #"Assistant: " msg-str))
+          (if (some? (re-find #"Assistant: " msg-str))
+            (swap! message-by-role conj {:role "assistant"
+                                         :content (str (clojure.string/replace msg-str #"Assistant: " ""))})
+            (swap! message-by-role conj {:role "user"
+                                         :content (str (extract-from-code-block msg-str))})))))
 
     (p (str pre "Calling openai api, with settings :"))
     (pp settings)
     (p (str pre "and messages :"))
-    (pp @res)
+    (pp @message-by-role)
     (p (str pre "Counting tokens for message:"))
-    (count-tokens-api {:message @res
+    (count-tokens-api {:message @message-by-role
                        :model (:model settings)
                        :token-count-atom token-count-atom
                        :block-uid block-uid})
     (p (str pre "Now sending message and wait for response ....."))
     (call-openai-api
-      {:messages [{:role "user"
-                   :content @res}]
+      {:messages @message-by-role
        :settings settings
        :callback (fn [response]
                    (println "received response from llm")
@@ -54,7 +59,7 @@
                                                                                   500))))})))
 
 
-(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom ]
+(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
   #_(println "load context ")
   ;(pprint context)
   (p "*load context* for block with uid:" parent-id)
