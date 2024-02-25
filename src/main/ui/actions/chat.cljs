@@ -26,9 +26,9 @@
                                          :content (str (extract-from-code-block msg-str))})))))
 
     (p (str pre "Calling openai api, with settings :"))
-    ;(pp settings)
+    (cljs.pprint/pprint settings)
     (p (str pre "and messages :"))
-    ;(pp @message-by-role)
+    (cljs.pprint/pprint @message-by-role)
     (p (str pre "Counting tokens for message:"))
     (count-tokens-api {:message @message-by-role
                        :model (:model settings)
@@ -41,7 +41,7 @@
        :callback (fn [response]
                    (println "received response from llm")
                    (p (str pre "openai api response received:"))
-                   ;(pp response)
+                   (cljs.pprint/pprint response)
                    (let [res-str (-> response
                                    :body)]
                      (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
@@ -74,7 +74,7 @@
         c-uid    (:uid chat)
         count    (count children)]
     (p (str pre "for these: "))
-    ;(pp children)
+    (cljs.pprint/pprint children)
     (go
       (doseq [child children]
         ^{:key child}
@@ -96,7 +96,7 @@
                                                                           (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
                                                                           "```")]
                                                           (p (str pre "extracted data from query pages:"))
-                                                          ;(pp page-data)
+                                                          (cljs.pprint/pprint page-data)
                                                           (create-new-block
                                                             m-uid
                                                             order
@@ -117,7 +117,7 @@
                                                                                                get-linked-refs?))
                                                              "```")]
                                              (p (str pre "extracted data for the page:"))
-                                             ;(pp page-data)
+                                             (cljs.pprint/pprint page-data)
                                              (create-new-block
                                                m-uid
                                                order

@@ -126,16 +126,16 @@
                                        (<p! (js/Promise.
                                               (fn [_]
                                                 (p (str pre "Calling openai api, with settings :"))
-                                                ;(pp settings)
+                                                (cljs.pprint/pprint settings)
                                                 (p (str pre "and messages :"))
-                                                ;(pp messages)
+                                                (cljs.pprint/pprint messages)
                                                 (p (str pre "Now sending message and wait for response ....."))
                                                 (call-openai-api
                                                   {:messages messages
                                                    :settings settings
                                                    :callback (fn [response]
                                                                (p (str pre "openai api response received:"))
-                                                               ;(pp response)
+                                                               (cljs.pprint/pprint response)
                                                                (let [res-str (-> response
                                                                                :body)]
                                                                  (update-block-string
