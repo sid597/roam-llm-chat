@@ -45,8 +45,7 @@
                                                       {:s ""}]
                                       ai-block? (ai-block-exists? open-page-uid)]
                                   (p (str pre "block with `AI chats` exist? " ai-block?))
-                                  (cljs.pprint/pprint context)
-
+                                  (p (str pre "context" context))
                                   ;(println "open page uid" open-page-uid)
                                   ;(println "page title" page-title)
                                   ;(println "extract block" block-data)
@@ -56,17 +55,14 @@
                                       ai-block?
                                       chat-block-uid
                                       true
-                                      (do
-                                        (p (str pre "Created a new chat block and opening in sidebar with context: "))
-                                        (cljs.pprint/pprint context)))
+                                      (p (str pre "Created a new chat block and opening in sidebar with context: " context)))
                                    (create-struct
                                      (chat-ui-with-context-struct chat-block-uid nil context-struct)
                                      open-page-uid
                                      chat-block-uid
                                      true
-                                     (do
-                                       (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: "))
-                                       (cljs.pprint/pprint context)))))))}
+                                     (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context)))))))}
+
        "Chat with this page"]]
      [:> Divider]
      [:div

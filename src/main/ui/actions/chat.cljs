@@ -25,10 +25,8 @@
             (swap! message-by-role conj {:role "user"
                                          :content (str (extract-from-code-block msg-str))})))))
 
-    (p (str pre "Calling openai api, with settings :"))
-    (cljs.pprint/pprint settings)
-    (p (str pre "and messages :"))
-    (cljs.pprint/pprint @message-by-role)
+    (p (str pre "Calling openai api, with settings : " settings))
+    (p (str pre "and messages : " @message-by-role))
     (p (str pre "Counting tokens for message:"))
     (count-tokens-api {:message @message-by-role
                        :model (:model settings)
@@ -40,8 +38,7 @@
        :settings settings
        :callback (fn [response]
                    (println "received response from llm")
-                   (p (str pre "openai api response received:"))
-                   (cljs.pprint/pprint response)
+                   (p (str pre "openai api response received: " response))
                    (let [res-str (-> response
                                    :body)]
                      (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
@@ -73,8 +70,7 @@
         children (:children chat)
         c-uid    (:uid chat)
         count    (count children)]
-    (p (str pre "for these: "))
-    (cljs.pprint/pprint children)
+    (p (str pre "for these: " children))
     (go
       (doseq [child children]
         ^{:key child}
@@ -95,8 +91,7 @@
                                                                           "```"
                                                                           (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
                                                                           "```")]
-                                                          (p (str pre "extracted data from query pages:"))
-                                                          (cljs.pprint/pprint page-data)
+                                                          (p (str pre "extracted data from query pages: " page-data))
                                                           (create-new-block
                                                             m-uid
                                                             order
@@ -116,8 +111,7 @@
                                                                                                [{:text (is-a-page? cstr)}]
                                                                                                get-linked-refs?))
                                                              "```")]
-                                             (p (str pre "extracted data for the page:"))
-                                             (cljs.pprint/pprint page-data)
+                                             (p (str pre "extracted data for the page: " page-data))
                                              (create-new-block
                                                m-uid
                                                order

@@ -29,14 +29,12 @@
         ai-block-exists?
         chat-block-uid
         true
-        (do
-          (p (str pre "Created a new chat block and opening in sidebar with context: "))
-          (cljs.pprint/pprint context-structure)))
+        (p (str pre "Created a new chat block and opening in sidebar with context: " context-structure)))
+
       (create-struct
         (chat-ui-with-context-struct chat-block-uid context-block-uid context-structure)
         (get-todays-uid)
         chat-block-uid
         true
-        (do
-          (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: "))
-          (cljs.pprint/pprint context-structure))))))
+        (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context-structure))))))
+

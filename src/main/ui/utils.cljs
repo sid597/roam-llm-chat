@@ -309,8 +309,7 @@
          stack (atom [struct])
          t? (:t struct)
          res (atom [top-parent])]
-     (p pre)
-     (cljs.pprint/pprint struct)
+     (p pre struct)
      (p (str pre "open in sidebar?") open-in-sidebar?)
      (go
        (while (not-empty @stack)
@@ -330,7 +329,6 @@
               (if (some? t)
                 (<p! (create-new-page t (if (some? u) u new-uid)))
                 (<p! (create-new-block-with-id args)))
-              (cljs.pprint/pprint  args)
               (swap! res rest)
               (swap! res #(vec (concat % (vec (repeat (count (:c cur))
                                                 (if (some? (:u cur))
