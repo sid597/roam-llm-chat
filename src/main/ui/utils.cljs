@@ -75,7 +75,7 @@
             uid)))
 
 (defn is-a-page? [s]
-  (second (re-find #"\[\[(.+)\]\]" s)))
+  (second (re-find #"\A\[\[(.+)\]\]\z" (clojure.string/trim s))))
 
 (defn extract-from-code-block [s]
   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
