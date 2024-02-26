@@ -75,7 +75,10 @@
             uid)))
 
 (defn is-a-page? [s]
-  (second (re-find #"\A\[\[(.+)\]\]\z" (clojure.string/trim s))))
+  (second (re-find #"^\[\[(.+)\]\]$" (clojure.string/trim s))))
+
+(comment (is-a-page? " [[[[ISS]] - scope other options for the LLM chat interface]]"))
+
 
 (defn extract-from-code-block [s]
   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
