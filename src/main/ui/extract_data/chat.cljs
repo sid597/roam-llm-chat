@@ -45,7 +45,7 @@
 (defn get-children-for
   ([node] (get-children-for node false))
   ([node block?]
-   (p "Inside get children for particular page or block function")
+   (p "Inside get children for particular page or block function: " node)
    (let [eid               (cond
                              (int? node) node
                              block?   (uid->eid node)

@@ -75,9 +75,11 @@
             uid)))
 
 (defn is-a-page? [s]
-  (second (re-find #"^\[\[(.+)\]\]$" (clojure.string/trim s))))
+  (second (re-find #"^\[\[(.*?)\]\]$" (clojure.string/trim s))))
 
-(comment (is-a-page? " [[[[ISS]] - scope other options for the LLM chat interface]]"))
+(comment
+  (is-a-page? " [[[[ISS]] - scope other options for the LLM chat interface]]")
+  (is-a-page? "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]"))
 
 
 (defn extract-from-code-block [s]
@@ -394,12 +396,14 @@
         :c [{:s "true"}]}]})
 
 
-(defn common-chat-struct [context-structure context-block-uid]
+(defn common-chat-struct [context-structure context-block-uid context-open?]
   [{:s "Messages"}
-   {:s "Context"}
-   {:s "Chat"
+   {:s "Context"
+    :op (or context-open? true)
     :c (or context-structure [{:s ""}])
     :u (or context-block-uid nil)}
+   {:s "Chat"
+    :c [{:s ""}]}
    settings-struct])
 
 
@@ -417,7 +421,7 @@
     :op false
     :o chat-block-order
     :u (or chat-block-uid nil)
-    :c (common-chat-struct context-structure context-block-uid)}))
+    :c (common-chat-struct context-structure context-block-uid false)}))
 
 
 (defn chat-ui-with-context-struct
@@ -435,7 +439,7 @@
     :c [{:s "{{ chat-llm }}"
          :op false
          :u (or chat-block-uid nil)
-         :c (common-chat-struct context-structure context-block-uid)}]}))
+         :c (common-chat-struct context-structure context-block-uid false)}]}))
 
 
 ;; ---- Open ai specific ----

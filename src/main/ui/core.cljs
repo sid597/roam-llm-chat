@@ -111,7 +111,7 @@
           (doseq [match (get-matches node "bp3-button" "BUTTON")]
             (js/setTimeout
              (fn [] (load-ui match))
-             200)))))))
+             250)))))))
 
 (defn start-observing []
   (let [observer (js/MutationObserver. mutation-callback)]
