@@ -141,11 +141,12 @@
                                                                           (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
                                                                           "```")]
                                                           (p (str pre "extracted data from query pages: " page-data))
-                                                          (create-new-block
-                                                            m-uid
-                                                            order
+                                                          (update-block-string-and-move
+                                                            child-uid
                                                             page-data
-                                                            #()))))))
+                                                            m-uid
+                                                            order))))))
+
 
               (some? (is-a-page? cstr)) (<p!
                                           (do
@@ -157,12 +158,11 @@
                                                                                                 get-linked-refs?))
                                                               "```")]
                                               (p (str pre "extracted data for the page: " page-data))
-                                              (create-new-block
-                                                m-uid
-                                                order
+                                              (update-block-string-and-move
+                                                child-uid
                                                 page-data
-                                                #()))))
-
+                                                m-uid
+                                                order))))
               :else                     (<p!
                                           (do
                                             (p (str pre "This is a normal block: " cstr))
