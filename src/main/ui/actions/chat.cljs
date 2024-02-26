@@ -146,32 +146,27 @@
                                                             page-data
                                                             m-uid
                                                             order))))))
-
-
-              (some? (is-a-page? cstr)) (<p!
-                                          (do
-                                            (p (str pre "This is a page: " cstr))
-                                            (let [page-data (str
-                                                              "```"
-                                                              (clojure.string/join "\n -----" (data-for-pages
-                                                                                                [{:text (is-a-page? cstr)}]
-                                                                                                get-linked-refs?))
-                                                              "```")]
-                                              (p (str pre "extracted data for the page: " page-data))
-                                              (update-block-string-and-move
-                                                child-uid
-                                                page-data
-                                                m-uid
-                                                order))))
-              :else                     (<p!
-                                          (do
-                                            (p (str pre "This is a normal block: " cstr))
-                                            (move-block
-                                              m-uid
-                                              order
-                                              child-uid))))))))
-
-    (go
+              (some? (is-a-page? cstr)) (do
+                                          (p (str pre "This is a page: " cstr))
+                                          (let [page-data (str
+                                                            "```"
+                                                            (clojure.string/join "\n -----" (data-for-pages
+                                                                                              [{:text (is-a-page? cstr)}]
+                                                                                              get-linked-refs?))
+                                                            "```")]
+                                            (p (str pre "extracted data for the page: " page-data))
+                                            (<p! (update-block-string-and-move
+                                                   child-uid
+                                                   page-data
+                                                   m-uid
+                                                   order))))
+              :else
+                                        (do
+                                          (p (str pre "This is a normal block: " cstr))
+                                          (<p! (move-block
+                                                 m-uid
+                                                 order
+                                                 child-uid)))))))
       (<p! (create-new-block c-uid "first" "" ()))
       (<p! (js/Promise. (fn [_]
                           (p (str pre "refresh messages window with parent-id: " parent-id))
