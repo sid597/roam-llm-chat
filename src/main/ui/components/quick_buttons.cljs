@@ -114,7 +114,9 @@
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
                                                                  (str @context "\n" page-data))
-                                         settings            {:model @default-model
+                                         settings            {:model(if (= "gpt-4" @default-model)
+                                                                      "gpt-4-0125-preview"
+                                                                      "gpt-3.5-turbo-0125")
                                                               :max-tokens @default-msg-value
                                                               :temperature @default-temp}
                                          messages            [{:role "user"
