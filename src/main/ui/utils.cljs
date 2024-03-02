@@ -104,7 +104,6 @@
 
 (defn add-pull-watch
   [pull-pattern entity-id callback]
-  (println "add pull watch :" entity-id)
   (let [roam-api (.-data (.-roamAlphaAPI js/window))
         add-pull-watch-fn (.-addPullWatch roam-api)
         js-callback (fn [before after]
@@ -118,6 +117,13 @@
 (defn watch-children [block-uid cb]
   (let [pull-pattern "[:block/uid :block/order {:block/children ...}]"
         entity-id (str [:block/uid block-uid])]
+    (println "add pull watch :" entity-id)
+    (add-pull-watch pull-pattern entity-id cb)))
+
+(defn watch-string [block-uid cb]
+  (let [pull-pattern "[:block/uid :block/string]"
+        entity-id (str [:block/uid block-uid])]
+    (p "add string watch :" entity-id)
     (add-pull-watch pull-pattern entity-id cb)))
 
 
@@ -425,7 +431,9 @@
        {:s "Temperature"
         :c [{:s "0.9"}]}
        {:s "Get linked refs"
-        :c [{:s "true"}]}]})
+        :c [{:s "true"}]}
+       {:s "Active?"
+        :c [{:s "false"}]}]})
 
 
 (defn common-chat-struct [context-structure context-block-uid context-open?]
