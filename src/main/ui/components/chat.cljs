@@ -1,7 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [p pp update-block-string-for-block-with-child]]
+            [ui.utils :refer [p get-child-with-str watch-children pp update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -27,7 +27,7 @@
                                #_(println "5. chat context block rendered successfully")))
                            (.catch (fn [e]
                                      (log "Error in chat context block" (:uid @context) e @context))))
-                         (p "Scroll to bottom")
+                         (p "Scroll chat to bottom")
                          (.scrollTo context-el 0 (.-scrollHeight context-el))
                          (.scrollTo context-el 0 (.-scrollHeight context-el))
                          (.scrollTo context-el 0 (.-scrollHeight context-el))))]
@@ -38,8 +38,9 @@
         (fn []
           (let [cmsg (:children @context)]
             #_(println "3. chat context insdie component")
-            [:div.chat-loader
-             {:ref (fn [el] (reset! context-ref el))
+            [:div
+             {:class-name (str "chat-context-" (:uid @context))
+              :ref (fn [el] (reset! context-ref el))
               :on-key-down handle-keydown-event
               :style (merge {:flex "1 1 auto"
                              :height "100%"
@@ -54,47 +55,47 @@
                        style-map)}]))}))))
 
 
-(defn chat-history [messages token-count]
-  #_(println "load chat-history")
-  ;(pprint (sort-by :order (:children @messages)))
-  (let [history-ref (r/atom nil)
+(defn chat-history [m-uid m-children token-count]
+  (let [history-ref  (r/atom nil)
         update-fn   (fn [this]
                       (when-let [hist-el @history-ref]
                         (p "chat history update fn")
+                        (pp @m-children)
                         (set! (.-innerHTML hist-el ) "")
                         (doall
-                          (for [child (reverse (sort-by :order (:children @messages)))]
+                          (for [child (reverse (sort-by :order (:children @m-children)))]
                             ^{:key child}
-                            (let [uid (:uid child)
-                                  msg-block-div (.createElement js/document (str "div.msg-" uid))]
-                              (do
-                                ;(log "chat-history ref" hist-el)
-                                #_(println "chat histor child ---->" child)
-                                (if (.hasChildNodes hist-el)
-                                  (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
-                                  (.appendChild hist-el msg-block-div (.-firstChild hist-el)))
-                                (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                                      (clj->js {:uid uid
-                                                :zoom-path true
-                                                :el msg-block-div}))
-                                  (.then (fn [_])))))))
+                            (do
+                             (let [uid (:uid child)
+                                   msg-block-div (.createElement js/document (str "div.msg-" uid))]
+                               (do
+                                 ;(log "chat-history ref" hist-el)
+                                 #_(println "chat histor child ---->" child)
+                                 (if (.hasChildNodes hist-el)
+                                   (.insertBefore hist-el msg-block-div (.-firstChild hist-el))
+                                   (.appendChild hist-el msg-block-div (.-firstChild hist-el)))
+                                 (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                                   (clj->js {:uid uid
+                                             :zoom-path true
+                                             :el msg-block-div})))))))
                         (.scrollTo hist-el 0 (.-scrollHeight hist-el))))]
+
 
     (r/create-class
       {:component-did-update update-fn
        :component-did-mount  update-fn
-       :reagent-render       (fn []
-                               (let [msgs @messages
-                                     tc @token-count
+       :reagent-render       (fn [_ _ _]
+                               (let [tc @token-count
                                      id (random-uuid)]
                                  (p "TOKEN COUNT" tc)
                                  [:div
-                                  {:style
+                                  {:class-name (str "chat-history-container-" m-uid)
+                                   :style
                                     {:display "flex"
                                      :flex-direction "column"}}
-                                  [:div.messages
-                                   {:ref   (fn [el] (reset! history-ref el))
-                                    :class (str "chat-history-" id)
+                                  [:div
+                                   {:class-name (str "chat-history-" m-uid)
+                                    :ref   (fn [el] (reset! history-ref el))
                                     :style {:flex "1"
                                             :overflow-y "auto"
                                             :margin "10px 10px -10px"
@@ -103,8 +104,9 @@
                                             :border-radius "8px 8px 0px 0px"
                                             :background "aliceblue"}}]
 
-                                  [:div.messages-chin
-                                   {:style {:display "flex"
+                                  [:div
+                                   {:class-name (str "messages-chin-" m-uid)
+                                    :style {:display "flex"
                                             :flex-direction "row"
                                             :border-radius "0px 0px 8px 8px"
                                             :margin "-10px 10px 10px"
@@ -117,7 +119,7 @@
                                             :align-items "center"
                                             :border "1px"}}
                                    [:span (str "Tokens used: " tc)]
-                                   [:> Button {:class-name "scroll-down-button"
+                                   [:> Button {:class-name (str "scroll-down-button" m-uid)
                                                :style {:width "30px"}
                                                :icon "chevron-down"
                                                :minimal true
@@ -127,7 +129,7 @@
                                                             (p "scroll down button clicked")
                                                             (when el
                                                               (set! (.-scrollTop el) (.-scrollHeight el))))}]
-                                   [:> Button {:class-name "scroll-up-button"
+                                   [:> Button {:class-name (str "scroll-up-button" m-uid)
                                                :style {:width "30px"}
                                                :icon "chevron-up"
                                                :minimal true

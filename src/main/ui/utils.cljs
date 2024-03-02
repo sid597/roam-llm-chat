@@ -60,7 +60,6 @@
                [?e :block/uid ?uid]]
             title)))
 
-(println "=======" (title->uid "[[ISS]] - scope other options for the LLM chat interface"))
 
 (defn get-eid [title]
   (ffirst (q '[:find ?eid
@@ -89,7 +88,40 @@
       (str (second m) " \n ")
       (str s " \n "))))
 
-(defn get-child-with-str [block-uid s]
+
+(defn unnamespace-keys
+  [m]
+  (let [remove-ns (fn [k] (keyword (name k)))] ; Helper to remove namespace
+    (into {}
+      (mapv (fn [[k v]]
+              [(remove-ns k) ; Remove namespace from key
+               (if (map? v)
+                 (unnamespace-keys v) ; Recursively process nested maps
+                 (if (coll? v)
+                   (mapv unnamespace-keys v) ; Apply recursively to each item if v is a collection
+                   v))]) ; Leave other values unchanged
+        m))))
+
+(defn add-pull-watch
+  [pull-pattern entity-id callback]
+  (println "add pull watch :" entity-id)
+  (let [roam-api (.-data (.-roamAlphaAPI js/window))
+        add-pull-watch-fn (.-addPullWatch roam-api)
+        js-callback (fn [before after]
+                      (let [b (unnamespace-keys (js->clj before :keywordize-keys true))
+                            a (unnamespace-keys (js->clj after :keywordize-keys true))]
+                        (callback b a)))]
+    (.addPullWatch roam-api pull-pattern entity-id js-callback)))
+
+
+
+(defn watch-children [block-uid cb]
+  (let [pull-pattern "[:block/uid :block/order {:block/children ...}]"
+        entity-id (str [:block/uid block-uid])]
+    (add-pull-watch pull-pattern entity-id cb)))
+
+
+(defn get-child-with-str  [block-uid s]
   (ffirst (q '[:find (pull ?c [:block/string :block/uid :block/order {:block/children ...}])
                :in $ ?uid ?s
                :where

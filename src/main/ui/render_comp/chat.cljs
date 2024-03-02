@@ -3,7 +3,7 @@
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.components.chat :as comp :refer [send-message-component chin chat-context chat-history]]
-            [ui.utils :refer [create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [watch-children create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions.chat :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
 
@@ -15,6 +15,7 @@
         context           (r/atom (get-child-with-str block-uid "Context"))
         messages          (r/atom (get-child-with-str block-uid "Messages"))
         chat              (r/atom (get-child-with-str block-uid "Chat"))
+        messages-atom     (r/atom [])
         active?           (r/atom false)
         token-count       (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Token count")))
         default-msg-value (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
@@ -23,13 +24,13 @@
         get-linked-refs   (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
                                     true
                                     false))]
+    (watch-children
+      (:uid @messages)
+      (fn [_ aft]
+        (p "context children changed" aft)
+        (reset! messages-atom aft)))
    (fn [_]
-     ;(p "--------> default model" @default-model "default temp" @default-temp "default msg value" @default-msg-value "default token count" @token-count)
-     #_(when (nil? @default-model)
-         (create-struct settings-struct block-uid nil false)
-         (p "reseting dummy atom" @dummy-atom)
-         (reset! dummy-atom 2))
-     (let [msg               @messages
+     (let [msg-children       @messages-atom
            c-msg             (:children @context)
            callback          (fn [{:keys [b-uid] :or {b-uid block-uid}}]
                                ;(println "called callback to load context")
@@ -56,8 +57,9 @@
                                               (j/get :block-uid))
                                        b-parent (get-parent-parent buid)]
                                   (callback b-parent))))]
-       [:div.chat-container
-        {:style {:display "flex"
+       [:div
+        {:class-name (str "chat-container-" block-uid)
+         :style {:display "flex"
                  :flex-direction "column"
                  :border-radius "8px"
                  :overflow "hidden"}}
@@ -68,16 +70,17 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-         [:div.chat-input-container
-                   {:style {:display "flex"
-                            :flex-direction "row"
-                            :border-radius "8px"
-                            :margin "10px 10px "
-                            :background-color "whitesmoke"
-                            :border "1px"}}
-                   [chat-context context #() {:min-height ""
-                                              :padding-bottom "10px"}]]
-         [chat-history messages token-count]
+         [:div
+           {:class-name (str "chat-input-container-" block-uid)
+            :style {:display "flex"
+                    :flex-direction "row"
+                    :border-radius "8px"
+                    :margin "10px 10px "
+                    :background-color "whitesmoke"
+                    :border "1px"}}
+           [chat-context context #() {:min-height     ""
+                                      :padding-bottom "10px"}]]
+         [chat-history (:uid messages) messages-atom token-count {:key (hash msg-children)}]
          [:div.chat-input-container
           {:style {:display "flex"
                    :flex-direction "row"
