@@ -1,24 +1,29 @@
 (ns ui.actions.graph-overview-ai
   (:require
-    [ui.utils :refer [p pp ai-block-exists? chat-ui-with-context-struct default-chat-struct q create-new-block create-new-block-with-id get-todays-uid create-struct]]
+    [ui.utils :refer [p get-child-of-child-with-str-on-page pp ai-block-exists? chat-ui-with-context-struct default-chat-struct q create-new-block create-new-block-with-id get-todays-uid create-struct]]
     [ui.extract-data.graph-overview-ai :refer [get-explorer-pages]]))
 
 
 
 (defn create-chat-ui-blocks-for-selected-overview [chat-block-uid context-block-uid]
-  (let [pre               "*Load filtered pages into chat*"
+  (let [pre               "*Load filtered pages into chat* : "
         {:keys
          [in-pages
           out-pages
           page-name]}     (get-explorer-pages)
         make-page         (fn [page]
                             (str "[[" page "]]"))
-        context-structure (-> [{:s "**Write some instructions for context here**"}
+        pre-prompt        (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
+                                 :children
+                                 first
+                                 :string))
+        context-structure (-> [{:s pre-prompt}
                                {:s (make-page page-name)}
                                {:s "**Incoming pages:** "}]
                             (concat (map #(do
                                             {:s  (make-page %)}) in-pages))
-                            (concat [{:s "**Outgoing pages:** "}]
+                            (concat
+                              [{:s "**Outgoing pages:** "}]
                              (map #(do {:s  (make-page %)}) out-pages)))
         ai-block?          (ai-block-exists? (get-todays-uid))]
 
