@@ -422,6 +422,7 @@
 
 (def settings-struct
   {:s "Settings"
+   :op false
    :c [{:s "Token count"
         :c [{:s "0"}]}
        {:s "Model"
