@@ -16,7 +16,7 @@
         context            (r/atom (get-child-with-str block-uid "Context"))
         messages           (r/atom (get-child-with-str block-uid "Messages"))
         chat               (r/atom (get-child-with-str block-uid "Chat"))
-        messages-atom      (r/atom [])
+        messages-atom      (r/atom (get-child-with-str block-uid "Messages"))
         active?            (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Active?"))
                                      true
                                      false))
