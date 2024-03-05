@@ -81,6 +81,8 @@
     s))
 
 (defn load-ui [node]
+  (p "load ui for chat-llm button: ")
+  (js/console.log node)
   (let [dom-id (-> (j/call node :closest "div") (j/get :id))
         pbuid (and (not (empty? dom-id)) (extract-last-substring dom-id))]
     (when pbuid
@@ -110,8 +112,12 @@
         (when (instance? js/Element node)
           (doseq [match (get-matches node "bp3-button" "BUTTON")]
             (js/setTimeout
-             (fn [] (load-ui match))
-             200)))))))
+                (fn []
+                  (do
+                    (p "Set Timeout: New chat-llm button candidate found: ")
+                    (js/console.log match)
+                    (load-ui match)))
+             300)))))))
 
 (defn start-observing []
   (let [observer (js/MutationObserver. mutation-callback)]
@@ -121,6 +127,7 @@
 (defn setup []
   (p "Load the plugin UI for each chat-llm roam render button i.e all blocks with text: `{{ chat-llm }}` ")
   (doseq [match (get-matches js/document "bp3-button" "BUTTON")]
+    (p "Initialising setup for matching buttons")
     (load-ui match)))
 
 
