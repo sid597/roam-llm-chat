@@ -1,7 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [p get-child-with-str watch-children pp update-block-string-for-block-with-child]]
+            [ui.utils :refer [p get-child-with-str watch-children update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -16,7 +16,6 @@
          update-fn   (fn [this]
                        (when-let [context-el @context-ref]
                          ;(println "4. chat context update fn")
-                         ;(pprint @context)
                          ;(set! (.-innerHTML context-el ) "")
                          (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
                                (clj->js {:uid (:uid @context)
@@ -56,8 +55,7 @@
   (let [history-ref  (r/atom nil)
         update-fn   (fn [this]
                       (when-let [hist-el @history-ref]
-                        (p "chat history update fn")
-                        (pp @m-children)
+                        (p "chat history update fn: " @m-children)
                         (set! (.-innerHTML hist-el ) "")
                         (doall
                           (for [child (reverse (sort-by :order (:children @m-children)))]

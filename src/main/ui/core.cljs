@@ -4,7 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
-            [ui.utils :refer [p pp chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
+            [ui.utils :refer [p chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
             [reagent.dom :as rd]))
 
 

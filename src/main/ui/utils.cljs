@@ -13,8 +13,6 @@
 (defn p [& args]
   (apply println (str "CL: ") args))
 
-(defn pp [arg]
-  (cljs.pprint/pprint arg))
 
 ;; ---- Datascript specific ------
 

@@ -1,7 +1,7 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [p pp extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})

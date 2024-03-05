@@ -5,7 +5,7 @@
             [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks]]
             [ui.components.chat :refer [chat-context chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p get-child-of-child-with-str title->uid pp q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p get-child-of-child-with-str title->uid q block-with-str-on-page? call-openai-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 

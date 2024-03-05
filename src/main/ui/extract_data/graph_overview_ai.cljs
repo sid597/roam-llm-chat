@@ -47,7 +47,6 @@
                                    qry-res)]
 
    ; (println "In qry res count:" (count qry-res))
-   ; (cljs.pprint/pprint qry-res)
     filtered-discourse-nodes))
 
 (comment
@@ -90,7 +89,6 @@
                                    #{}
                                    qry-res)]
     ;(println "Out qry res count:" (count qry-res))
-    ;(cljs.pprint/pprint qry-res)
     filtered-discourse-nodes))
 
 

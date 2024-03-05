@@ -4,7 +4,7 @@
             [ui.components.quick-buttons :refer [button-with-settings]]
             [ui.extract-data.chat :refer [data-for-blocks]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p pp ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 

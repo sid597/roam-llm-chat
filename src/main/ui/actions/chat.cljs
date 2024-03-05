@@ -2,7 +2,7 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :refer [count-tokens-api update-block-string-for-block-with-child q p pp get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [ui.utils :refer [count-tokens-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [ui.extract-data.chat :as ed :refer [data-for-pages]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
@@ -103,7 +103,6 @@
 
 (defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
   #_(println "load context ")
-  ;(pprint context)
   (p "*load context* for block with uid:" parent-id)
   (let [pre      "*load context* :"
         messages (get-child-with-str parent-id "Messages")

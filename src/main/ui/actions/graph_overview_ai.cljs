@@ -1,6 +1,6 @@
 (ns ui.actions.graph-overview-ai
   (:require
-    [ui.utils :refer [p get-child-of-child-with-str-on-page pp ai-block-exists? chat-ui-with-context-struct default-chat-struct q create-new-block create-new-block-with-id get-todays-uid create-struct]]
+    [ui.utils :refer [p get-child-of-child-with-str-on-page ai-block-exists? chat-ui-with-context-struct default-chat-struct q create-new-block create-new-block-with-id get-todays-uid create-struct]]
     [ui.extract-data.graph-overview-ai :refer [get-explorer-pages]]))
 
 
