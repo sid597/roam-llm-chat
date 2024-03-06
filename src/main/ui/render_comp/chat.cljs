@@ -114,26 +114,28 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-         [:div
+         [:div.top-comp
            {:class-name (str "chat-input-container-" block-uid)
             :style {:display "flex"
                     :flex-direction "row"
-                    :border-radius "8px"
-                    :margin "10px 10px "
+                    :box-shadow "rgb(100 100 100) 0px 0px 5px 0px"
+                    :margin-bottom "15px"
                     :background-color "whitesmoke"
                     :border "1px"}}
            [chat-context context #() {:min-height     ""
+                                      :background-color "whitesmoke"
                                       :padding-bottom "10px"}]]
+
          [chat-history (:uid messages) messages-atom token-count {:key (hash msg-children)}]
-         [:div.chat-input-container
-          {:style {:display "flex"
-                   :flex-direction "row"
-                   :border-radius "8px"
-                   :margin "10px 10px -10px 10px  "
-                   :background-color "whitesmoke"
-                   :border "1px"}}
-          [chat-context chat handle-key-event]]
-         [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]))))
+         [:div.bottom-comp
+          {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+          [:div.chat-input-container
+           {:style {:display "flex"
+                    :flex-direction "row"
+                    :background-color "#f6cbfe3d"
+                    :border "1px"}}
+           [chat-context chat handle-key-event]]
+          [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]]))))
 
 
 

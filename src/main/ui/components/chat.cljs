@@ -44,9 +44,8 @@
                              :flex-direction "column"
                              :display "flex"
                              :align-items "stretch"
-                             :background-color "whitesmoke"
+                             :background-color "#f6cbfe3d"
                              :min-height "100px"
-                             :border-radius "8px 8px 0px 0px"
                              :max-height "700px"}
                        style-map)}]))}))))
 
@@ -83,28 +82,26 @@
                                (let [tc @token-count
                                      id (random-uuid)]
                                  (p "TOKEN COUNT" tc)
-                                 [:div
+                                 [:div.middle-comp
                                   {:class-name (str "chat-history-container-" m-uid)
                                    :style
                                     {:display "flex"
+                                     :box-shadow "#2e4ba4d1 0px 0px 4px 0px"
+                                     :margin-bottom "15px"
                                      :flex-direction "column"}}
                                   [:div
                                    {:class-name (str "chat-history-" m-uid)
                                     :ref   (fn [el] (reset! history-ref el))
                                     :style {:flex "1"
                                             :overflow-y "auto"
-                                            :margin "10px 10px -10px"
                                             :min-height "300px"
                                             :max-height "700px"
-                                            :border-radius "8px 8px 0px 0px"
                                             :background "aliceblue"}}]
 
                                   [:div
                                    {:class-name (str "messages-chin-" m-uid)
                                     :style {:display "flex"
                                             :flex-direction "row"
-                                            :border-radius "0px 0px 8px 8px"
-                                            :margin "-10px 10px 10px"
                                             :background-color "aliceblue"
                                             :min-height "27px"
                                             :justify-content "end"
@@ -168,8 +165,7 @@
    [:> Popover
     {:position "bottom"}
     [:> Button {:minimal true
-                :small true
-                :style {:background-color bg-color}}
+                :small true}
      button-text]
     [:> Menu
      {:style {:padding "20px"}}
@@ -183,9 +179,7 @@
    [:div.chin
      {:style {:display "flex"
               :flex-direction "row"
-              :border-radius "0px 0px 8px 8px"
-              :margin "10px"
-              :background-color "#eeebeb"
+              :background-color "#f6cbfe3d"
               :min-height "27px"
               :justify-content "space-between"
               :font-size "10px"

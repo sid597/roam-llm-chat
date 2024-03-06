@@ -68,15 +68,14 @@
                            :flex-direction "column"
                            :border "2px solid rgba(0, 0, 0, 0.2)"
                            :border-radius "8px"}}
-          [:div.chat-input-container
-           {:style {:display "flex"
-                    :flex-direction "row"
-                    :border-radius "8px"
-                    :margin "10px 10px -10px 10px  "
-                    :background-color "whitesmoke"
-                    :border "1px"}}
-           [chat-context context #()]]
-          [chin default-model default-msg-value default-temp get-linked-refs? active? block-uid]]]]
+          [:div.summary-component
+            {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+            [:div.chat-input-container
+             {:style {:display "flex"
+                      :flex-direction "row"
+                      :border "1px"}}
+             [chat-context context #()]]
+            [chin default-model default-msg-value default-temp get-linked-refs? active? block-uid]]]]]
        [:div {:style {:flex "1 1 1"}}
          [:> Button {:minimal true
                      :small true
