@@ -9,6 +9,54 @@
 (comment
   (contains? skip-blocks-with-string "{{ chat-llm }}"))
 
+(defn extract-markdown-image [s]
+  (let [pattern #"!\[(.*?)\]\((.*?)\)"
+        matches (re-find pattern s)]
+    (if matches
+      {:text (nth matches 1)
+       :url (nth matches 2)}
+      false)))
+
+(comment
+  (extract-markdown-image "![image](https://www.google.com)")
+  (extract-markdown-image "![image](https://www.google.com) text at the end")
+  (extract-markdown-image "text at the start ![image](https://www.google.com) text at the end"))
+
+(defn find-blocks-with-images [node]
+  (when-not (contains? skip-blocks-with-string (:string node))
+    (let [block?          (some? (:string node))
+          current-image? (if block? (extract-markdown-image (:string node)) false)
+          uid            (:uid node)
+          children       (or (:children node)
+                           [])]
+      (concat
+        (if  current-image?
+          [{:uid uid
+            :match current-image?}]
+          [])
+        (mapcat find-blocks-with-images children)))))
+
+
+
+(defn get-all-images-for-node [node block?]
+  (let [eid                (cond
+                             (int? node) node
+                             block?   (uid->eid node)
+                             :else    (get-eid node))
+        children           (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/uid])
+                                        :in $ ?eid]
+                                     eid))
+        blocks-with-images (find-blocks-with-images children)]
+    blocks-with-images))
+
+(comment
+  (get-all-images-for-node "testing 3" false)
+  (get-all-images-for-node "YNWR7PAne" true)
+  (get-all-images-for-node "[[EVD]] - Cryo electron tomography of actin branches in SKMEL2 cells showed a branching angle of 68 ± 15 degrees - @serwas2022mechanistic" false)
+  (get-all-images-for-node "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]" false)
+  (get-all-images-for-node "[[QUE]] - What is the rate at which cofilin binds actin filaments?" false))
+
+
 (defn extract-strings [node]
   (when-not (contains? skip-blocks-with-string (:string node))
     (let [block?          (some? (:string node))
@@ -65,7 +113,7 @@
 
 
 (comment
-
+  (get-children-for "3yD8b4Oer" true)
   (get-children-for "4llnpJ5Ae" true)
 
   (time (get-children-for "[[ISS]] - scope other options for the LLM chat interface"))
