@@ -200,13 +200,26 @@
                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4")
                        (reset! default-model "gpt-4"))}]
          [:> Divider]
-         [:> Menu
-          [:> Menu.Item
-           {:text "gpt-3.5"
-            :on-click (fn [e]
-                        #_(js/console.log "clicked menu item" e)
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-3.5")
-                        (reset! default-model "gpt-3.5"))}]]]]]
+         [:> Menu.Item
+          {:text "gpt-3.5"
+           :on-click (fn [e]
+                       #_(js/console.log "clicked menu item" e)
+                       (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-3.5")
+                       (reset! default-model "gpt-3.5"))}]
+         [:> Divider]
+         [:> Menu.Item
+          {:text "claude-3-opus"
+           :on-click (fn [e]
+                       #_(js/console.log "clicked menu item" e)
+                       (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
+                       (reset! default-model "claude-3-opus"))}]
+         [:> Divider]
+         [:> Menu.Item
+          {:text "claude-3-sonnet"
+           :on-click (fn [e]
+                       #_(js/console.log "clicked menu item" e)
+                       (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-sonnet")
+                       (reset! default-model "claude-3-sonnet"))}]]]]
       [:> Divider]
       [:div {:style {:overflow  "hidden"}}
         [button-popover

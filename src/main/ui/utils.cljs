@@ -481,13 +481,27 @@
          :c (common-chat-struct context-structure context-block-uid false)}]}))
 
 
-;; ---- Open ai specific ----
+;; ---- ai specific ----
+
+(def model-mappings
+  {"gpt-4"            "gpt-4-0125-preview"
+   "gpt-3.5"          "gpt-3.5-turbo-0125"
+   "claude-3-sonnet"  "claude-3-sonnet-20240229"
+   "claude-3-opus"    "claude-3-opus-20240229"})
+
+(defn model-type [model-name]
+  (cond
+    (clojure.string/starts-with? model-name "gpt")    :gpt
+    (clojure.string/starts-with? model-name "claude") :claude
+    :else                                             :unknown))
+
 
 (goog-define url-endpoint "")
 
-(defn call-openai-api [{:keys [messages settings callback]}]
+(defn call-api [url messages settings callback]
+  (p (str "------------ " url))
+  (p (str "------------ " settings))
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
-        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages
                           :settings settings
                           :passphrase passphrase})
@@ -497,10 +511,20 @@
                                 :json-params data})]
     (take! res-ch callback)))
 
+(defn call-llm-api [{:keys [messages settings callback]}]
+  (let [model (model-type (:model settings))]
+    (case model
+      :gpt    (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+                messages settings callback)
+      :claude (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+                messages settings callback)
+      (p "Unknown model"))))
+
+
 (defn count-tokens-api [{:keys [model message token-count-atom update? block-uid]}]
   (p "Count tokens api called")
   (let [url    "https://roam-llm-chat-falling-haze-86.fly.dev/count-tokens"
-        data    (clj->js {:model model
+        data    (clj->js {:model "gpt-4"
                           :message message})
         headers {"Content-Type" "application/json"}
         res-ch  (http/post url {:with-credentials? false

@@ -2,7 +2,7 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :refer [count-tokens-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [ui.utils :refer [count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [ui.extract-data.chat :as ed :refer [data-for-pages]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
@@ -12,11 +12,15 @@
   (p "*load context* send message to llm for uid: " block-uid)
   (let [pre "*load context* :"
         message-block (get-child-with-str block-uid "Messages")
-        messages (sort-by :order (:children message-block))
+        messages (atom (vec (sort-by :order (:children message-block))))
         message-by-role (r/atom [])
         m-uid (:uid message-block)]
+    (p (str "--------------------------->>>>>>>>>" (:string (first @messages)) "-- " context))
+    (p @messages)
+    (swap! messages update-in [0 :string] #(str context "\n" %))
+    (p @messages)
     (doall
-      (for [msg messages]
+      (for [msg @messages]
         (let [msg-str (:string msg)]
           (p  (re-find #"Assistant?: " msg-str))
           (if (some? (re-find #"Assistant: " msg-str))
@@ -26,7 +30,6 @@
                                          :content (str (extract-from-code-block msg-str))})))))
 
     (p (str pre "append chat messages to context messages"))
-    (reset! message-by-role (vec (concat context @message-by-role)))
 
     (p (str pre "Calling openai api, with settings : " settings))
     (p (str pre "and messages : " @message-by-role))
@@ -36,7 +39,7 @@
                        :token-count-atom token-count-atom
                        :block-uid block-uid})
     (p (str pre "Now sending message and wait for response ....."))
-    (call-openai-api
+    (call-llm-api
       {:messages @message-by-role
        :settings settings
        :callback (fn [response]
@@ -114,8 +117,7 @@
         children (:children chat)
         c-uid    (:uid chat)
         count    (count children)
-        context-str [{:role    "user"
-                      :content (extract-context (:children context) pre get-linked-refs?)}]]
+        context-str (extract-context (:children context) pre get-linked-refs?)]
 
 
     (p (str pre "for these: " children))

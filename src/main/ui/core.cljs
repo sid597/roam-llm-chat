@@ -117,7 +117,7 @@
                     (p "Set Timeout: New chat-llm button candidate found: ")
                     (js/console.log match)
                     (load-ui match)))
-             300)))))))
+             400)))))))
 
 (defn start-observing []
   (let [observer (js/MutationObserver. mutation-callback)]
