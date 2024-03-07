@@ -492,9 +492,10 @@
 
 (defn model-type [model-name]
   (cond
-    (str/starts-with? model-name "gpt")    :gpt
-    (str/starts-with? model-name "claude") :claude
-    :else                                             :unknown))
+    (str/starts-with? model-name "gpt")          :gpt
+    (str/starts-with? model-name "claude")       :claude
+    (str/starts-with? model-name "gpt-4-vision") :vision-gpt
+    :else                                        :unknown))
 
 
 (goog-define url-endpoint "")
@@ -515,10 +516,12 @@
 (defn call-llm-api [{:keys [messages settings callback]}]
   (let [model (model-type (:model settings))]
     (case model
-      :gpt    (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
-                messages settings callback)
-      :claude (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
-                messages settings callback)
+      :gpt        (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+                    messages settings callback)
+      :claude     (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+                    messages settings callback)
+      :vision-gpt (call-api "http://localhost:3000/vision-gpt"
+                    messages settings callback)
       (p "Unknown model"))))
 
 
@@ -562,3 +565,32 @@
       (swap! alternate-messages conj {:role    "user"
                                       :content (str @current-message)}))
     @alternate-messages))
+
+
+
+(defn image-to-text-for [nodes]
+  (doseq [node nodes]
+    (let [url      (-> node :match :url)
+          uid      (-> node :uid)
+          text     (-> node :match :text)
+          messages [{:role "user"
+                     :content [{:type "text"
+                                :text "What’s in this image?"}
+                               {:type "image_url"
+                                :image_url {:url url}}]}]
+          settings  {:model       "gpt-4-vision-preview"
+                     :max-tokens  400
+                     :temperature 0.9}
+          callback (fn [response]
+                      (let [res-str (-> response
+                                      :body)]
+                        (p "for uid" uid)
+                        (p "Old image description: " text)
+                        (p "Image to text response received, new image description: " res-str)
+                        (update-block-string
+                          uid
+                          (str "![" res-str "](" url ")"))))]
+      (call-llm-api
+        {:messages messages
+         :settings settings
+         :callback callback}))))

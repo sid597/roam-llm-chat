@@ -2,9 +2,9 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components.quick-buttons :refer [button-with-settings]]
-            [ui.extract-data.chat :refer [data-for-blocks]]
+            [ui.extract-data.chat :refer [data-for-pages data-for-blocks get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -114,4 +114,21 @@
      [:> Divider]
      [:div {:style {:flex "1 1 1"}}
       [filtered-pages-button]]
-     [:> Divider]]))
+     [:> Divider]
+     [:div
+      {:style {:flex "1 1 1"}}
+      [:> Button {:minimal true
+                  :small true
+                  :style {:flex "1 1 1"}
+                  :on-click (fn [e]
+                              (go
+                                (let [pre           "*Generate description for each image on page*"
+                                      open-page-uid (<p! (get-open-page-uid))
+                                      page-title    (uid->title open-page-uid)
+                                      all-images    (get-all-images-for-node page-title false)]
+                                  (p (str pre "all images on page: " all-images))
+                                  (image-to-text-for all-images))))}
+
+       "Generate description for each image on page"]]]))
+
+#_"![a nice cool puppy](https://timesofindia.indiatimes.com/photo/108245337/108245337.jpg)"
