@@ -54,7 +54,7 @@
   (let [history-ref  (r/atom nil)
         update-fn   (fn [this]
                       (when-let [hist-el @history-ref]
-                        (p "chat history update fn: " @m-children)
+                        ;(p "chat history update fn: " @m-children)
                         (set! (.-innerHTML hist-el ) "")
                         (doall
                           (for [child (reverse (sort-by :order (:children @m-children)))]
@@ -81,7 +81,7 @@
        :reagent-render       (fn [_ _ _]
                                (let [tc @token-count
                                      id (random-uuid)]
-                                 (p "TOKEN COUNT" tc)
+                                 ;(p "TOKEN COUNT" tc)
                                  [:div.middle-comp
                                   {:class-name (str "chat-history-container-" m-uid)
                                    :style

@@ -30,7 +30,7 @@
     (watch-children
       (:uid @messages)
       (fn [_ aft]
-        (p "context children changed" aft)
+        ;(p "context children changed" aft)
         (reset! messages-atom aft)))
 
     (watch-string

@@ -2,7 +2,7 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :refer [count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [ui.utils :refer [create-alternate-messages count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [ui.extract-data.chat :as ed :refer [data-for-pages]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
@@ -10,57 +10,43 @@
 
 (defn send-context-and-message [message-atom block-uid active? settings token-count-atom context]
   (p "*load context* send message to llm for uid: " block-uid)
-  (let [pre "*load context* :"
-        message-block (get-child-with-str block-uid "Messages")
-        messages (atom (vec (sort-by :order (:children message-block))))
-        message-by-role (r/atom [])
-        m-uid (:uid message-block)]
-    (p (str "--------------------------->>>>>>>>>" (:string (first @messages)) "-- " context))
-    (p @messages)
-    (swap! messages update-in [0 :string] #(str context "\n" %))
-    (p @messages)
-    (doall
-      (for [msg @messages]
-        (let [msg-str (:string msg)]
-          (p  (re-find #"Assistant?: " msg-str))
-          (if (some? (re-find #"Assistant: " msg-str))
-            (swap! message-by-role conj {:role    "assistant"
-                                         :content (str (clojure.string/replace msg-str #"Assistant: " ""))})
-            (swap! message-by-role conj {:role    "user"
-                                         :content (str (extract-from-code-block msg-str))})))))
-
-    (p (str pre "append chat messages to context messages"))
+  (let [pre             "*load context* :"
+        message-block   (get-child-with-str block-uid "Messages")
+        messages        (vec (sort-by :order (:children message-block)))
+        message-by-role (create-alternate-messages messages context pre)
+        m-uid           (:uid message-block)]
 
     (p (str pre "Calling openai api, with settings : " settings))
-    (p (str pre "and messages : " @message-by-role))
+    (p (str pre "and messages : " message-by-role))
     (p (str pre "Counting tokens for message:"))
-    (count-tokens-api {:message @message-by-role
+    (count-tokens-api {:message message-by-role
                        :model (:model settings)
                        :token-count-atom token-count-atom
                        :block-uid block-uid})
     (p (str pre "Now sending message and wait for response ....."))
+
     (call-llm-api
-      {:messages @message-by-role
+      {:messages message-by-role
        :settings settings
        :callback (fn [response]
                    (println "received response from llm")
                    (p (str pre "openai api response received: " response))
                    (let [res-str (-> response
                                    :body)]
-                     (create-new-block m-uid "last" (str "Assistant: " res-str) (js/setTimeout
-                                                                                  (fn []
-                                                                                    #_(println "new block in messages")
-                                                                                    (p (str pre "Update token count, after llm response"))
-                                                                                    (count-tokens-api {:message res-str
-                                                                                                       :model (:model settings)
-                                                                                                       :update? true
-                                                                                                       :block-uid block-uid
-                                                                                                       :token-count-atom token-count-atom})
-                                                                                    (p (str pre "Add assistant response block in messages: " m-uid))
-                                                                                    (reset! message-atom (get-child-with-str block-uid "Messages"))
-                                                                                    (update-block-string-for-block-with-child block-uid "Settings" "Active?" (str (not @active?)))
-                                                                                    (reset! active? false))
-                                                                                  500))))})))
+                     (create-new-block m-uid "last" (str "**Assistant:** " res-str) (js/setTimeout
+                                                                                      (fn []
+                                                                                        #_(println "new block in messages")
+                                                                                        (p (str pre "Update token count, after llm response"))
+                                                                                        (count-tokens-api {:message res-str
+                                                                                                           :model (:model settings)
+                                                                                                           :update? true
+                                                                                                           :block-uid block-uid
+                                                                                                           :token-count-atom token-count-atom})
+                                                                                        (p (str pre "Add assistant response block in messages: " m-uid))
+                                                                                        (reset! message-atom (get-child-with-str block-uid "Messages"))
+                                                                                        (update-block-string-for-block-with-child block-uid "Settings" "Active?" (str (not @active?)))
+                                                                                        (reset! active? false))
+                                                                                      500))))})))
 
 (defn extract-context [children pre get-linked-refs?]
   (p (str pre " Extracting context data"))
@@ -120,6 +106,7 @@
         context-str (extract-context (:children context) pre get-linked-refs?)]
 
 
+
     (p (str pre "for these: " children))
     (go
       (doseq [child children]
@@ -165,10 +152,12 @@
               :else
                                         (do
                                           (p (str pre "This is a normal block: " cstr))
-                                          (<p! (move-block
+                                          (<p! (update-block-string-and-move
+                                                 child-uid
+                                                 (str "**User:** " cstr)
                                                  m-uid
-                                                 order
-                                                 child-uid)))))))
+                                                 order)))))))
+
       (<p! (create-new-block c-uid "first" "" ()))
       (<p! (js/Promise. (fn [_]
                           (p (str pre "refresh messages window with parent-id: " parent-id))

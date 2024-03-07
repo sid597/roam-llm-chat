@@ -2,6 +2,7 @@
   (:require
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
     [cljs.core.async.interop :as asy :refer [<p!]]
+    [cljs.reader :as reader]
     [cljs-http.client :as http]
     [applied-science.js-interop :as j]
     [clojure.string :as str]))
@@ -491,8 +492,8 @@
 
 (defn model-type [model-name]
   (cond
-    (clojure.string/starts-with? model-name "gpt")    :gpt
-    (clojure.string/starts-with? model-name "claude") :claude
+    (str/starts-with? model-name "gpt")    :gpt
+    (str/starts-with? model-name "claude") :claude
     :else                                             :unknown))
 
 
@@ -543,4 +544,21 @@
                       (p "*New Token count* :" new-count))))))
 
 
-
+(defn create-alternate-messages [messages initial-context pre]
+  (let [current-message   (atom (str (extract-from-code-block initial-context)))
+        alternate-messages (atom [])]
+    (p (str pre "create alternate messages"))
+    (doseq [msg messages]
+      (let [msg-str (:string msg)]
+        (if (str/starts-with? msg-str "**Assistant:** ")
+          (do
+            (swap! alternate-messages conj {:role    "user"
+                                            :content (str @current-message)})
+            (swap! alternate-messages conj {:role    "assistant"
+                                            :content (str (clojure.string/replace msg-str #"^\*\*Assistant:\*\* " ""))})
+            (reset! current-message ""))
+          (swap! current-message #(str % "\n" (extract-from-code-block msg-str))))))
+    (when (not-empty @current-message)
+      (swap! alternate-messages conj {:role    "user"
+                                      :content (str @current-message)}))
+    @alternate-messages))
