@@ -2,10 +2,10 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [reagent.core :as r :refer [atom]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks]]
+            [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks get-all-images-for-node]]
             [ui.components.chat :refer [chat-context chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [image-to-text-for p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -147,3 +147,54 @@
 
                     "Summarise this page"]]])))
 
+(defn text-to-image-button  []
+  (let [total-images-count  (r/atom 1)
+        loading?            (r/atom false)
+        block-uid           (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        image-prompt        (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Image prompt" "Default prompt"))]
+    (fn []
+      [:> ButtonGroup
+        {:class-name "image-button-with-settings"
+         :style {:overflow "hidden"
+                 :display "flex"
+                 :flex-direction "row"
+                 :justify-content "space-between"
+                 :align-items "center"
+                 :flex "1 1 1"}
+         :minimal true}
+        [:div {:style {:flex "1 1 1"}}
+          [button-popover
+           [:> Card {:elevation 3
+                     :style {:flex "1"
+                             :margin "0"
+                             :display "flex"
+                             :flex-direction "column"
+                             :border "2px solid rgba(0, 0, 0, 0.2)"
+                             :border-radius "8px"}}
+            [:div.summary-component
+             {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+             [:div.chat-input-container
+              {:style {:display "flex"
+                       :flex-direction "row"
+                       :border "1px"}}
+              [chat-context image-prompt #()]]]]]]
+       [:div {:style {:flex "1 1 1"}}
+        [:> Button {:minimal true
+                    :small true
+                    :loading @loading?
+                    :on-click (fn [e]
+                                (go
+                                  (let [pre               "*Generate description for each image on page*"
+                                        open-page-uid     (<p! (get-open-page-uid))
+                                        page-title        (uid->title open-page-uid)
+                                        all-images        (if (nil? page-title)
+                                                            (get-all-images-for-node open-page-uid true)
+                                                            (get-all-images-for-node page-title    false))
+                                        image-prompt-str  (get-child-of-child-with-str block-uid "Image prompt" "Default prompt" true)
+                                        image-count       (count all-images)]
+                                    (p (str pre "all images on page: " all-images))
+                                    (when (> image-count 0)
+                                      (reset! total-images-count (count all-images))
+                                      (reset! loading? true)
+                                      (image-to-text-for all-images total-images-count loading? image-prompt-str)))))}
+         "Generate description for each image on page"]]])))

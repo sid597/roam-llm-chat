@@ -1,7 +1,7 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
@@ -9,9 +9,9 @@
 (comment
   (contains? skip-blocks-with-string "{{ chat-llm }}"))
 
+
 (defn extract-markdown-image [s]
-  (let [pattern #"!\[(.*?)\]\((.*?)\)"
-        matches (re-find pattern s)]
+  (let [matches (re-find markdown-image-pattern s)]
     (if matches
       {:text (nth matches 1)
        :url (nth matches 2)}
@@ -20,7 +20,8 @@
 (comment
   (extract-markdown-image "![image](https://www.google.com)")
   (extract-markdown-image "![image](https://www.google.com) text at the end")
-  (extract-markdown-image "text at the start ![image](https://www.google.com) text at the end"))
+  (extract-markdown-image "text at the start ![image](https://www.google.com) text at the end")
+  (str/replace "text at the start ![image](https://www.google.com) text at the end" markdown-image-pattern "gm"))
 
 (defn find-blocks-with-images [node]
   (when-not (contains? skip-blocks-with-string (:string node))
@@ -32,6 +33,7 @@
       (concat
         (if  current-image?
           [{:uid uid
+            :string (:string node)
             :match current-image?}]
           [])
         (mapcat find-blocks-with-images children)))))
@@ -61,9 +63,14 @@
   (when-not (contains? skip-blocks-with-string (:string node))
     (let [block?          (some? (:string node))
           embed?         (when block? (ffirst (not-empty (extract-embeds (:string node)))))
-          current-string (if embed?
-                           (:string embed?)
-                           (:string node))
+          current-image? (if block? (extract-markdown-image (:string node)) false)
+          current-string (cond
+                           embed?         (:string embed?)
+                           current-image? (str/replace
+                                            (:string node)
+                                            markdown-image-pattern
+                                            (str " Image alt text: " (:text current-image?)))
+                           :els           (:string node))
           children       (or (:children (if (some? embed?)
                                           embed?
                                           node))
