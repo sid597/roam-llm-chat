@@ -13,11 +13,11 @@
                "anthropic-version" "2023-06-01"
                "Content-Type" "application/json"}
       body    {:model "claude-3-opus-20240229"
-               :max_tokens 1024
+               :max-tokens 1024
                :messages [{:role "user", :content "Hello, world"}]}
       response (client/post url
                  {:headers headers
-                  :body (json/write-str body)
+                  :body (json/generate-string body)
                   :content-type :json
                   :as :json})]
   (:body response))

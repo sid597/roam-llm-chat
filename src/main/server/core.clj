@@ -51,7 +51,7 @@
      :messages messages
      :passphrase passphrase
      :temperature temperature
-     :max_tokens max-tokens}))
+     :max-tokens max-tokens}))
 
 
 (defn oai [request]
@@ -81,37 +81,46 @@
 
 
 (defn chat-anthropic [request]
-  (let [{:keys [model
-                messages
-                temperature
-                max-tokens]} (extract-request request)
-        api-key anthropic-key
-        url     "https://api.anthropic.com/v1/messages"
-        headers {"x-api-key"         api-key
-                 "anthropic-version" "2023-06-01"
-                 "Content-Type"      "application/json"}
-        body    #_{:model "claude-3-opus-20240229"
-                   :max_tokens 1024
-                   :messages [{:role "user", :content "Hello, world"}]}
-                {:model      model
-                 :max_tokens max-tokens
-                 :messages   messages
-                 :temperature temperature}
-        response (client/post url
-                   {:headers headers
-                    :body (json/generate-string body)
-                    :content-type :json
-                    :as :json})
-        res-body   (-> response :body)
-        reply-body (cond
-                     (not= 200 (:status response)) (str "code: " (:status response)
-                                                     "error: " (:error res-body))
-                     (= "max_tokens"
-                       (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
-                     :else                         (-> res-body
-                                                     :content
-                                                     first
-                                                     :text))]
+  (let [{:keys
+         [model
+          messages
+          temperature
+          max-tokens]} (extract-request request)
+        api-key        anthropic-key
+        url            "https://api.anthropic.com/v1/messages"
+        headers        {"x-api-key"         api-key
+                        "anthropic-version" "2023-06-01"
+                        "Content-Type"      "application/json"}
+        body           (json/generate-string
+                         {:model      model
+                          :max_tokens max-tokens
+                          :messages   messages
+                          :temperature temperature})
+        response       (client/post url
+                         {:headers headers
+                          :body    body
+                          :content-type :json
+                          :as :json})
+        res-body       (-> response :body)
+        tokens         (-> res-body
+                         :usage)
+        input-token    (:input_tokens tokens)
+        output-token   (:output_tokens tokens)
+        total-token    (+ input-token output-token)
+        _              (println "input-token" input-token "output-token" output-token "total-token" total-token)
+        _              (println "status " (:status response) "--" (:error res-body) "--" (:stop_reason res-body) "--" (-> res-body
+                                                                                                                        :content
+                                                                                                                        first
+                                                                                                                        :text))
+        reply-body     (cond
+                         (not= 200 (:status response)) (str "code: " (:status response)
+                                                         "error: " (:error res-body))
+                         #_#_(= "max_tokens"
+                               (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
+                         :else                         (-> res-body
+                                                         :content
+                                                         first
+                                                         :text))]
     {:status 200
      :headers {"Content-Type" "text/plain"}
      :body   reply-body}))
