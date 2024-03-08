@@ -495,7 +495,6 @@
   (cond
     (str/starts-with? model-name "gpt")          :gpt
     (str/starts-with? model-name "claude")       :claude
-    (str/starts-with? model-name "gpt-4-vision") :vision-gpt
     :else                                        :unknown))
 
 
@@ -520,8 +519,6 @@
       :gpt        (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
       :claude     (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
-                    messages settings callback)
-      :vision-gpt (call-api "http://localhost:3000/vision-gpt"
                     messages settings callback)
       (p "Unknown model"))))
 
