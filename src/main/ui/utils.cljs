@@ -15,6 +15,7 @@
   (apply println (str "CL: ") args))
 
 
+(def markdown-image-pattern #"!\[(.*?)\]\((.*?)\)")
 ;; ---- Datascript specific ------
 
 (defn q
@@ -568,28 +569,41 @@
 
 
 
-(defn image-to-text-for [nodes]
+(defn image-to-text-for [nodes total-images-atom loading-atom image-prompt-str]
   (doseq [node nodes]
     (let [url      (-> node :match :url)
           uid      (-> node :uid)
           text     (-> node :match :text)
+          block-string (-> node :string)
           messages [{:role "user"
                      :content [{:type "text"
-                                :text "What’s in this image?"}
+                                :text (str image-prompt-str)}
                                {:type "image_url"
                                 :image_url {:url url}}]}]
           settings  {:model       "gpt-4-vision-preview"
-                     :max-tokens  400
+                     :max-tokens  100
                      :temperature 0.9}
           callback (fn [response]
-                      (let [res-str (-> response
-                                      :body)]
+                      (let [res-str          (-> response
+                                               :body)
+                            new-url          (str "![" res-str "](" url ")")
+                            new-block-string (str/replace block-string markdown-image-pattern new-url)
+                            new-count        (dec @total-images-atom)]
                         (p "for uid" uid)
                         (p "Old image description: " text)
+                        (p "old block string" block-string)
                         (p "Image to text response received, new image description: " res-str)
+                        (p "New block string" new-block-string)
+                        (p "Images to describe count: " @total-images-atom)
+                        (if (zero? new-count)
+                          (do
+                            (p "All images described")
+                            (reset! loading-atom false))
+                          (swap! total-images-atom dec))
                         (update-block-string
                           uid
-                          (str "![" res-str "](" url ")"))))]
+                          new-block-string)))]
+      (p "Messages for image to text" messages)
       (call-llm-api
         {:messages messages
          :settings settings
