@@ -1,11 +1,12 @@
 (ns ui.components.bottom-bar
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.components.quick-buttons :refer [button-with-settings]]
-            [ui.extract-data.chat :refer [data-for-blocks]]
+            [ui.components.quick-buttons :refer [button-with-settings text-to-image-button]]
+            [ui.extract-data.chat :refer [data-for-pages data-for-blocks get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
+
 
 
 
@@ -18,7 +19,6 @@
      [:> Divider]
      [:div {:style {:flex "1 1 1"}}
       [button-with-settings "Summarise this page"]]
-
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
@@ -114,4 +114,8 @@
      [:> Divider]
      [:div {:style {:flex "1 1 1"}}
       [filtered-pages-button]]
-     [:> Divider]]))
+     [:> Divider]
+     [:div
+      {:style {:flex "1 1 1"}}
+      [text-to-image-button]]]))
+

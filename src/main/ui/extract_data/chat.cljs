@@ -1,7 +1,7 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
@@ -9,13 +9,81 @@
 (comment
   (contains? skip-blocks-with-string "{{ chat-llm }}"))
 
+
+(defn extract-markdown-image [s]
+  (let [matches (re-find markdown-image-pattern s)]
+    (if matches
+      {:text (nth matches 1)
+       :url (nth matches 2)}
+      false)))
+
+(comment
+  (extract-markdown-image "![image](https://www.google.com)")
+  (extract-markdown-image "![image](https://www.google.com) text at the end")
+  (extract-markdown-image "text at the start ![image](https://www.google.com) text at the end")
+  (str/replace "text at the start ![image](https://www.google.com) text at the end" markdown-image-pattern "gm")
+  (extract-markdown-image "![The image shows a bar graph labeled \"B\". The title of the graph is \"Branch angle distribution (cryo-ET)\" which indicates that it's likely displaying data acquired through cryo-electron tomography (cryo-ET), a technique used for structural analysis typically in a biological context.\n\nThe x-axis represents branch angle in degrees, ranging from 0 to just under 90 degrees. The y-axis represents the number of branches, with counts ranging from 0 to 25. The bars represent the frequency distribution of branch angles with most of the data concentrated around a branch angle between 60 and 75 degrees, as indicated by the taller bars in that range.\n\nThe graph also includes a label indicating the mean branch angle: \"Mean: 68 ± 9°\" which suggests the average branch angle is 68 degrees with a standard deviation of 9 degrees.](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Fresultsgraph%2FOFNSuhLiaa.png?alt=media&token=88eca532-776c-4414-bcc3-62387cc55dd5)"))
+
+(defn find-blocks-with-images [node no-description?]
+  (when-not (contains? skip-blocks-with-string (:string node))
+     (let [block?          (some? (:string node))
+           current-image? (if block? (extract-markdown-image (:string node)) false)
+           without-desc   (empty? (:text current-image?))
+           uid            (:uid node)
+           children       (or (:children node)
+                            [])]
+       (concat
+         (if no-description?
+           (if (and current-image? without-desc)
+             [{:uid uid
+               :string (:string node)
+               :match current-image?}]
+             [])
+           (if current-image?
+             [{:uid uid
+               :string (:string node)
+               :match current-image?}]
+             []))
+         (mapcat #(find-blocks-with-images % no-description?) children)))))
+
+
+
+(defn get-all-images-for-node
+  ([node block?]
+   (get-all-images-for-node node block? false))
+  ([node block? with-no-description-only?]
+   (let [no-description?    (= "Images without description" with-no-description-only?)
+         eid                (cond
+                              (int? node) node
+                              block?   (uid->eid node)
+                              :else    (get-eid node))
+         children           (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/uid])
+                                         :in $ ?eid]
+                                      eid))
+         blocks-with-images (find-blocks-with-images children no-description?)]
+     blocks-with-images)))
+
+(comment
+  (get-all-images-for-node "Test: Image to text" false true)
+  (get-all-images-for-node "testing 3" false)
+  (get-all-images-for-node "YNWR7PAne" true)
+  (get-all-images-for-node "[[EVD]] - Cryo electron tomography of actin branches in SKMEL2 cells showed a branching angle of 68 ± 15 degrees - @serwas2022mechanistic" false)
+  (get-all-images-for-node "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]" false)
+  (get-all-images-for-node "[[QUE]] - What is the rate at which cofilin binds actin filaments?" false))
+
+
 (defn extract-strings [node]
   (when-not (contains? skip-blocks-with-string (:string node))
     (let [block?          (some? (:string node))
           embed?         (when block? (ffirst (not-empty (extract-embeds (:string node)))))
-          current-string (if embed?
-                           (:string embed?)
-                           (:string node))
+          current-image? (if block? (extract-markdown-image (:string node)) false)
+          current-string (cond
+                           embed?         (:string embed?)
+                           current-image? (str/replace
+                                            (:string node)
+                                            markdown-image-pattern
+                                            (str " Image alt text: " (:text current-image?)))
+                           :els           (:string node))
           children       (or (:children (if (some? embed?)
                                           embed?
                                           node))
@@ -65,7 +133,7 @@
 
 
 (comment
-
+  (get-children-for "3yD8b4Oer" true)
   (get-children-for "4llnpJ5Ae" true)
 
   (time (get-children-for "[[ISS]] - scope other options for the LLM chat interface"))

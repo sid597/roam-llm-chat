@@ -2,8 +2,9 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.components.chat :as comp :refer [send-message-component chin chat-context chat-history]]
-            [ui.utils :refer [watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block call-openai-api log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.components.chat :as comp :refer [chat-context chat-history]]
+            [ui.components.chin :refer [chin]]
+            [ui.utils :refer [send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions.chat :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
 
@@ -30,7 +31,7 @@
     (watch-children
       (:uid @messages)
       (fn [_ aft]
-        (p "context children changed" aft)
+        ;(p "context children changed" aft)
         (reset! messages-atom aft)))
 
     (watch-string
@@ -88,10 +89,8 @@
                                      b-uid
                                      active?
                                      get-linked-refs
-                                     {:model (if (= "gpt-4" @default-model)
-                                               "gpt-4-0125-preview"
-                                               "gpt-3.5-turbo-0125")
-                                      :max-tokens @default-max-tokens
+                                     {:model       (get model-mappings @default-model)
+                                      :max-tokens  @default-max-tokens
                                       :temperature @default-temp}
                                      token-count))))
 
@@ -114,26 +113,28 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
-         [:div
+         [:div.top-comp
            {:class-name (str "chat-input-container-" block-uid)
             :style {:display "flex"
                     :flex-direction "row"
-                    :border-radius "8px"
-                    :margin "10px 10px "
+                    :box-shadow "rgb(100 100 100) 0px 0px 5px 0px"
+                    :margin-bottom "15px"
                     :background-color "whitesmoke"
                     :border "1px"}}
            [chat-context context #() {:min-height     ""
+                                      :background-color "whitesmoke"
                                       :padding-bottom "10px"}]]
+
          [chat-history (:uid messages) messages-atom token-count {:key (hash msg-children)}]
-         [:div.chat-input-container
-          {:style {:display "flex"
-                   :flex-direction "row"
-                   :border-radius "8px"
-                   :margin "10px 10px -10px 10px  "
-                   :background-color "whitesmoke"
-                   :border "1px"}}
-          [chat-context chat handle-key-event]]
-         [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]))))
+         [:div.bottom-comp
+          {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+          [:div.chat-input-container
+           {:style {:display "flex"
+                    :flex-direction "row"
+                    :background-color "#f6cbfe3d"
+                    :border "1px"}}
+           [chat-context chat handle-key-event]]
+          [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]]))))
 
 
 

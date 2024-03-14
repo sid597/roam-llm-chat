@@ -5,7 +5,8 @@
             [wkok.openai-clojure.api :as api]
             [cheshire.core :as json]
             [tolkien.core :as token]
-            [server.env :as env :refer [oai-key pass-key]]
+            [clj-http.client :as client]
+            [server.env :as env :refer [oai-key pass-key anthropic-key]]
             [ring.adapter.jetty :as jetty]))
 
 
@@ -32,8 +33,7 @@
      :headers {"Content-Type" "text/plain"}
      :body   (str count)}))
 
-
-(defn oai [request]
+(defn extract-request [request]
   (let [rq        (-> request
                     :body
                     slurp
@@ -41,11 +41,25 @@
         messages  (-> rq
                     :documents)
         passphrase (-> rq
-                      :passphrase)
+                     :passphrase)
         {:keys [model
                 max-tokens
                 temperature]} (-> rq
-                                :settings)
+                                :settings)]
+
+    {:model model
+     :messages messages
+     :passphrase passphrase
+     :temperature temperature
+     :max-tokens max-tokens}))
+
+
+(defn oai [request]
+  (let [{:keys [model
+                messages
+                passphrase
+                temperature
+                max-tokens]} (extract-request request)
         res (if (= passphrase pass-key)
               (api/create-chat-completion
                 {:model model
@@ -66,6 +80,51 @@
               :content)}))
 
 
+(defn chat-anthropic [request]
+  (let [{:keys
+         [model
+          messages
+          temperature
+          max-tokens]} (extract-request request)
+        api-key        anthropic-key
+        url            "https://api.anthropic.com/v1/messages"
+        headers        {"x-api-key"         api-key
+                        "anthropic-version" "2023-06-01"
+                        "Content-Type"      "application/json"}
+        body           (json/generate-string
+                         {:model      model
+                          :max_tokens max-tokens
+                          :messages   messages
+                          :temperature temperature})
+        response       (client/post url
+                         {:headers headers
+                          :body    body
+                          :content-type :json
+                          :as :json})
+        res-body       (-> response :body)
+        tokens         (-> res-body
+                         :usage)
+        input-token    (:input_tokens tokens)
+        output-token   (:output_tokens tokens)
+        total-token    (+ input-token output-token)
+        _              (println "input-token" input-token "output-token" output-token "total-token" total-token)
+        _              (println "status " (:status response) "--" (:error res-body) "--" (:stop_reason res-body) "--" (-> res-body
+                                                                                                                        :content
+                                                                                                                        first
+                                                                                                                        :text))
+        reply-body     (cond
+                         (not= 200 (:status response)) (str "code: " (:status response)
+                                                         "error: " (:error res-body))
+                         #_#_(= "max_tokens"
+                               (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
+                         :else                         (-> res-body
+                                                         :content
+                                                         first
+                                                         :text))]
+    {:status 200
+     :headers {"Content-Type" "text/plain"}
+     :body   reply-body}))
+
 
 #_(comment
     ;;Returns
@@ -84,7 +143,7 @@
      :system_fingerprint "fp_a24b4d720c"})
 
 
-(defn- handle-preflight [_]
+(defn- handle-preflight [f]
    {:status 200
     :headers {"Access-Control-Allow-Origin" "https://roamresearch.com"   ; Allow requests from this origin
               "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
@@ -96,10 +155,13 @@
     updated-response))
 
 (defroutes app-routes
-  (OPTIONS "/chat-complete" [] handle-preflight)   ; Handle preflight OPTIONS request
+  (OPTIONS "/chat-complete" [] handle-preflight)
   (POST "/chat-complete" request (cors-headers (oai request)))
+  (OPTIONS "/chat-anthropic" [] handle-preflight)
+  (POST "/chat-anthropic" request (cors-headers (chat-anthropic request)))
   (OPTIONS "/count-tokens" [] handle-preflight)
   (POST "/count-tokens" request (cors-headers (count-tokens request))))
+
 
 (def app
   (-> app-routes
@@ -107,4 +169,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 8080}))
+  (jetty/run-jetty app {:port 3000}))

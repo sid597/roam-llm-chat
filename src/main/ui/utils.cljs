@@ -1,7 +1,9 @@
 (ns ui.utils
   (:require
+    ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
     [cljs.core.async.interop :as asy :refer [<p!]]
+    [cljs.reader :as reader]
     [cljs-http.client :as http]
     [applied-science.js-interop :as j]
     [clojure.string :as str]))
@@ -14,6 +16,7 @@
   (apply println (str "CL: ") args))
 
 
+(def markdown-image-pattern #"!\[([^\]]*)\]\((.*?)\)")
 ;; ---- Datascript specific ------
 
 (defn q
@@ -123,7 +126,6 @@
         entity-id (str [:block/uid block-uid])]
     (p "add string watch :" entity-id)
     (add-pull-watch pull-pattern entity-id cb)))
-
 
 (defn get-child-with-str  [block-uid s]
   (ffirst (q '[:find (pull ?c [:block/string :block/uid :block/order {:block/children ...}])
@@ -408,9 +410,31 @@
          :c [{:s "Quick action buttons"
               :c [{:s "Summarise this page"
                    :c [{:s "Context"
-                        :c [{:s "Pre prompt:"}
-                            {:s "Given the following data from a page summarise it for me you the expert in this field. Use the linked references for your answers, go in depth."}
-                            {:s "Data from page:"}]}]}]}]}
+                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data.\n\nGiven the following data from a page summarise it for me as  nexpert in this field. Use the linked references for your answers, go in depth.\n\nData from page: "}]}]}
+                  {:s "Settings"
+                   :c [{:s "Token count"
+                        :c [{:s "0"}]}
+                       {:s "Model"
+                        :c [{:s "gpt-3.5"}]}
+                       {:s "Max tokens"
+                        :c [{:s "400"}]}
+                       {:s "Temperature"
+                        :c [{:s "0.9"}]}
+                       {:s "Get linked refs"
+                        :c [{:s "false"}]}]}
+                  {:s "Graph overview default pre prompt"
+                   :c [{:s "Pre prompt:"
+                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data."}]}]}
+                  {:s "Image prompt"
+                   :c [{:s "Default prompt"
+                        :c [{:s "What's in this image?"}]}
+                       {:s "Settings"
+                        :c [{:s "Max tokens"
+                             :c [{:s "300"}]}
+                            {:s "Generate description for:"
+                             :c [{:s "Images without description"}]}]}]}]}]}
+
+
         page-uid
         nil
         nil
@@ -481,13 +505,27 @@
          :c (common-chat-struct context-structure context-block-uid false)}]}))
 
 
-;; ---- Open ai specific ----
+;; ---- ai specific ----
+
+(def model-mappings
+  {"gpt-4"            "gpt-4-0125-preview"
+   "gpt-3.5"          "gpt-3.5-turbo-0125"
+   "claude-3-sonnet"  "claude-3-sonnet-20240229"
+   "claude-3-opus"    "claude-3-opus-20240229"})
+
+(defn model-type [model-name]
+  (cond
+    (str/starts-with? model-name "gpt")          :gpt
+    (str/starts-with? model-name "claude")       :claude
+    :else                                        :unknown))
+
 
 (goog-define url-endpoint "")
 
-(defn call-openai-api [{:keys [messages settings callback]}]
+(defn call-api [url messages settings callback]
+  (p (str "------------ " url))
+  (p (str "------------ " settings))
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
-        url     "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
         data    (clj->js {:documents messages
                           :settings settings
                           :passphrase passphrase})
@@ -497,10 +535,20 @@
                                 :json-params data})]
     (take! res-ch callback)))
 
+(defn call-llm-api [{:keys [messages settings callback]}]
+  (let [model (model-type (:model settings))]
+    (case model
+      :gpt        (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+                    messages settings callback)
+      :claude     (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+                    messages settings callback)
+      (p "Unknown model"))))
+
+
 (defn count-tokens-api [{:keys [model message token-count-atom update? block-uid]}]
   (p "Count tokens api called")
   (let [url    "https://roam-llm-chat-falling-haze-86.fly.dev/count-tokens"
-        data    (clj->js {:model model
+        data    (clj->js {:model "gpt-4"
                           :message message})
         headers {"Content-Type" "application/json"}
         res-ch  (http/post url {:with-credentials? false
@@ -519,4 +567,119 @@
                       (p "*New Token count* :" new-count))))))
 
 
+(defn create-alternate-messages [messages initial-context pre]
+  (let [current-message   (atom (str (extract-from-code-block initial-context)))
+        alternate-messages (atom [])]
+    (p (str pre "create alternate messages"))
+    (doseq [msg messages]
+      (let [msg-str (:string msg)]
+        (if (str/starts-with? msg-str "**Assistant:** ")
+          (do
+            (swap! alternate-messages conj {:role    "user"
+                                            :content (str @current-message)})
+            (swap! alternate-messages conj {:role    "assistant"
+                                            :content (str (clojure.string/replace msg-str #"^\*\*Assistant:\*\* " ""))})
+            (reset! current-message ""))
+          (swap! current-message #(str % "\n" (extract-from-code-block msg-str))))))
+    (when (not-empty @current-message)
+      (swap! alternate-messages conj {:role    "user"
+                                      :content (str @current-message)}))
+    @alternate-messages))
 
+
+
+(defn image-to-text-for [nodes total-images-atom loading-atom image-prompt-str max-tokens]
+  (doseq [node nodes]
+    (let [url      (-> node :match :url)
+          uid      (-> node :uid)
+          text     (-> node :match :text)
+          block-string (-> node :string)
+          messages [{:role "user"
+                     :content [{:type "text"
+                                :text (str image-prompt-str)}
+                               {:type "image_url"
+                                :image_url {:url url}}]}]
+          settings  {:model       "gpt-4-vision-preview"
+                     :max-tokens  @max-tokens
+                     :temperature 0.9}
+          callback (fn [response]
+                      (let [res-str          (-> response
+                                               :body)
+                            new-url          (str "![" res-str "](" url ")")
+                            new-block-string (str/replace block-string markdown-image-pattern new-url)
+                            new-count        (dec @total-images-atom)]
+                        (p "image to text for uid" uid)
+                        (p "Old image description: " text)
+                        (p "old block string" block-string)
+                        (p "Image to text response received, new image description: " res-str)
+                        (p "New block string" new-block-string)
+                        (p "Images to describe count: " @total-images-atom)
+                        (if (zero? new-count)
+                          (do
+                            (p "All images described")
+                            (reset! loading-atom false))
+                          (swap! total-images-atom dec))
+                        (update-block-string
+                          uid
+                          new-block-string)))]
+      (p "Messages for image to text" messages)
+      (call-llm-api
+        {:messages messages
+         :settings settings
+         :callback callback}))))
+
+
+;; ---- UI ---
+
+
+(defn inject-style []
+  (let [style-element (.createElement js/document "style")
+        css-string ".sp svg { color: cadetblue; }"] ; Change 'blue' to your desired color
+
+    (set! (.-type style-element) "text/css")
+    (when (.-styleSheet style-element) ; For IE8 and below.
+      (set! (.-cssText (.-styleSheet style-element)) css-string))
+    (when-not (.-styleSheet style-element) ; For modern browsers.
+      (let [text-node (.createTextNode js/document css-string)]
+        (.appendChild style-element text-node)))
+    (.appendChild (.-head js/document) style-element)))
+
+
+(defn send-message-component [active? callback]
+  (inject-style)
+  [:> Button {:class-name "sp"
+              :style {:width "30px"}
+              :icon (if @active? nil "send-message")
+              :minimal true
+              :fill false
+              :small true
+              :loading @active?
+              :on-click #(do #_(println "clicked send message compt")
+                           (callback {}))}])
+
+(defn button-popover
+  ([button-text render-comp]
+   (button-popover button-text render-comp "#eeebeb"))
+  ([button-text render-comp bg-color]
+   [:> Popover
+    {:position "bottom"}
+    [:> Button {:minimal true
+                :small true}
+     button-text]
+    [:> Menu
+     {:style {:padding "20px"}}
+     render-comp]]))
+
+(defn settings-button-popover
+  ([render-comp]
+   (settings-button-popover render-comp "#eeebeb"))
+  ([render-comp bg-color]
+   [:> Popover
+    ;{:position "bottom"}
+    [:> Button {:icon "cog"
+                :minimal true
+                :small true
+                :style {:background-color bg-color}}]
+    [:> Menu
+     {:style {:padding "20px"}}
+     render-comp]]))
