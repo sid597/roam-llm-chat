@@ -4,7 +4,7 @@
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.components.chat :as comp :refer [chat-context chat-history]]
             [ui.components.chin :refer [chin]]
-            [ui.utils :refer [send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions.chat :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
 
@@ -89,11 +89,13 @@
                                      b-uid
                                      active?
                                      get-linked-refs
-                                     {:model       (get model-mappings @default-model)
-                                      :max-tokens  @default-max-tokens
-                                      :temperature @default-temp}
+                                     (merge
+                                       {:model       (get model-mappings @default-model)
+                                        :max-tokens  @default-max-tokens
+                                        :temperature @default-temp}
+                                       (when (= "gemini" @default-model)
+                                         {:safety-settings (get-safety-settings b-uid)}))
                                      token-count))))
-
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])

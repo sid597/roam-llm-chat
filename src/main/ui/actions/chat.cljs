@@ -104,9 +104,6 @@
         c-uid    (:uid chat)
         count    (count children)
         context-str (extract-context (:children context) pre get-linked-refs?)]
-
-
-
     (p (str pre "for these: " children))
     (go
       (doseq [child children]

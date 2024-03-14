@@ -390,6 +390,19 @@
 
       (<p! (js/Promise. (fn [_] cb)))))))
 
+(def gemini-safety-settings-struct
+  {:s "Safety settings"
+   :op false
+   :c [{:s "Harassment"
+        :c [{:s "Block some"}]}
+       {:s "Hate Speech"
+        :c [{:s "Block some"}]}
+       {:s "Sexually Explicit"
+        :c [{:s "Block some"}]}
+       {:s "Dangerous Content"
+        :c [{:s "Block some"}]}]})
+
+
 
 (defn get-focused-block []
   (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
@@ -511,7 +524,8 @@
   {"gpt-4"            "gpt-4-0125-preview"
    "gpt-3.5"          "gpt-3.5-turbo-0125"
    "claude-3-sonnet"  "claude-3-sonnet-20240229"
-   "claude-3-opus"    "claude-3-opus-20240229"})
+   "claude-3-opus"    "claude-3-opus-20240229"
+   "gemini"           "gemini"})
 
 (defn model-type [model-name]
   (cond
@@ -519,6 +533,30 @@
     (str/starts-with? model-name "claude") :claude
     (str/starts-with? model-name "gemini") :gemini
     :else                                  :unknown))
+
+
+(def safety-map
+  {"Block none"  "BLOCK_NONE"
+   "Block few"   "BLOCK_ONLY_HIGH"
+   "Block some" "BLOCK_MEDIUM_AND_ABOVE"
+   "Block most" "BLOCK_LOW_AND_ABOVE"})
+
+
+(defn get-safety-settings [chat-block-uid]
+  (let [settings-uid      (:uid (get-child-with-str chat-block-uid "Settings"))
+        harassment        (get-child-of-child-with-str settings-uid "Safety settings" "Harassment")
+        hate-speech       (get-child-of-child-with-str settings-uid "Safety settings" "Hate Speech")
+        sexually-explicit (get-child-of-child-with-str settings-uid "Safety settings" "Sexually Explicit")
+        dangerous-content (get-child-of-child-with-str settings-uid "Safety settings" "Dangerous Content")]
+    (p "safety settings" harassment hate-speech sexually-explicit dangerous-content)
+    [{:category "HARM_CATEGORY_HARASSMENT"
+      :threshold (get safety-map harassment)}
+     {:category "HARM_CATEGORY_HATE_SPEECH"
+      :threshold (get safety-map hate-speech)}
+     {:category "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+      :threshold (get safety-map sexually-explicit)}
+     {:category "HARM_CATEGORY_DANGEROUS_CONTENT"
+      :threshold (get safety-map dangerous-content)}]))
 
 
 (goog-define url-endpoint "")

@@ -1,8 +1,8 @@
 (ns ui.components.chin
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
-            ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
+            [ui.utils :refer [gemini-safety-settings-struct get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
+            ["@blueprintjs/core" :as bp :refer [RadioGroup Radio ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn inject-style []
   (let [style-element (.createElement js/document "style")
@@ -27,6 +27,69 @@
               :loading @active?
               :on-click #(do #_(println "clicked send message compt")
                            (callback {}))}])
+
+
+
+(defn gemini-safety-component [block-uid]
+  (let [settings-uid      (:uid (get-child-with-str block-uid "Settings"))
+        harassment        (r/atom (get-child-of-child-with-str settings-uid "Safety settings" "Harassment"))
+        hate-speech       (r/atom (get-child-of-child-with-str settings-uid "Safety settings" "Hate Speech"))
+        sexually-explicit (r/atom (get-child-of-child-with-str settings-uid "Safety settings" "Sexually Explicit"))
+        dangerous-content (r/atom (get-child-of-child-with-str settings-uid "Safety settings" "Dangerous Content"))]
+    (fn [_]
+      [button-popover
+       "Safety settings"
+       [:div ;.bp3-popover-dismiss
+        [:> RadioGroup
+         {:label "Harassment"
+          :inline true
+          :on-change (fn [v]
+                       (let [e (.-value (.-currentTarget v))]
+                        (update-block-string-for-block-with-child settings-uid "Safety settings" "Harassment" e)
+                        (reset! harassment e)))
+          :selected-value @harassment}
+         [:> Radio {:label "Block none" :value "Block none"}]
+         [:> Radio {:label "Block few" :value "Block few"}]
+         [:> Radio {:label "Block some" :value "Block some"}]
+         [:> Radio {:label "Block most" :value "Block most"}]]
+        [:> RadioGroup
+         {:label "Hate Speech"
+          :inline true
+          :on-change (fn [v]
+                       (let [e (.-value (.-currentTarget v))]
+                        (update-block-string-for-block-with-child settings-uid "Safety settings" "Hate Speech" e)
+                        (reset! hate-speech e)))
+          :selected-value @hate-speech}
+         [:> Radio {:label "Block none" :value "Block none"}]
+         [:> Radio {:label "Block few" :value "Block few"}]
+         [:> Radio {:label "Block some" :value "Block some"}]
+         [:> Radio {:label "Block most" :value "Block most"}]]
+        [:> RadioGroup
+         {:label "Sexually Explicit"
+          :inline true
+          :on-change (fn [v]
+                       (let [e (.-value (.-currentTarget v))]
+                         (update-block-string-for-block-with-child settings-uid "Safety settings" "Sexually Explicit" e)
+                         (reset! sexually-explicit e)))
+          :selected-value @sexually-explicit}
+         [:> Radio {:label "Block none" :value "Block none"}]
+         [:> Radio {:label "Block few" :value "Block few"}]
+         [:> Radio {:label "Block some" :value "Block some"}]
+         [:> Radio {:label "Block most" :value "Block most"}]]
+        [:> RadioGroup
+         {:label "Dangerous Content"
+          :inline true
+          :on-change (fn [v]
+                       (let [e (.-value (.-currentTarget v))]
+                        (update-block-string-for-block-with-child settings-uid "Safety settings" "Dangerous Content" e)
+                        (reset! dangerous-content e)))
+          :selected-value @dangerous-content}
+         [:> Radio {:label "Block none" :value "Block none"}]
+         [:> Radio {:label "Block few" :value "Block few"}]
+         [:> Radio {:label "Block some" :value "Block some"}]
+         [:> Radio {:label "Block most" :value "Block most"}]]]])))
+
+
 
 
 (defn chin
@@ -79,7 +142,25 @@
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-sonnet")
-                         (reset! default-model "claude-3-sonnet"))}]]])]
+                         (reset! default-model "claude-3-sonnet"))}]
+           [:> Divider]
+           [:> Menu.Item
+            {:text "gemini"
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini")
+                         (let [settings-exist? (get-child-of-child-with-str block-uid "Settings" "Safety settings")]
+                          (when (nil? settings-exist?)
+                           (create-struct
+                             gemini-safety-settings-struct
+                             (:uid (get-child-with-str block-uid "Settings"))
+                             nil
+                             nil
+                             #(reset! default-model "gemini")))))}]]])]
+     (when (and (some? default-model)
+                (= "gemini" @default-model))
+       [gemini-safety-component block-uid])
      (when (some? default-max-tokens)
        [:> Divider]
        [:div {:style {:overflow  "hidden"}}
@@ -93,7 +174,6 @@
                       :value @default-max-tokens
                       :label-values [0 2048]
                       :on-change (fn [e]
-
                                    (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
                                    (reset! default-max-tokens e))
                       :on-release (fn [e]
@@ -120,6 +200,7 @@
                       :on-release (fn [e]
                                     (update-block-string-for-block-with-child block-uid "Settings" "Temperature" (str e))
                                     (reset! default-temp e))}]]]])
+
 
      (when (some? get-linked-refs)
        [:> Divider]
