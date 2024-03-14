@@ -410,29 +410,29 @@
          :c [{:s "Quick action buttons"
               :c [{:s "Summarise this page"
                    :c [{:s "Context"
-                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data.\n\nGiven the following data from a page summarise it for me as  nexpert in this field. Use the linked references for your answers, go in depth.\n\nData from page: "}]}]}]}
-             {:s "Settings"
-              :c [{:s "Token count"
-                   :c [{:s "0"}]}
-                  {:s "Model"
-                   :c [{:s "gpt-3.5"}]}
-                  {:s "Max tokens"
-                   :c [{:s "400"}]}
-                  {:s "Temperature"
-                   :c [{:s "0.9"}]}
-                  {:s "Get linked refs"
-                   :c [{:s "false"}]}]}
-             {:s "Graph overview default pre prompt"
-              :c [{:s "Pre prompt:"
-                   :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data."}]}]}
-             {:s "Image prompt"
-              :c [{:s "Default prompt"
-                   :c [{:s "What's in this image?"}]}
+                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data.\n\nGiven the following data from a page summarise it for me as  nexpert in this field. Use the linked references for your answers, go in depth.\n\nData from page: "}]}]}
                   {:s "Settings"
-                   :c [{:s "Max tokens"
-                        :c [{:s "300"}]}
-                       {:s "Generate description for:"
-                        :c [{:s "Images without description"}]}]}]}]}
+                   :c [{:s "Token count"
+                        :c [{:s "0"}]}
+                       {:s "Model"
+                        :c [{:s "gpt-3.5"}]}
+                       {:s "Max tokens"
+                        :c [{:s "400"}]}
+                       {:s "Temperature"
+                        :c [{:s "0.9"}]}
+                       {:s "Get linked refs"
+                        :c [{:s "false"}]}]}
+                  {:s "Graph overview default pre prompt"
+                   :c [{:s "Pre prompt:"
+                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data."}]}]}
+                  {:s "Image prompt"
+                   :c [{:s "Default prompt"
+                        :c [{:s "What's in this image?"}]}
+                       {:s "Settings"
+                        :c [{:s "Max tokens"
+                             :c [{:s "300"}]}
+                            {:s "Generate description for:"
+                             :c [{:s "Images without description"}]}]}]}]}]}
 
 
         page-uid
