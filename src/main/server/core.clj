@@ -6,7 +6,7 @@
             [cheshire.core :as json]
             [tolkien.core :as token]
             [clj-http.client :as client]
-            [server.env :as env :refer [oai-key pass-key anthropic-key]]
+            [server.env :as env :refer [oai-key pass-key anthropic-key gemini-key]]
             [ring.adapter.jetty :as jetty]))
 
 
@@ -33,25 +33,36 @@
      :headers {"Content-Type" "text/plain"}
      :body   (str count)}))
 
+
+(defn gemini-flavoured-messages [messages]
+  (mapv (fn [message]
+          (let [role (:role message)
+                content (:content message)]
+            {:role role
+             :parts [{:text content}]}))
+    messages))
+
 (defn extract-request [request]
-  (let [rq        (-> request
-                    :body
-                    slurp
-                    (json/parse-string true))
-        messages  (-> rq
-                    :documents)
+  (let [rq         (-> request
+                     :body
+                     slurp
+                     (json/parse-string true))
+        messages   (-> rq
+                     :documents)
         passphrase (-> rq
                      :passphrase)
+        settings   (-> rq
+                     :settings)
         {:keys [model
                 max-tokens
-                temperature]} (-> rq
-                                :settings)]
+                temperature]} settings]
 
     {:model model
      :messages messages
      :passphrase passphrase
      :temperature temperature
-     :max-tokens max-tokens}))
+     :max-tokens max-tokens
+     :settings settings}))
 
 
 (defn oai [request]
@@ -126,26 +137,36 @@
      :body   reply-body}))
 
 
-#_(comment
-    ;;Returns
-    {:id "chatcmpl-8NiFe8FGpUIGLGZXETzr0VuMcz2ZN",
-     :object "chat.completion",
-     :created 1700662338,
-     :model "gpt-4-1106-preview",
-     :choices
-     [{:index 0,
-       :message
-       {:role "assistant",
-        :content
-        "Hello! As an AI, I'm here to assist and provide you with information, help answer your questions, and engage in conversation about a wide range of topics. How can I assist you today?"},
-       :finish_reason "stop"}],
-     :usage {:prompt_tokens 14, :completion_tokens 40, :total_tokens 54},
-     :system_fingerprint "fp_a24b4d720c"})
+(defn chat-gemini [request]
+  (let [{:keys [settings
+                messages]} (extract-request request)
+        api-key  gemini-key
+        url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" api-key)
+        headers  {"Content-Type" "application/json"}
+        body     (json/generate-string
+                   {:contents         (gemini-flavoured-messages messages)
+                    :generationConfig settings
+                    :safetySettings   (:safety-settings settings)})
+        response (client/post url {:headers headers
+                                   :body body
+                                   :content-type :json
+                                   :as :json})
+        res-body (-> response :body)
+        _ (println "status " (:status response) "--" (:error res-body))
+        reply-body (cond
+                     (not= 200 (:status response))
+                     (str "code: " (:status response) "error: " (:error res-body))
+
+                     :else
+                     (-> res-body :candidates first :content :parts first :text))]
+    {:status 200
+     :headers {"Content-Type" "text/plain"}
+     :body reply-body}))
 
 
 (defn- handle-preflight [f]
    {:status 200
-    :headers {"Access-Control-Allow-Origin" "https://roamresearch.com"   ; Allow requests from this origin
+    :headers {"Access-Control-Allow-Origin" "https://roamresearch.com"
               "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
               "Access-Control-Allow-Headers" "Content-Type, Authorization"}})
 
@@ -159,6 +180,8 @@
   (POST "/chat-complete" request (cors-headers (oai request)))
   (OPTIONS "/chat-anthropic" [] handle-preflight)
   (POST "/chat-anthropic" request (cors-headers (chat-anthropic request)))
+  (OPTIONS "/chat-gemini" [] handle-preflight)
+  (POST "/chat-gemini" request (cors-headers (chat-gemini request)))
   (OPTIONS "/count-tokens" [] handle-preflight)
   (POST "/count-tokens" request (cors-headers (count-tokens request))))
 

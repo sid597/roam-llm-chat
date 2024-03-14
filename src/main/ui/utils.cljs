@@ -515,9 +515,10 @@
 
 (defn model-type [model-name]
   (cond
-    (str/starts-with? model-name "gpt")          :gpt
-    (str/starts-with? model-name "claude")       :claude
-    :else                                        :unknown))
+    (str/starts-with? model-name "gpt")    :gpt
+    (str/starts-with? model-name "claude") :claude
+    (str/starts-with? model-name "gemini") :gemini
+    :else                                  :unknown))
 
 
 (goog-define url-endpoint "")
@@ -542,6 +543,8 @@
                     messages settings callback)
       :claude     (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
+     :gemini     (call-api "http://localhost:3000/chat-gemini"
+                   messages settings callback)
       (p "Unknown model"))))
 
 
