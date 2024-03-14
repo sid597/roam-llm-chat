@@ -38,7 +38,8 @@
   (mapv (fn [message]
           (let [role (:role message)
                 content (:content message)]
-            {:role role
+            {:role (if (= "user" role)
+                     role "model")
              :parts [{:text content}]}))
     messages))
 
@@ -139,13 +140,16 @@
 
 (defn chat-gemini [request]
   (let [{:keys [settings
+                temperature
+                max-tokens
                 messages]} (extract-request request)
         api-key  gemini-key
         url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" api-key)
         headers  {"Content-Type" "application/json"}
         body     (json/generate-string
                    {:contents         (gemini-flavoured-messages messages)
-                    :generationConfig settings
+                    :generationConfig {:maxOutputTokens max-tokens
+                                       :temperature temperature}
                     :safetySettings   (:safety-settings settings)})
         response (client/post url {:headers headers
                                    :body body
