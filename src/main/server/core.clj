@@ -151,19 +151,20 @@
                     :generationConfig {:maxOutputTokens max-tokens
                                        :temperature temperature}
                     :safetySettings   (:safety-settings settings)})
+        _ (println "body" body)
         response (client/post url {:headers headers
                                    :body body
                                    :content-type :json
                                    :as :json})
         res-body (-> response :body)
-        _ (println "status " (:status response) "--" (:error res-body))
+        _ (println "status " (:status response) "--" (:error res-body) "--" (-> res-body :candidates first :content :parts first :text))
         reply-body (cond
                      (not= 200 (:status response))
                      (str "code: " (:status response) "error: " (:error res-body))
 
                      :else
                      (-> res-body :candidates first :content :parts first :text))]
-    {:status 200
+    {:status (:status response)
      :headers {"Content-Type" "text/plain"}
      :body reply-body}))
 

@@ -617,11 +617,11 @@
         (if (str/starts-with? msg-str "**Assistant:** ")
           (do
             (swap! alternate-messages conj {:role    "user"
-                                            :content (str @current-message)})
+                                            :content (str (clojure.string/replace @current-message #"^\*\*User:\*\* " ""))})
             (swap! alternate-messages conj {:role    "assistant"
                                             :content (str (clojure.string/replace msg-str #"^\*\*Assistant:\*\* " ""))})
             (reset! current-message ""))
-          (swap! current-message #(str % "\n" (extract-from-code-block msg-str))))))
+          (swap! current-message #(str % "\n" (extract-from-code-block (clojure.string/replace msg-str #"^\*\*User:\*\* " "")))))))
     (when (not-empty @current-message)
       (swap! alternate-messages conj {:role    "user"
                                       :content (str @current-message)}))
