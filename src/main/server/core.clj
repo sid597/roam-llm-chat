@@ -197,4 +197,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 3000}))
+  (jetty/run-jetty app {:port 8080}))
