@@ -120,6 +120,7 @@
             {:text "gpt-4"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
+                         (p "chose gpt-4")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4")
                          (reset! default-model "gpt-4"))}]
            [:> Divider]
@@ -127,6 +128,7 @@
             {:text "gpt-3.5"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
+                         (p "chose gpt-3.5")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-3.5")
                          (reset! default-model "gpt-3.5"))}]
            [:> Divider]
@@ -134,6 +136,7 @@
             {:text "claude-3-opus"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
+                         (p "chose claude-3-opus")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
                          (reset! default-model "claude-3-opus"))}]
            [:> Divider]
@@ -141,6 +144,7 @@
             {:text "claude-3-sonnet"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
+                         (p "chose claude-3-sonnet")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-sonnet")
                          (reset! default-model "claude-3-sonnet"))}]
            [:> Divider]
@@ -148,16 +152,17 @@
             {:text "gemini"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
-
+                         (p "chose gemini")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini")
                          (let [settings-exist? (get-child-of-child-with-str block-uid "Settings" "Safety settings")]
-                          (when (nil? settings-exist?)
+                          (if (nil? settings-exist?)
                            (create-struct
                              gemini-safety-settings-struct
                              (:uid (get-child-with-str block-uid "Settings"))
                              nil
                              nil
-                             #(reset! default-model "gemini")))))}]]])]
+                             #(reset! default-model "gemini"))
+                           (reset! default-model "gemini"))))}]]])]
      (when (and (some? default-model)
                 (= "gemini" @default-model))
        [gemini-safety-component block-uid])

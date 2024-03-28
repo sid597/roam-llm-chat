@@ -6,7 +6,7 @@
             [ui.components.chat :refer [chat-context]]
             [ui.components.chin :refer [chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [button-popover update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [button-popover model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -88,10 +88,12 @@
                                          struct              (if (nil? already-summarised?)
                                                                {:s "AI summary"
                                                                 :u parent-block-uid
+                                                                :c [{:s (str "By: " @default-model)
+                                                                     :c [{:s ""
+                                                                          :u res-block-uid}]}]}
+                                                               {:s (str "By: " @default-model)
                                                                 :c [{:s ""
-                                                                     :u res-block-uid}]}
-                                                               {:s ""
-                                                                :u res-block-uid})
+                                                                     :u res-block-uid}]})
                                          top-parent          (if (nil? already-summarised?)
                                                                current-page-uid
                                                                already-summarised?)
@@ -102,11 +104,12 @@
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
                                                                  (str @context "\n" page-data))
-                                         settings            {:model(if (= "gpt-4" @default-model)
-                                                                      "gpt-4-0125-preview"
-                                                                      "gpt-3.5-turbo-0125")
-                                                              :max-tokens @default-max-tokens
-                                                              :temperature @default-temp}
+                                         settings            (merge
+                                                               {:model       (get model-mappings @default-model)
+                                                                :max-tokens  @default-max-tokens
+                                                                :temperature @default-temp}
+                                                               (when (= "gemini" @default-model)
+                                                                 {:safety-settings (get-safety-settings block-uid)}))
                                          messages            [{:role "user"
                                                                :content send-data}]]
                                      (do
