@@ -132,7 +132,8 @@
 
 
 (defn init []
- (p "Hello from  chat-llm! PROD v-2ee94a")
+ (p "Hello from  chat-llm! ")
+ (p "PROD Version: v-23600ac")
  (p "Starting initial setup.")
  (llm-chat-settings-page-struct)
  ;(append-and-render-component)
