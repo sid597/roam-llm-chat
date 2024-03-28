@@ -211,8 +211,8 @@
                                         image-prompt-str  (get-child-of-child-with-str block-uid "Image prompt" "Default prompt" true)
                                         image-count       (count all-images)]
                                     (p (str pre "all images on page: " all-images))
-                                    #_(when (> image-count 0)
-                                        (reset! total-images-count (count all-images))
-                                        (reset! loading? true)
-                                        (image-to-text-for all-images total-images-count loading? image-prompt-str default-max-tokens)))))}
+                                    (when (> image-count 0)
+                                      (reset! total-images-count (count all-images))
+                                      (reset! loading? true)
+                                      (image-to-text-for all-images total-images-count loading? image-prompt-str default-max-tokens)))))}
          (str "Generate description for: " @description-for)]]])))
