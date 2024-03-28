@@ -577,11 +577,11 @@
 (defn call-llm-api [{:keys [messages settings callback]}]
   (let [model (model-type (:model settings))]
     (case model
-      :gpt        (call-api "http://localhost:3000/chat-complete" ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+      :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
-      :claude     (call-api "http://localhost:3000/chat-anthropic" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+      :claude     (call-api  "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
-     :gemini     (call-api "http://localhost:3000/chat-gemini"
+     :gemini     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
                    messages settings callback)
       (p "Unknown model"))))
 
