@@ -48,47 +48,6 @@
                                                                                         (reset! active? false))
                                                                                       500))))})))
 
-(defn extract-context [children pre get-linked-refs?]
-  (p (str pre " Extracting context data"))
-  (let [pre (str pre " Extracting context data: ")
-        ext (r/atom "\n Initial context: \n")]
-    (doseq [child children]
-      (let [cstr (:string child)
-            child-uid (:uid child)]
-        (p (str pre " == " cstr))
-        (cond
-          (or (= "{{query block}}"
-                cstr)
-            (= "{{ query block }}"
-              cstr))                (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
-                                      (.then (fn [r]
-                                               (p (str pre "This is query block: " cstr))
-                                               (let [res (js->clj r :keywordize-keys true)
-                                                     page-data (clojure.string/join "\n "(data-for-pages res get-linked-refs?))]
-                                                 (p (str pre "extracted data from query pages: " page-data))
-                                                 (swap! ext str "\n " page-data)))))
-          (some? (is-a-page? cstr)) (do
-                                      (p (str pre "This is a page: " cstr)
-                                        (let [page-data (clojure.string/join "\n " (data-for-pages
-                                                                                     [{:text (is-a-page? cstr)}]
-                                                                                     get-linked-refs?))]
-                                          (p (str pre "extracted data for the page: " page-data))
-                                          (swap! ext str "\n " page-data))))
-          :else                     (do
-                                      (p (str pre "This is a normal block: " cstr))
-                                      (swap! ext str "\n " cstr)))))
-    (str "``` " @ext "\n ```")))
-
-(comment
-  (extract-context (:children (get-child-with-str "Yif1J5lmJ" "Context"))
-    "gm: "
-    (r/atom false))
-
-  (send-context-and-message nil  "Yif1J5lmJ" nil nil nil [{:role "user"
-                                                           :content (extract-context (:children (get-child-with-str "Yif1J5lmJ" "Context"))
-                                                                        "gm: "
-                                                                        (r/atom false))}]))
-
 
 (defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
   #_(println "load context ")
@@ -103,9 +62,41 @@
         children (:children chat)
         c-uid    (:uid chat)
         count    (count children)
-        context-str (extract-context (:children context) pre get-linked-refs?)]
+        ext-context (r/atom "\n Initial context: \n")]
+
     (p (str pre "for these: " children))
     (go
+      (doseq [child (:children context)]
+        (let [cstr (:string child)
+              child-uid (:uid child)]
+          (p (str pre " == " cstr))
+          (cond
+            (or (= "{{query block}}"
+                  cstr)
+              (= "{{ query block }}"
+                cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
+                                             (.then (fn [r]
+                                                      (p (str pre "This is query block: " cstr))
+
+                                                      (let [res (vec (map (fn [m]
+                                                                            (update m :text is-a-page?))
+                                                                       (js->clj r :keywordize-keys true)))
+
+
+                                                            _ (p pre "updated query results are " res)
+                                                            page-data (clojure.string/join "\n "(data-for-pages res get-linked-refs?))]
+                                                        (p (str pre "extracted data from query pages: " page-data))
+                                                        (swap! ext-context str "\n " page-data))))))
+            (some? (is-a-page? cstr)) (do
+                                        (p (str pre "This is a page: " cstr)
+                                          (let [page-data (clojure.string/join "\n " (data-for-pages
+                                                                                       [{:text (is-a-page? cstr)}]
+                                                                                       get-linked-refs?))]
+                                            (p (str pre "extracted data for the page: " page-data))
+                                            (swap! ext-context str "\n " page-data))))
+            :else                     (do
+                                        (p (str pre "This is a normal block: " cstr))
+                                        (swap! ext-context str "\n " cstr)))))
       (doseq [child children]
         ^{:key child}
         (let [child-uid (:uid child)
@@ -160,7 +151,7 @@
                           (p (str pre "refresh messages window with parent-id: " parent-id))
                           (reset! messages-atom (get-child-with-str parent-id "Messages"))
                           #_(println "messages atom reset")
-                          (send-context-and-message messages-atom parent-id active? settings token-count-atom context-str))))
+                          (send-context-and-message messages-atom parent-id active? settings token-count-atom @ext-context))))
       (<p! (js/Promise. (fn [_]
                           (p (str pre "refresh chat window with parent-id: " parent-id))
                           (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))
