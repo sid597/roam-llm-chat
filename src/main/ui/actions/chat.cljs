@@ -49,7 +49,7 @@
                                                                                       500))))})))
 
 
-(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
+(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom extract-query-pages?]
   #_(println "load context ")
   (p "*load context* for block with uid:" parent-id)
   (let [pre      "*load context* :"
@@ -64,7 +64,8 @@
         count    (count children)
         ext-context (r/atom "\n Initial context: \n")]
 
-    (p (str pre "for these: " children))
+    (p (str pre "for these messages: " children))
+    (p pre context)
     (go
       (doseq [child (:children context)]
         (let [cstr (:string child)
@@ -77,21 +78,20 @@
                 cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
                                              (.then (fn [r]
                                                       (p (str pre "This is query block: " cstr))
-
+                                                      (p "Query result: " r)
                                                       (let [res (vec (map (fn [m]
                                                                             (update m :text is-a-page?))
                                                                        (js->clj r :keywordize-keys true)))
-
-
                                                             _ (p pre "updated query results are " res)
-                                                            page-data (clojure.string/join "\n "(data-for-pages res get-linked-refs?))]
+                                                            page-data (clojure.string/join "\n "(data-for-pages res get-linked-refs? extract-query-pages?))]
                                                         (p (str pre "extracted data from query pages: " page-data))
                                                         (swap! ext-context str "\n " page-data))))))
             (some? (is-a-page? cstr)) (do
                                         (p (str pre "This is a page: " cstr)
                                           (let [page-data (clojure.string/join "\n " (data-for-pages
                                                                                        [{:text (is-a-page? cstr)}]
-                                                                                       get-linked-refs?))]
+                                                                                       get-linked-refs?
+                                                                                       extract-query-pages?))]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (swap! ext-context str "\n " page-data))))
             :else                     (do
@@ -115,7 +115,10 @@
                                                         (let [res (js->clj r :keywordize-keys true)
                                                               page-data (str
                                                                           "```"
-                                                                          (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
+                                                                          (clojure.string/join "\n -----" (data-for-pages
+                                                                                                            res
+                                                                                                            get-linked-refs?
+                                                                                                            extract-query-pages?))
                                                                           "```")]
                                                           (p (str pre "extracted data from query pages: " page-data))
                                                           (update-block-string-and-move
@@ -129,7 +132,8 @@
                                                             "```"
                                                             (clojure.string/join "\n -----" (data-for-pages
                                                                                               [{:text (is-a-page? cstr)}]
-                                                                                              get-linked-refs?))
+                                                                                              get-linked-refs?
+                                                                                              extract-query-pages?))
                                                             "```")]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (<p! (update-block-string-and-move

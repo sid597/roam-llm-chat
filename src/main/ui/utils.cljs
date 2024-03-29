@@ -434,6 +434,8 @@
                        {:s "Temperature"
                         :c [{:s "0.9"}]}
                        {:s "Get linked refs"
+                        :c [{:s "false"}]}
+                       {:s "Extract query pages"
                         :c [{:s "false"}]}]}
                   {:s "Graph overview default pre prompt"
                    :c [{:s "Pre prompt:"
@@ -469,6 +471,8 @@
        {:s "Get linked refs"
         :c [{:s "true"}]}
        {:s "Active?"
+        :c [{:s "false"}]}
+       {:s "Extract query pages"
         :c [{:s "false"}]}]})
 
 

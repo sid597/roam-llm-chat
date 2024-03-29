@@ -30,6 +30,9 @@
         get-linked-refs? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
                                    true
                                    false))
+        extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+                                       true
+                                       false))
         active? (r/atom false)
         default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
         default-temp (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
@@ -64,7 +67,13 @@
                       :background-color "#f6cbfe3d"
                       :border "1px"}}
              [chat-context context #()]]
-            [chin default-model default-max-tokens default-temp get-linked-refs? active? block-uid]]]]]
+            [chin {:default-model        default-model
+                   :default-max-tokens   default-max-tokens
+                   :default-temp         default-temp
+                   :get-linked-refs      get-linked-refs?
+                   :active?              active?
+                   :block-uid            block-uid
+                   :extract-query-pages? extract-query-pages?}]]]]]
        [:div {:style {:flex "1 1 1"}}
          [:> Button {:minimal true
                      :small true
@@ -80,7 +89,9 @@
                                          block-data          (when (nil? title)
                                                                (str
                                                                  "```"
-                                                                 (clojure.string/join "\n -----" (data-for-blocks [current-page-uid]))
+                                                                 (clojure.string/join "\n -----" (data-for-blocks
+                                                                                                   [current-page-uid]
+                                                                                                   extract-query-pages?))
                                                                  "```"))
                                          already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
@@ -100,7 +111,10 @@
                                          context             (extract-context-children-data-as-str
                                                                (r/atom (get-child-of-child-with-str-on-page
                                                                          "LLM chat settings" "Quick action buttons" button-name "Context")))
-                                         page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
+                                         page-data           (when-not (nil? title) (data-for-pages
+                                                                                      [{:text (str title)}]
+                                                                                      get-linked-refs?
+                                                                                      extract-query-pages?))
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
                                                                  (str @context "\n" page-data))
@@ -195,7 +209,9 @@
                        :background-color "#f6cbfe3d"
                        :border "1px"}}
               [chat-context image-prompt #()]]
-             [chin nil default-max-tokens nil nil nil img-block-uid nil (generate-description-for-images-without-one img-block-uid description-for)]]]]]
+             [chin {:default-max-tokens default-max-tokens
+                    :block-uid          img-block-uid
+                    :buttons?           (generate-description-for-images-without-one img-block-uid description-for)}]]]]]
        [:div {:style {:flex "1 1 1"}}
         [:> Button {:minimal true
                     :small true

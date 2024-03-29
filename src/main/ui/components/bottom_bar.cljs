@@ -35,7 +35,9 @@
                                       block-data    (when (nil? page-title)
                                                       (str
                                                         "```"
-                                                        (clojure.string/join "\n -----" (data-for-blocks [open-page-uid]))
+                                                        (clojure.string/join "\n -----" (data-for-blocks
+                                                                                          [open-page-uid]))
+
                                                         "```"))
                                       page-data     (str "[[" page-title "]]")
                                       context       (if (nil? page-title)
