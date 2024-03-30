@@ -150,7 +150,7 @@
         url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" api-key)
         headers  {"Content-Type" "application/json"}
         body     (json/generate-string
-                   {:contents         messages #_(gemini-flavoured-messages messages)
+                   {:contents         (gemini-flavoured-messages messages)
                     :generationConfig {:maxOutputTokens max-tokens
                                        :temperature temperature}
                     :safetySettings   (:safety-settings settings)})
