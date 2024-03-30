@@ -113,7 +113,8 @@
                          {:headers headers
                           :body    body
                           :content-type :json
-                          :as :json})
+                          :as :json
+                          :throw-exceptions false})
         res-body       (-> response :body)
         tokens         (-> res-body
                          :usage)
@@ -127,7 +128,7 @@
                                                                                                                         :text))
         reply-body     (cond
                          (not= 200 (:status response)) (str "code: " (:status response)
-                                                         "error: " (:error res-body))
+                                                         " and error: " (-> res-body (json/parse-string-strict true) :error :message)res-body)
                          #_#_(= "max_tokens"
                                (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
                          :else                         (-> res-body
@@ -146,29 +147,54 @@
                 max-tokens
                 messages]} (extract-request request)
         api-key  gemini-key
-        url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" api-key)
+        url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" api-key)
         headers  {"Content-Type" "application/json"}
         body     (json/generate-string
-                   {:contents         (gemini-flavoured-messages messages)
+                   {:contents         messages #_(gemini-flavoured-messages messages)
                     :generationConfig {:maxOutputTokens max-tokens
                                        :temperature temperature}
                     :safetySettings   (:safety-settings settings)})
-        _ (println "body" body)
         response (client/post url {:headers headers
                                    :body body
                                    :content-type :json
-                                   :as :json})
+                                   :as :json
+                                   :throw-exceptions false})
         res-body (-> response :body)
         _ (println "status " (:status response) "--" (:error res-body) "--" (-> res-body :candidates first :content :parts first :text))
         reply-body (cond
                      (not= 200 (:status response))
-                     (str "code: " (:status response) "error: " (:error res-body))
-
+                     (str "code: " (:status response) " and error: "
+                       (-> res-body (json/parse-string-strict true) :error :message))
                      :else
                      (-> res-body :candidates first :content :parts first :text))]
     {:status (:status response)
      :headers {"Content-Type" "text/plain"}
      :body reply-body}))
+
+(comment
+  (-> (client/post
+        (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" gemini-key)
+        {:headers {"Content-Type" "application/json"}
+         :body (json/generate-string {:contents
+                                      [{:role "user",
+                                        :parts [{:texts "\n Initial context: \n\n  \n \npm \n "}]}]
+                                      :generationConfig {:maxOutputTokens 400, :temperature 0.9},
+                                      :safetySettings
+                                      [{:category "HARM_CATEGORY_HARASSMENT",
+                                        :threshold "BLOCK_MEDIUM_AND_ABOVE"}
+                                       {:category "HARM_CATEGORY_HATE_SPEECH",
+                                        :threshold "BLOCK_MEDIUM_AND_ABOVE"}
+                                       {:category "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                        :threshold "BLOCK_MEDIUM_AND_ABOVE"}
+                                       {:category "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                        :threshold "BLOCK_MEDIUM_AND_ABOVE"}]})
+         :content-type :json
+         :as :json
+         :throw-exceptions false})
+    :body
+    (json/parse-string-strict true)
+    :error
+    :message))
 
 
 (defn- handle-preflight [f]
