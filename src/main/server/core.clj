@@ -73,24 +73,53 @@
                 passphrase
                 temperature
                 max-tokens]} (extract-request request)
-        res (if (= passphrase pass-key)
-              (api/create-chat-completion
-                {:model model
-                 :messages messages
-                 :temperature temperature
-                 :max_tokens max-tokens
-                 :top_p 1
-                 :frequency_penalty 0
-                 :presence_penalty 0}
-                {:api-key oai-key})
-              "Nice try!")]
-   {:status 200
-    :headers {"Content-Type" "text/plain"}
-    :body   (-> res
-              :choices
-              first
-              :message
-              :content)}))
+        body    (json/generate-string
+                   {:model      model
+                    :messages   messages
+                    :temperature temperature
+                    :max_tokens max-tokens})
+        headers {"Content-Type" "application/json"
+                 "Authorization" (str "Bearer " oai-key)}
+        url "https://api.openai.com/v1/chat/completions"
+        res (client/post url
+              {:headers headers
+               :body body
+               :content-type :json
+               :as :json
+               :throw-exceptions false})
+        res-body (-> res :body)
+        reply-body (cond
+                     (not= 200 (:status res))
+                     (str "^^ Error: code: " (:status res)
+                       " and message: "
+                       (-> res-body (json/parse-string-strict true) :error :message)
+                       " ^^")
+
+                     :else
+                     (-> res-body
+                       :choices
+                       first
+                       :message
+                       :content))]
+    (println "reply body: " reply-body)
+    {:status (:status res)
+     :headers {"Content-Type" "text/plain"}
+     :body   reply-body}))
+
+(comment
+  (client/post
+    "https://api.openai.com/v1/chat/completions"
+    {:headers {"Content-Type" "application/json"
+               "Authorization" (str "Bearer " oai-key)}
+     :body (json/generate-string
+             {:model    "gpt-3.5-turbo"
+              :messages [{:rolre "system" :content "You are a helpful assistant."}
+                         {:role "user" :content "Who won the world series in 2020?"}
+                         {:role "assistant" :content "The Los Angeles Dodgers won the World Series in 2020."}
+                         {:role "user" :content "Where was it played?"}]})
+     :as :json
+     :throw-exceptions false}))
+
 
 
 (defn chat-anthropic [request]
