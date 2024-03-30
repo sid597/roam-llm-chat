@@ -35,6 +35,7 @@
 
 
 (defn gemini-flavoured-messages [messages]
+  (println " generate gemini-flavoured-messages")
   (mapv (fn [message]
           (let [role (:role message)
                 content (:content message)]
@@ -139,6 +140,7 @@
 
 
 (defn chat-gemini [request]
+  (println "chat gemini")
   (let [{:keys [settings
                 temperature
                 max-tokens
