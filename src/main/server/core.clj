@@ -127,8 +127,10 @@
                                                                                                                         first
                                                                                                                         :text))
         reply-body     (cond
-                         (not= 200 (:status response)) (str "code: " (:status response)
-                                                         " and error: " (-> res-body (json/parse-string-strict true) :error :message)res-body)
+                         (not= 200 (:status response)) (str "^^ Error: code: " (:status response)
+                                                         " and message: "
+                                                         (-> res-body (json/parse-string-strict true) :error :message)
+                                                         " ^^")
                          #_#_(= "max_tokens"
                                (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
                          :else                         (-> res-body
@@ -163,8 +165,9 @@
         _ (println "status " (:status response) "--" (:error res-body) "--" (-> res-body :candidates first :content :parts first :text))
         reply-body (cond
                      (not= 200 (:status response))
-                     (str "code: " (:status response) " and error: "
-                       (-> res-body (json/parse-string-strict true) :error :message))
+                     (str "^^ ERROR: code: " (:status response) " and message: "
+                       (-> res-body (json/parse-string-strict true) :error :message)
+                       " ^^")
                      :else
                      (-> res-body :candidates first :content :parts first :text))]
     {:status (:status response)
