@@ -2,7 +2,7 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components.quick-buttons :refer [button-with-settings text-to-image-button]]
-            [ui.extract-data.chat :refer [data-for-pages data-for-blocks get-all-images-for-node]]
+            [ui.extract-data.chat :refer [data-for-nodes data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
             [ui.utils :refer [p image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
@@ -35,7 +35,10 @@
                                       block-data    (when (nil? page-title)
                                                       (str
                                                         "```"
-                                                        (clojure.string/join "\n -----" (data-for-blocks [open-page-uid]))
+                                                        (clojure.string/join "\n -----" (data-for-nodes
+                                                                                          [open-page-uid]
+                                                                                          true
+                                                                                          true))
                                                         "```"))
                                       page-data     (str "[[" page-title "]]")
                                       context       (if (nil? page-title)

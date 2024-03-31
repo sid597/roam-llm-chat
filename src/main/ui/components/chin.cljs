@@ -221,7 +221,7 @@
          [:span.bp3-button-text
           {:style {:font-size "14px"
                    :font-family "initial"
-                   :font-weight "initial"}} "Include linked refs?"]]])
+                   :font-weight "initial"}} "Include discourse node refs?"]]])
      (when (some? buttons?)
        buttons?)]
     (when (some? callback)

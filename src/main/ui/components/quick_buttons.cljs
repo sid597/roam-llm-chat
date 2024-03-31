@@ -2,7 +2,7 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [reagent.core :as r :refer [atom]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.extract-data.chat :as ed :refer [data-for-pages data-for-blocks get-all-images-for-node]]
+            [ui.extract-data.chat :as ed :refer [data-for-nodes data-for-nodes get-all-images-for-node]]
             [ui.components.chat :refer [chat-context]]
             [ui.components.chin :refer [chin]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
@@ -80,7 +80,10 @@
                                          block-data          (when (nil? title)
                                                                (str
                                                                  "```"
-                                                                 (clojure.string/join "\n -----" (data-for-blocks [current-page-uid]))
+                                                                 (clojure.string/join "\n -----" (data-for-nodes
+                                                                                                   [current-page-uid]
+                                                                                                   @get-linked-refs?
+                                                                                                   true))
                                                                  "```"))
                                          already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
@@ -100,7 +103,7 @@
                                          context             (extract-context-children-data-as-str
                                                                (r/atom (get-child-of-child-with-str-on-page
                                                                          "LLM chat settings" "Quick action buttons" button-name "Context")))
-                                         page-data           (when-not (nil? title) (data-for-pages [{:text (str title)}] get-linked-refs?))
+                                         page-data           (when-not (nil? title) (data-for-nodes [(str title)] @get-linked-refs?))
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
                                                                  (str @context "\n" page-data))
