@@ -182,14 +182,12 @@
                    [?refs :block/refs ?n]]
                 uid)
          res  (atom [])]
-     (cljs.pprint/pprint refs)
      (doseq [[ref-eid
               ref-data] refs]
        (let [ref-parent-page   (-> ref-data :page :title)
              uid               (-> ref-data :page :uid)
              ref-block-parents (-> ref-data :parents)
              ex-ref-data       (extract-ref-data-for ref-parent-page ref-eid ref-block-parents)]
-         (p "---uid :--- " uid (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid))
          (when-let [_ (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
            (p "----This is discourse node ---" uid)
            (swap! res conj (str (:full-context ex-ref-data))))))
@@ -210,7 +208,6 @@
    (let [children (if block?
                     (get-children-for title true)
                     (get-children-for title))]
-     (p "--" children)
      (merge
       (when (not block?)
         {:title title})
