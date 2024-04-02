@@ -607,16 +607,12 @@
                       (reset! token-count-atom new-count)
                       (p "*New Token count* :" new-count))))))
 
-(str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
-       :children
-       first
-       :string))
+
 (defn create-alternate-messages [messages initial-context pre]
   (let [pre-prompt        (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
                                  :children
                                  first
                                  :string))
-        _ (println "------------------" pre-prompt)
         current-message   (atom (str pre-prompt "\n" (extract-from-code-block initial-context)))
         alternate-messages (atom [])]
     (p (str pre "create alternate messages"))
