@@ -241,20 +241,21 @@
 
 
 (defn replace-block-uids [block-str]
-  (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
-        matches (re-seq re block-str)]
-    (-> (reduce (fn [s [whole-match uid]]
+  (when (some? block-str)
+   (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
+         matches (re-seq re block-str)]
+     (-> (reduce (fn [s [whole-match uid]]
 
-                  (let [replace-str (str
-                                      (:string (ffirst (uid-to-block uid))))
+                   (let [replace-str (str
+                                       (:string (ffirst (uid-to-block uid))))
 
-                        replacement (if (str/starts-with? whole-match "(((")
-                                      (str "(" replace-str ")")
-                                      replace-str)]
-                    (str/replace s whole-match replacement)))
-          block-str
-          matches)
-      remove-entry)))
+                         replacement (if (str/starts-with? whole-match "(((")
+                                       (str "(" replace-str ")")
+                                       replace-str)]
+                     (str/replace s whole-match replacement)))
+           block-str
+           matches)
+       remove-entry))))
 
 (comment
   (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") "((hello))"))
@@ -473,7 +474,7 @@
        {:s "Active?"
         :c [{:s "false"}]}
        {:s "Extract query pages"
-        :c [{:s "false"}]}]})
+        :c [{:s "true"}]}]})
 
 
 (defn common-chat-struct [context-structure context-block-uid context-open?]

@@ -36,7 +36,8 @@
                                                       (str
                                                         "```"
                                                         (clojure.string/join "\n -----" (data-for-blocks
-                                                                                          [open-page-uid]))
+                                                                                          [open-page-uid]
+                                                                                          (atom true)))
 
                                                         "```"))
                                       page-data     (str "[[" page-title "]]")
