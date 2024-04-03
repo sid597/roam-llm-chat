@@ -84,15 +84,17 @@
 
 
                                                             _ (p pre "updated query results are " res)
-                                                            page-data (clojure.string/join "\n "(data-for-nodes res @get-linked-refs? extract-query-pages?))]
+                                                            page-data (clojure.string/join "\n "(data-for-nodes {:nodes res
+                                                                                                                 :get-linked-refs @get-linked-refs?
+                                                                                                                 :extract-query-pages? extract-query-pages?}))]
                                                         (p (str pre "extracted data from query pages: " page-data))
                                                         (swap! ext-context str "\n " page-data))))))
             (some? (is-a-page? cstr)) (do
                                         (p (str pre "This is a page: " cstr)
                                           (let [page-data (clojure.string/join "\n " (data-for-nodes
-                                                                                       [(is-a-page? cstr)]
-                                                                                       @get-linked-refs?
-                                                                                       extract-query-pages?))]
+                                                                                       {:nodes [(is-a-page? cstr)]
+                                                                                        :get-linked-refs @get-linked-refs?
+                                                                                        :extract-query-pages? extract-query-pages?}))]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (swap! ext-context str "\n " page-data))))
             :else                     (do
@@ -119,9 +121,9 @@
                                                               page-data (str
                                                                           "```"
                                                                           (clojure.string/join "\n -----" (data-for-nodes
-                                                                                                            res
-                                                                                                            @get-linked-refs?
-                                                                                                            extract-query-pages?))
+                                                                                                            {:nodes res
+                                                                                                             :get-linked-refs @get-linked-refs?
+                                                                                                             :extract-query-pages? extract-query-pages?}))
                                                                           "```")]
                                                           (p (str pre "extracted data from query pages: " page-data))
                                                           (update-block-string-and-move
@@ -134,9 +136,9 @@
                                           (let [page-data (str
                                                             "```"
                                                             (clojure.string/join "\n -----" (data-for-nodes
-                                                                                              [(is-a-page? cstr)]
-                                                                                              @get-linked-refs?
-                                                                                              extract-query-pages?))
+                                                                                              {:nodes [(is-a-page? cstr)]
+                                                                                               :get-linked-refs @get-linked-refs?
+                                                                                               :extract-query-pages? extract-query-pages?}))
                                                             "```")]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (<p! (update-block-string-and-move

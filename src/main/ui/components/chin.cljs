@@ -92,8 +92,7 @@
 
 
 
-(defn chin
-  ([{:keys [default-model default-max-tokens default-temp get-linked-refs active? block-uid callback buttons? extract-query-pages?]}]
+(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs active? block-uid callback buttons? extract-query-pages?]}]
    [:div.chin
     {:style {:display "flex"
              :flex-direction "row"
@@ -238,4 +237,4 @@
     (when (some? callback)
       [send-message-component
        active?
-       callback])]))
+       callback])])

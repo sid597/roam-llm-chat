@@ -234,7 +234,7 @@
 
 
 (defn data-for-nodes
-  [{:keys [ nodes get-linked-refs? block? extract-query-pages?]}]
+  [{:keys [nodes get-linked-refs? block? extract-query-pages?]}]
   (p "Inside extract data for pages function")
   (let [res (atom [])]
     (doall
