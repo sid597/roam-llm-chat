@@ -72,34 +72,10 @@
   (get-all-images-for-node "[[QUE]] - What is the rate at which cofilin binds actin filaments?" false))
 
 
-(defn extract-strings [node]
-  (when-not (contains? skip-blocks-with-string (:string node))
-    (let [block?          (some? (:string node))
-          embed?         (when block? (ffirst (not-empty (extract-embeds (:string node)))))
-          current-image? (if block? (extract-markdown-image (:string node)) false)
-          current-string (cond
-                           embed?         (:string embed?)
-                           current-image? (str/replace
-                                            (:string node)
-                                            markdown-image-pattern
-                                            (str " Image alt text: " (:text current-image?)))
-                           :els           (:string node))
-          children       (or (:children (if (some? embed?)
-                                          embed?
-                                          node))
-                           [])]
-      (concat
-        (if  current-string
-          [(replace-block-uids current-string)]
-          [])
-        (mapcat extract-strings children)))))
-
-
-(defn build-map [lst]
-  (into {}
-    (for [item lst]
-       [(get item :string) (-> (clojure.string/join "\n" (extract-strings item))
-                             (replace-block-uids))])))
+(defn extract-all-data [title]
+  (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
+               :in $ ?eid]
+            (get-eid title))))
 
 
 (defn sort-children [node]
@@ -109,42 +85,86 @@
                                  (sort-by :order))))
     node))
 
+(defn extract-strings
+  ([tree]
+   (extract-strings tree false))
+  ([tree extract-query-block?]
+   (let [result (atom [])
+         stack (atom [tree])]
+       (while (not (empty? @stack))
+         (let [node             (peek @stack)
+               string           (replace-block-uids (:string node))
+               block-ref?       (when string (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string node)))
+               query-block?     (= string "{{query block}}")
+               refed-qry-block? (and query-block?
+                                  (some? block-ref?))
+               node-uid         (if refed-qry-block?
+                                  (second (first block-ref?))
+                                  (:uid node))
+               current-image?   (if string (extract-markdown-image string) false)
+               embed?           (when (some? string)
+                                  (ffirst (not-empty (extract-embeds (:string node)))))
+               children         (:children node)]
+           (swap! stack pop)
+           (when (and string
+                   (not (contains? skip-blocks-with-string string)))
+             (cond
+               (and query-block?
+                 extract-query-block?)      (do
+                                              (let [query-result (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] node-uid)
+                                                                   (js->clj :keywordize-keys true))]
+                                                (p "query-result" query-result)
+                                                (doseq [n query-result]
+                                                  (let [ext [(-> (extract-all-data (:text n))
+                                                               (sort-children))]]
+                                                    (swap! stack conj (first ext))))))
+               embed?                       (swap! result conj (:string embed?))
+               current-image?               (str/replace
+                                              string
+                                              markdown-image-pattern
+                                              (str " Image alt text: " (:text current-image?)))
+               (and query-block?
+                 (not extract-query-block?)) nil
+               :else                         (swap! result conj string)))
+           (doseq [child (reverse (sort-by :order children))]
+             (when (and (not query-block?)
+                      (not (contains? skip-blocks-with-string string)))
+               (swap! stack conj child)))))
+     (p "result" @result)
+     @result)))
+
 
 (defn get-children-for
-  ([node] (get-children-for node false))
-  ([node block?]
+  ([{:keys [node block? extract-query-pages?]}]
    (p "Inside get children for particular page or block function: " node)
    (let [eid               (cond
                              (int? node) node
                              block?   (uid->eid node)
                              :else    (get-eid node))
-         raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order])
+         _ (p "eid" eid)
+         raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
                                         :in $ ?eid]
                                      eid))
          embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
          sorted-by-children (sort-children raw-children-data)
          block-string       (:string raw-children-data)
+         extracted-strings  (extract-strings
+                              (if embed? embed? sorted-by-children)
+                              extract-query-pages?)
+         _ (p "extracted-strings" extracted-strings)
          plain-text         (str/join "\n " (concat
                                               (when (and block-string (not (int? node)))
                                                 [block-string])
-                                              (extract-strings (if embed? embed? sorted-by-children))))]
+                                              extracted-strings))]
+
      (p "Successfully extracted children for page or block with node: " node)
      {:plain-text plain-text})))
 
 
 (comment
-  (get-children-for "KJfDPkNxG" true)
-  (get-children-for "3yD8b4Oer" true)
-  (get-children-for "4llnpJ5Ae" true)
+  (get-children-for {:node "Test: extract query pages"
+                     :extract-query-pages? true}))
 
-  (time (get-children-for "[[ISS]] - scope other options for the LLM chat interface"))
- (get-children-for "7RBKIHk-V" true)
- (build-map (get-children-for "7RBKIHk-V" true))
- (get-children-for "1owvT89TK" true)
- (get-children-for "llm chat")
-
- (get-children-for "mJ6ZmSQip" true)
- (get-children-for "testing 5"))
 
 (defn extract-ref-data-for [title ref-eid ref-block-parents]
   (p "Inside extract ref data for particular page function")
@@ -153,13 +173,12 @@
                                ref-block-parents))
         breadcrumbs (when-not (empty? crumbs-set)
                       (str/join " > " crumbs-set))
-        children     (:plain-text (get-children-for ref-eid))
+        children     (:plain-text (get-children-for {:node ref-eid}))
         full-context (str/join " > " (concat [title
                                               children]
                                        (when-not (nil? breadcrumbs)
                                              [breadcrumbs])))]
     (p "Successfully extracted ref data for page: " title)
-    (p "with full context --->" full-context)
     (when (empty? (clojure.set/intersection crumbs-set skip-blocks-with-string))
       {:parents breadcrumbs
        :children children
@@ -167,10 +186,7 @@
        :full-context full-context})))
 
 
-(defn get-all-refs-for
-  ([title]
-   (get-all-refs-for title false))
-  ([title block?]
+(defn get-all-refs-for [{:keys [title block?]}]
    (p "Inside get all refs for particular page function")
    (let [uid  (if block? title (title->uid title))
          refs (q '[:find ?refs (pull ?refs [:block/string {:block/parents [:block/string]}
@@ -192,63 +208,72 @@
            (p "----This is discourse node ---" uid)
            (swap! res conj (str (:full-context ex-ref-data))))))
      (p "Successfully extracted ref data for all pages ")
-     @res)))
+     @res))
+
 
 (comment
-  (get-all-refs-for "KJfDPkNxG" true)
-  (get-all-refs-for "[[QUE]] - What is the stoichiometry of Hip1R binding to actin filaments?")
-  (get-all-refs-for "Limit LLM Chat Linked References to dgraph nodes"))
+  (get-all-refs-for {:title "KJfDPkNxG"
+                     :block? true})
+  (get-all-refs-for {:title "[[QUE]] - What is the stoichiometry of Hip1R binding to actin filaments?"})
+  (get-all-refs-for {:title "Limit LLM Chat Linked References to dgraph nodes"}))
 
 
 (defn get-all-data-for
-  ([title get-linked-refs?]
-   (get-all-data-for title get-linked-refs? false))
-  ([title get-linked-refs? block?]
-   (p "Inside get all data for particular page function")
-   (let [children (if block?
-                    (get-children-for title true)
-                    (get-children-for title))]
+  [{:keys [title get-linked-refs? block? extract-query-pages?]}]
+  (p "Inside get all data for particular page function")
+  (let [children (get-children-for {:node                 title
+                                    :block?               (or block? false)
+                                    :extract-query-pages? extract-query-pages?})]
      (merge
       (when (not block?)
         {:title title})
       {:body      (:plain-text children)}
       (when get-linked-refs?
-        {:refs (if block?
-                 (get-all-refs-for title true)
-                 (get-all-refs-for title))})))))
+        {:refs (get-all-refs-for {:title  title
+                                  :block? (or block? false)})}))))
 
 
 (defn data-for-nodes
-  ([nodes get-linked-refs?]
-   (data-for-nodes nodes get-linked-refs? false))
-  ([nodes get-linked-refs? block?]
-   (p "Inside extract data for pages function")
-   (let [res (atom [])]
-     (doall
-      (for [node nodes]
-        (swap! res (fn [old-res]
-                     (let [page-data (get-all-data-for node get-linked-refs? block?)]
+  [{:keys [ nodes get-linked-refs? block? extract-query-pages?]}]
+  (p "Inside extract data for pages function")
+  (let [res (atom [])]
+    (doall
+     (for [node nodes]
+       (swap! res (fn [old-res]
+                    (let [node-data (get-all-data-for
+                                      {:title                node
+                                       :get-linked-refs      (or get-linked-refs? false)
+                                       :block?               (or block? false)
+                                       :extract-query-pages? (or extract-query-pages? false)})]
                       (conj old-res
-                            (with-out-str
-                              (print "\n")
-                              (print page-data)
-                              (print "\n"))))))))
-     @res)))
+                         (with-out-str
+                           (print "\n")
+                           (print node-data)
+                           (print "\n"))))))))
+    @res))
 
 
 (comment
-  (data-for-nodes ["Limit LLM Chat Linked References to dgraph nodes"] true)
-  (data-for-nodes ["KJfDPkNxG"] true true)
-  (data-for-nodes ["1owvT89TK"] true true)
-  (data-for-nodes ["llm chat"] true)
-  (data-for-nodes ["[[ISS]] - scope other options for the LLM chat interface"] false)
-  (data-for-nodes ["[[ISS]] - scope other options for the LLM chat interface"
-                   "[[EVD]] - test evd node isDiscourseNode - [[@source]]"] false)
+  (data-for-nodes {:title ["Limit LLM Chat Linked References to dgraph nodes"]
+                   :get-linked-refs true})
+  (data-for-nodes {:title ["KJfDPkNxG"]
+                   :get-linked-refs true
+                   :block? true})
+  (data-for-nodes {:title ["1owvT89TK"]
+                   :get-linked-refs true
+                   :block? true})
+  (data-for-nodes {:title ["llm chat"]
+                   :get-linked-refs true})
+  (data-for-nodes {:title ["[[ISS]] - scope other options for the LLM chat interface"]
+                   :get-linked-refs false})
+  (data-for-nodes {:title ["[[ISS]] - scope other options for the LLM chat interface"
+                           "[[EVD]] - test evd node isDiscourseNode - [[@source]]"]
+                   :get-linked-refs false})
 
   (data-for-nodes
-    ["[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
-     "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."]
-    false)
+    {:title ["[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
+             "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."]
+     :get-linked-refs false})
 
   (get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 

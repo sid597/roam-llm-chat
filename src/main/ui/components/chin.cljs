@@ -93,11 +93,7 @@
 
 
 (defn chin
-  ([default-model default-max-tokens default-temp get-linked-refs active? block-uid]
-   (chin default-model default-max-tokens default-temp get-linked-refs active? block-uid nil nil))
-  ([default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]
-   (chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback nil))
-  ([default-model default-max-tokens default-temp get-linked-refs active? block-uid callback buttons?]
+  ([{:keys [default-model default-max-tokens default-temp get-linked-refs active? block-uid callback buttons? extract-query-pages?]}]
    [:div.chin
     {:style {:display "flex"
              :flex-direction "row"
@@ -222,6 +218,21 @@
           {:style {:font-size "14px"
                    :font-family "initial"
                    :font-weight "initial"}} "Include discourse node refs?"]]])
+     (when (some? extract-query-pages?)
+       [:> Divider]
+       [:div.chk
+        {:style {:align-self "center"
+                 :margin-left "5px"}}
+        [:> Checkbox
+         {:style {:margin-bottom "0px"}
+          :checked @extract-query-pages?
+          :on-change (fn [x]
+                       (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages" (str (not @extract-query-pages?)))
+                       (reset! extract-query-pages? (not @extract-query-pages?)))}
+         [:span.bp3-button-text
+          {:style {:font-size "14px"
+                   :font-family "initial"
+                   :font-weight "initial"}} "Extract query pages?"]]])
      (when (some? buttons?)
        buttons?)]
     (when (some? callback)

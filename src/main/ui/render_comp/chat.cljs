@@ -27,7 +27,10 @@
         default-model      (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
         get-linked-refs    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
                                      true
-                                     false))]
+                                     false))
+        extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+                                       true
+                                       false))]
     (watch-children
       (:uid @messages)
       (fn [_ aft]
@@ -66,6 +69,14 @@
                                    true
                                    false))))
     (watch-string
+      (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
+      (fn [_ aft]
+        (p "extract query results changed" aft)
+        (reset! extract-query-pages? (if (= "true" (:string aft))
+                                       true
+                                       false))))
+
+    (watch-string
       (get-child-of-child-with-str block-uid "Settings" "Active?" false)
       (fn [_ aft]
         (p "Active button changed" aft)
@@ -95,7 +106,8 @@
                                         :temperature @default-temp}
                                        (when (= "gemini" @default-model)
                                          {:safety-settings (get-safety-settings b-uid)}))
-                                     token-count))))
+                                     token-count
+                                     extract-query-pages?))))
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
@@ -136,7 +148,14 @@
                     :background-color "#f6cbfe3d"
                     :border "1px"}}
            [chat-context chat handle-key-event]]
-          [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]]))))
+          [chin {:default-model        default-model
+                 :default-max-tokens   default-max-tokens
+                 :default-temp         default-temp
+                 :get-linked-refs      get-linked-refs
+                 :active?              active?
+                 :block-uid            block-uid
+                 :callback             callback
+                 :extract-query-pages? extract-query-pages?}]]]]))))
 
 
 
