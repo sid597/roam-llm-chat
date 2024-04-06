@@ -70,7 +70,7 @@
             [chin {:default-model        default-model
                    :default-max-tokens   default-max-tokens
                    :default-temp         default-temp
-                   :get-linked-refs      get-linked-refs?
+                   :get-linked-refs?     get-linked-refs?
                    :active?              active?
                    :block-uid            block-uid
                    :extract-query-pages? extract-query-pages?}]]]]]
@@ -91,9 +91,9 @@
                                                                  "```"
                                                                  (clojure.string/join "\n -----" (data-for-nodes
                                                                                                   {:nodes                [current-page-uid]
-                                                                                                   :get-linked-refs      @get-linked-refs?
+                                                                                                   :get-linked-refs?      @get-linked-refs?
                                                                                                    :block?               true
-                                                                                                   :extract-query-pages? extract-query-pages?}))
+                                                                                                   :extract-query-pages? @extract-query-pages?}))
                                                                  "```"))
                                          already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
@@ -115,8 +115,8 @@
                                                                          "LLM chat settings" "Quick action buttons" button-name "Context")))
                                          page-data           (when-not (nil? title) (data-for-nodes
                                                                                      {:nodes               [{:text (str title)}]
-                                                                                      :get-linked-refs      get-linked-refs?
-                                                                                      :extract-query-pages? extract-query-pages?}))
+                                                                                      :get-linked-refs?     @get-linked-refs?
+                                                                                      :extract-query-pages? @extract-query-pages?}))
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)
                                                                  (str @context "\n" page-data))

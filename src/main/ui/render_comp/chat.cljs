@@ -25,9 +25,9 @@
         default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
         default-temp       (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
         default-model      (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        get-linked-refs    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
-                                     true
-                                     false))
+        get-linked-refs?    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+                                      true
+                                      false))
         extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
                                        true
                                        false))]
@@ -65,9 +65,9 @@
       (get-child-of-child-with-str block-uid "Settings" "Get linked refs" false)
       (fn [_ aft]
         (p "get linked refs changed" aft)
-        (reset! get-linked-refs (if (= "true" (:string aft))
-                                   true
-                                   false))))
+        (reset! get-linked-refs? (if (= "true" (:string aft))
+                                    true
+                                    false))))
     (watch-string
       (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
       (fn [_ aft]
@@ -99,7 +99,7 @@
                                      messages
                                      b-uid
                                      active?
-                                     get-linked-refs
+                                     get-linked-refs?
                                      (merge
                                        {:model       (get model-mappings @default-model)
                                         :max-tokens  @default-max-tokens
@@ -151,7 +151,7 @@
           [chin {:default-model        default-model
                  :default-max-tokens   default-max-tokens
                  :default-temp         default-temp
-                 :get-linked-refs      get-linked-refs
+                 :get-linked-refs?      get-linked-refs?
                  :active?              active?
                  :block-uid            block-uid
                  :callback             callback

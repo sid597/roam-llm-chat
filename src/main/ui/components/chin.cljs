@@ -92,7 +92,7 @@
 
 
 
-(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs active? block-uid callback buttons? extract-query-pages?]}]
+(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages?]}]
    [:div.chin
     {:style {:display "flex"
              :flex-direction "row"
@@ -202,17 +202,17 @@
                                     (reset! default-temp e))}]]]])
 
 
-     (when (some? get-linked-refs)
+     (when (some? get-linked-refs?)
        [:> Divider]
        [:div.chk
         {:style {:align-self "center"
                  :margin-left "5px"}}
         [:> Checkbox
          {:style {:margin-bottom "0px"}
-          :checked @get-linked-refs
+          :checked @get-linked-refs?
           :on-change (fn [x]
-                       (update-block-string-for-block-with-child block-uid "Settings" "Get linked refs" (str (not @get-linked-refs)))
-                       (reset! get-linked-refs (not @get-linked-refs)))}
+                       (update-block-string-for-block-with-child block-uid "Settings" "Get linked refs" (str (not @get-linked-refs?)))
+                       (reset! get-linked-refs? (not @get-linked-refs?)))}
          [:span.bp3-button-text
           {:style {:font-size "14px"
                    :font-family "initial"

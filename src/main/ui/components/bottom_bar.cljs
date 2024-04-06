@@ -38,7 +38,7 @@
                                                         (clojure.string/join "\n -----" (data-for-nodes
                                                                                           {:nodes                [open-page-uid]
                                                                                            :block?               true
-                                                                                           :get-linked-refs      true
+                                                                                           :get-linked-refs?      true
                                                                                            :extract-query-pages? true}))
                                                         "```"))
                                       page-data     (str "[[" page-title "]]")

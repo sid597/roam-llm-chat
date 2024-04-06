@@ -123,8 +123,6 @@
                                               string
                                               markdown-image-pattern
                                               (str " Image alt text: " (:text current-image?)))
-               (and query-block?
-                 (not extract-query-block?)) nil
                :else                         (swap! result conj string)))
            (doseq [child (reverse (sort-by :order children))]
              (when (and (not query-block?)
@@ -188,15 +186,17 @@
 
 (defn get-all-refs-for [{:keys [title block?]}]
    (p "Inside get all refs for particular page function")
-   (let [refs (q '[:find ?title
-                   :in $ ?nt
+   (let [node-eid (if block?
+                    (uid->eid title)
+                    (get-eid title))
+         refs (q '[:find ?title
+                   :in $ ?n-eid
                    :where
-                   [?ref :node/title ?nt]
-                   [?d :block/refs ?ref]
+                   [?d :block/refs ?n-eid]
                    [?d :block/parents ?node]
                    (not [?p :block/children ?node])
                    [?node :node/title ?title]]
-                 title)
+                 node-eid)
          res  (atom [])]
      (p "refs" refs)
      (doseq [[index [ref-title]] (map-indexed vector refs)]
@@ -216,6 +216,8 @@
   (get-all-refs-for {:title "Test: extract query pages"})
   (get-children-for {:node "Test: extract query pages"})
 
+  (get-all-refs-for {:title "G5U5UaV7F"
+                     :block? true})
   (get-all-refs-for {:title "KJfDPkNxG"
                      :block? true})
   (get-children-for {:node "[[QUE]] - Testing llm plugin"})
@@ -245,45 +247,68 @@
   (let [res (atom [])]
     (doall
      (for [node nodes]
-       (swap! res (fn [old-res]
-                    (let [node-data (get-all-data-for
-                                      {:title                node
-                                       :get-linked-refs?     (or get-linked-refs? false)
-                                       :block?               (or block? false)
-                                       :extract-query-pages? (or extract-query-pages? false)})]
-                      (conj old-res
-                         (with-out-str
-                           (print "\n")
-                           (print node-data)
-                           (print "\n"))))))))
+        (swap! res (fn [old-res]
+                     (let [args      {:title                node
+                                      :get-linked-refs?     (or get-linked-refs? false)
+                                      :block?               (or block? false)
+                                      :extract-query-pages? (or extract-query-pages? false)}
+                           _ (p "args" args)
+                           node-data (get-all-data-for args)]
+                       (conj old-res
+                          (with-out-str
+                            (print "\n")
+                            (print node-data)
+                            (print "\n"))))))))
     @res))
 
 
 (comment
-  (get-all-data-for {:get-linked-refs? true
-                     :title "Test: extract query pages"})
+  ;; ------------------
+
+  ;; Extract without linked refs or query pages
+  (data-for-nodes {:nodes ["Test: extract query pages"]})
+
+  ;; Extract with linked refs
   (data-for-nodes {:nodes ["Test: extract query pages"]
                    :get-linked-refs? true})
+
+  ;; Extract with query pages
+  (data-for-nodes {:nodes ["Test: extract query pages"]
+                   :extract-query-pages? true})
+
+
+  ;; Extract with linked refs and query pages
+  (data-for-nodes {:nodes ["Test: extract query pages"]
+                   :get-linked-refs? true
+                   :extract-query-pages? true})
+
+
+  (get-all-data-for {:get-linked-refs? true
+                       :title "Test: extract query pages"})
+
+  ;; ------------------
+
+
   (data-for-nodes {:title ["Limit LLM Chat Linked References to dgraph nodes"]
-                   :get-linked-refs true})
+                   :get-linked-refs? true})
   (data-for-nodes {:title ["KJfDPkNxG"]
-                   :get-linked-refs true
+                   :get-linked-refs? true
                    :block? true})
   (data-for-nodes {:title ["1owvT89TK"]
-                   :get-linked-refs true
+                   :get-linked-refs? true
                    :block? true})
   (data-for-nodes {:title ["llm chat"]
-                   :get-linked-refs true})
+                   :get-linked-refs? true})
   (data-for-nodes {:title ["[[ISS]] - scope other options for the LLM chat interface"]
-                   :get-linked-refs false})
+                   :get-linked-refs? false})
   (data-for-nodes {:title ["[[ISS]] - scope other options for the LLM chat interface"
                            "[[EVD]] - test evd node isDiscourseNode - [[@source]]"]
-                   :get-linked-refs false})
+                   :get-linked-refs? false})
 
   (data-for-nodes
     {:title ["[[EVD]] - siRNA silenced IRSp53 significantly reduced internalized 10kDa TMR Dextran, while siRNA silenced Swip1 did not in MDA-MB-231 cells. - [[@moreno-layseca2021cargospecific]]",
              "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis."]
-     :get-linked-refs false})
+     :get-linked-refs? false})
 
   (get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 
