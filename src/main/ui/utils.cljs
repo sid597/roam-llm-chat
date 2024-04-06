@@ -437,6 +437,8 @@
                        {:s "Get linked refs"
                         :c [{:s "false"}]}
                        {:s "Extract query pages"
+                        :c [{:s "false"}]}
+                       {:s "Extract query pages ref?"
                         :c [{:s "false"}]}]}
                   {:s "Graph overview default pre prompt"
                    :c [{:s "Pre prompt:"
@@ -474,6 +476,8 @@
        {:s "Active?"
         :c [{:s "false"}]}
        {:s "Extract query pages"
+        :c [{:s "true"}]}
+       {:s "Extract query pages ref?"
         :c [{:s "true"}]}]})
 
 

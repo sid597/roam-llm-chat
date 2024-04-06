@@ -33,6 +33,9 @@
         extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
                                        true
                                        false))
+        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
+                                           true
+                                           false))
         active? (r/atom false)
         default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
         default-temp (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
@@ -73,7 +76,8 @@
                    :get-linked-refs?     get-linked-refs?
                    :active?              active?
                    :block-uid            block-uid
-                   :extract-query-pages? extract-query-pages?}]]]]]
+                   :extract-query-pages? extract-query-pages?
+                   :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
        [:div {:style {:flex "1 1 1"}}
          [:> Button {:minimal true
                      :small true
@@ -93,7 +97,8 @@
                                                                                                   {:nodes                [current-page-uid]
                                                                                                    :get-linked-refs?      @get-linked-refs?
                                                                                                    :block?               true
-                                                                                                   :extract-query-pages? @extract-query-pages?}))
+                                                                                                   :extract-query-pages? @extract-query-pages?
+                                                                                                   :only-pages?          @extract-query-pages-ref?}))
                                                                  "```"))
                                          already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
@@ -116,6 +121,7 @@
                                          page-data           (when-not (nil? title) (data-for-nodes
                                                                                      {:nodes               [{:text (str title)}]
                                                                                       :get-linked-refs?     @get-linked-refs?
+                                                                                      :only-pages?          @extract-query-pages-ref?
                                                                                       :extract-query-pages? @extract-query-pages?}))
                                          send-data           (if (nil? title)
                                                                  (str @context "\n" block-data)

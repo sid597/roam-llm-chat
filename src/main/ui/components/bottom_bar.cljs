@@ -26,6 +26,7 @@
                   :small true
                   :style {:flex "1 1 1"}
                   :on-click (fn [e]
+                              ;; UPDATE THIS CODE
                               (p "*Chat with this page* :button clicked")
                               (go
                                 (let [pre            "*Chat with this page* :"
@@ -38,8 +39,9 @@
                                                         (clojure.string/join "\n -----" (data-for-nodes
                                                                                           {:nodes                [open-page-uid]
                                                                                            :block?               true
-                                                                                           :get-linked-refs?      true
-                                                                                           :extract-query-pages? true}))
+                                                                                           :get-linked-refs?     true
+                                                                                           :extract-query-pages? true
+                                                                                           :only-pages?          true}))
                                                         "```"))
                                       page-data     (str "[[" page-title "]]")
                                       context       (if (nil? page-title)

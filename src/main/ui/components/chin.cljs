@@ -92,7 +92,7 @@
 
 
 
-(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages?]}]
+(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages? extract-query-pages-ref?]}]
    [:div.chin
     {:style {:display "flex"
              :flex-direction "row"
@@ -232,6 +232,22 @@
           {:style {:font-size "14px"
                    :font-family "initial"
                    :font-weight "initial"}} "Extract query pages?"]]])
+
+     (when (some? extract-query-pages-ref?)
+       [:> Divider]
+       [:div.chk
+        {:style {:align-self "center"
+                 :margin-left "5px"}}
+        [:> Checkbox
+         {:style {:margin-bottom "0px"}
+          :checked @extract-query-pages-ref?
+          :on-change (fn [x]
+                       (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages ref?" (str (not @extract-query-pages-ref?)))
+                       (reset! extract-query-pages-ref? (not @extract-query-pages-ref?)))}
+         [:span.bp3-button-text
+          {:style {:font-size "14px"
+                   :font-family "initial"
+                   :font-weight "initial"}} "Extract query pages ref?"]]])
      (when (some? buttons?)
        buttons?)]
     (when (some? callback)
