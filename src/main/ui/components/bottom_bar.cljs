@@ -33,20 +33,9 @@
                                       chat-block-uid (gen-new-uid)
                                       open-page-uid (<p! (get-open-page-uid))
                                       page-title    (uid->title open-page-uid)
-                                      block-data    (when (nil? page-title)
-                                                      (str
-                                                        "```"
-                                                        (clojure.string/join "\n -----" (data-for-nodes
-                                                                                          {:nodes                [open-page-uid]
-                                                                                           :block?               true
-                                                                                           :get-linked-refs?     true
-                                                                                           :extract-query-pages? true
-                                                                                           :only-pages?          true}))
-                                                        "```"))
-                                      page-data     (str "[[" page-title "]]")
                                       context       (if (nil? page-title)
-                                                      block-data
-                                                      page-data)
+                                                      (str "((" open-page-uid "))")
+                                                      (str "[[" page-title "]]"))
                                       context-struct [{:s context}
                                                       {:s ""}]
                                       ai-block? (ai-block-exists? open-page-uid)]
