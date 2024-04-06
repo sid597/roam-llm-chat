@@ -282,9 +282,10 @@
                    :get-linked-refs? true
                    :extract-query-pages? true})
 
-
-  (get-all-data-for {:get-linked-refs? true
-                       :title "Test: extract query pages"})
+  (data-for-nodes {:nodes ["UAXMYAZuB"]
+                   :get-linked-refs? true
+                   :extract-query-pages? true
+                   :block? true})
 
   ;; ------------------
 

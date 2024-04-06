@@ -158,7 +158,6 @@
                  :extract-query-pages? extract-query-pages?}]]]]))))
 
 
-
 (defn main [{:keys [:block-uid]} & args]
   (let [parent-el (.getElementById js/document (str (second args)))]
     (.addEventListener parent-el "mousedown" (fn [e] (.stopPropagation e)))

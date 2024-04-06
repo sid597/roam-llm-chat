@@ -2,7 +2,7 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :refer [create-alternate-messages count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [ui.utils :refer [replace-block-uids create-alternate-messages count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [ui.extract-data.chat :as ed :refer [data-for-nodes]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
@@ -67,9 +67,16 @@
     (p (str pre "for these: " children))
     (go
       (doseq [child (:children context)]
-        (let [cstr (:string child)
-              child-uid (:uid child)]
+        (let [cstr             (:string child)
+              block-ref?       (when cstr (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string child)))
+              query-block?     (= (replace-block-uids cstr) "{{query block}}")
+              refed-qry-block? (and query-block?
+                                 (some? block-ref?))
+              child-uid        (if refed-qry-block?
+                                 (second (first block-ref?))
+                                 (:uid child))]
           (p (str pre " == " cstr))
+          (p "child uid" child-uid "refed-qry-block? " refed-qry-block? "query-block? " query-block? "block-ref? " block-ref?)
           (cond
             (or (= "{{query block}}"
                   cstr)
@@ -81,8 +88,6 @@
                                                       (let [res (vec (map (fn [m]
                                                                             (update m :text is-a-page?))
                                                                        (js->clj r :keywordize-keys true)))
-
-
                                                             _ (p pre "updated query results are " res)
                                                             page-data (clojure.string/join "\n "(data-for-nodes {:nodes res
                                                                                                                  :get-linked-refs? @get-linked-refs?
@@ -97,6 +102,19 @@
                                                                                         :extract-query-pages? @extract-query-pages?}))]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (swap! ext-context str "\n " page-data))))
+            (some? block-ref?)        (do
+                                        (p (str pre "This is a block reference in context: " cstr))
+                                        (let [block-uid (second (first block-ref?))
+                                              block-data (str
+                                                           "```"
+                                                           (clojure.string/join "\n -----" (data-for-nodes
+                                                                                             {:nodes                [block-uid]
+                                                                                              :block?               true
+                                                                                              :get-linked-refs?     @get-linked-refs?
+                                                                                              :extract-query-pages? @extract-query-pages?}))
+                                                           "```")]
+                                          (p (str pre "extracted data for the block reference: " block-data))
+                                          (swap! ext-context str "\n " block-data)))
             :else                     (do
                                         (p (str pre "This is a normal block: " cstr))
                                         (swap! ext-context str "\n " cstr)))))

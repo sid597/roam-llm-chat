@@ -622,7 +622,7 @@
         alternate-messages (atom [])]
     (p (str pre "create alternate messages"))
     (doseq [msg messages]
-      (let [msg-str (:string msg)]
+      (let [msg-str (replace-block-uids (:string msg))]
         (if (str/starts-with? msg-str "**Assistant:** ")
           (do
             (swap! alternate-messages conj {:role    "user"
