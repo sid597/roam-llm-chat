@@ -85,10 +85,8 @@
                                  (sort-by :order))))
     node))
 
-(defn extract-strings
-  ([tree]
-   (extract-strings tree false))
-  ([tree extract-query-block?]
+
+(defn extract-strings [{:keys [tree extract-query-pages? only-pages?]}]
    (let [result (atom [])
          stack (atom [tree])]
        (while (not (empty? @stack))
@@ -108,16 +106,18 @@
            (swap! stack pop)
            (when (and string
                    (not (contains? skip-blocks-with-string string)))
-             (p "string" string node-uid)
+            ; (p "string" string node-uid)
              (cond
                (and query-block?
-                 extract-query-block?)      (let [query-result (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] node-uid)
+                 extract-query-pages?)      (let [query-result (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] node-uid)
                                                                  (js->clj :keywordize-keys true))]
                                               (p "query-result" query-result)
                                               (doseq [n query-result]
-                                                (let [ext [(-> (extract-all-data (:text n))
-                                                             (sort-children))]]
-                                                  (swap! stack conj (first ext)))))
+                                                (if only-pages?
+                                                  (swap! result conj (str "[[" (:text n) "]]"))
+                                                  (let [ext [(-> (extract-all-data (:text n))
+                                                               (sort-children))]]
+                                                    (swap! stack conj (first ext))))))
                embed?                       (swap! result conj (:string embed?))
                current-image?               (str/replace
                                               string
@@ -128,39 +128,45 @@
              (when (and (not query-block?)
                       (not (contains? skip-blocks-with-string string)))
                (swap! stack conj child)))))
-     (p "result" @result)
-     @result)))
+     ;(p "result" @result)
+     @result))
 
 
-(defn get-children-for
-  ([{:keys [node block? extract-query-pages?]}]
+(defn get-children-for [{:keys [node block? extract-query-pages? only-pages?]}]
    (p "Inside get children for particular page or block function: " node)
    (let [eid               (cond
                              (int? node) node
                              block?   (uid->eid node)
                              :else    (get-eid node))
-         _ (p "eid" eid)
+        ; _ (p "eid" eid)
          raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
                                         :in $ ?eid]
                                      eid))
          embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
          sorted-by-children (sort-children raw-children-data)
          block-string       (:string raw-children-data)
-         extracted-strings  (extract-strings
-                              (if embed? embed? sorted-by-children)
-                              (or extract-query-pages? false))
-         _ (p "extracted-strings" extracted-strings)
+         extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
+                                              :extract-query-pages? (or extract-query-pages? false)
+                                              :only-pages?          only-pages?})
+        ; _ (p "extracted-strings" extracted-strings)
          plain-text         (str/join " \n " (concat
                                                (when (and block-string (not (int? node)))
                                                  [block-string])
                                                extracted-strings))]
 
-     (p "Successfully extracted children for page or block with node: " node)
-     {:plain-text plain-text})))
+    ; (p "Successfully extracted children for page or block with node: " node)
+     (if only-pages?
+       {:extracted-query-pages extracted-strings}
+       {:plain-text plain-text})))
 
 
 (comment
   (get-children-for {:node "Test: extract query pages"
+                     :extract-query-pages? true})
+  (get-children-for {:node "sIZw65xin"
+                     :block? true
+                     :get-linked-refs? false
+                     :only-pages? true
                      :extract-query-pages? true}))
 
 
@@ -226,40 +232,45 @@
   (get-all-refs-for {:title "Limit LLM Chat Linked References to dgraph nodes"}))
 
 
-(defn get-all-data-for
-  [{:keys [title get-linked-refs? block? extract-query-pages?]}]
+(defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages?]}]
   (p "Inside get all data for particular page function")
   (let [children (get-children-for {:node                 title
-                                    :block?               (or block? false)
-                                    :extract-query-pages? extract-query-pages?})]
-     (merge
-      (when (not block?)
-        {:title title})
-      {:body      (:plain-text children)}
-      (when get-linked-refs?
-        {:refs (get-all-refs-for {:title  title
-                                  :block? (or block? false)})}))))
+                                    :block?               block?
+                                    :extract-query-pages? extract-query-pages?
+                                    :only-pages?          only-pages?})]
+      (merge
+       (when (not block?)
+         {:title title})
+       {:body      (if only-pages?
+                     (:extracted-query-pages children)
+                     (:plain-text children))}
+       (when get-linked-refs?
+         (when-let [refs (get-all-refs-for {:title  title
+                                            :block? (or block? false)})]
+           {:refs refs})))))
 
 
-(defn data-for-nodes
-  [{:keys [nodes get-linked-refs? block? extract-query-pages?]}]
-  (p "Inside extract data for pages function")
+(defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages?]}]
+  (p "Inside extract data for pages function" nodes get-linked-refs? block? extract-query-pages? only-pages?)
   (let [res (atom [])]
-    (doall
-     (for [node nodes]
-        (swap! res (fn [old-res]
-                     (let [args      {:title                node
-                                      :get-linked-refs?     (or get-linked-refs? false)
-                                      :block?               (or block? false)
-                                      :extract-query-pages? (or extract-query-pages? false)}
-                           _ (p "args" args)
-                           node-data (get-all-data-for args)]
+    (doseq [node nodes]
+       (swap! res (fn [old-res]
+                    (let [args      {:title                node
+                                     :get-linked-refs?     (or get-linked-refs? false)
+                                     :block?               (or block? false)
+                                     :extract-query-pages? (or extract-query-pages? false)
+                                     :only-pages?          (or only-pages? false)}
+                          _ (p "args" args)
+                          node-data (get-all-data-for args)]
+                      (if only-pages?
+                        node-data
                        (conj old-res
                           (with-out-str
                             (print "\n")
                             (print node-data)
                             (print "\n"))))))))
     @res))
+
 
 
 (comment
@@ -287,7 +298,17 @@
                    :extract-query-pages? true
                    :block? true})
 
-  ;; ------------------
+  (data-for-nodes {:nodes                ["Test: extract query pages"]
+                   :get-linked-refs?     true
+                   :extract-query-pages? true
+                   :only-pages?          true})
+
+  (get-all-data-for {:title                "Test: extract query pages"
+                     :get-linked-refs?     true
+                     :extract-query-pages? true
+                     :only-pages?          true})
+
+    ;; ------------------
 
 
   (data-for-nodes {:title ["Limit LLM Chat Linked References to dgraph nodes"]
