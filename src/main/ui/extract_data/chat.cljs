@@ -1,7 +1,8 @@
 (ns ui.extract-data.chat
   (:require
     [applied-science.js-interop :as j]
-    [ui.utils :as utils :refer [title->uid markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [reagent.core :as r]
+    [ui.utils :as utils :refer [is-a-page? title->uid markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
@@ -335,4 +336,71 @@
   (get-all-refs-for "[[HYP]] - **I am guessing that the ability of arp2/3 complex to bind as frequently as it likes to actin filaments explains the discrepancy between CryoET and simulation measurements**")
 
   (some? (is-a-page? "[[CLM]] - Enough number of DNM2 molecules is important for performing endocytosis.")))
+
+
+
+(defn get-first-pass-context [child get-linked-refs? extract-query-pages? only-pages?]
+  (let [cstr             (:string child)
+        block-ref?       (when cstr (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string child)))]
+
+    (cond
+      (some? (is-a-page? cstr))  (data-for-nodes {:nodes [(is-a-page? cstr)]
+                                                  :get-linked-refs? get-linked-refs?
+                                                  :extract-query-pages? extract-query-pages?
+                                                  :only-pages? only-pages?})
+      (some? block-ref?)         (let [block-uid (second (first block-ref?))]
+                                   (data-for-nodes {:nodes                [block-uid]
+                                                    :block?               true
+                                                    :get-linked-refs?     get-linked-refs?
+                                                    :only-pages?          only-pages?
+                                                    :extract-query-pages? extract-query-pages?})))))
+
+
+
+(defn extract-query-pages [context get-linked-refs? extract-query-pages? only-pages? res]
+  (p context)
+  (doseq [child (:children context)]
+    (p "child: " child)
+    (let [context-with-query-pages (get-first-pass-context
+                                     child
+                                     get-linked-refs?
+                                     extract-query-pages?
+                                     only-pages?)
+          _ (p "context with query pages: " context-with-query-pages)
+          ext-context              (r/atom "")]
+      (if only-pages?
+        (do
+          (doseq [cstr (:body context-with-query-pages)]
+            (cond
+              (some? (is-a-page? cstr)) (do
+                                          (p "---" cstr)
+                                          (let [page-data (clojure.string/join " \n " (data-for-nodes
+                                                                                        {:nodes [(is-a-page? cstr)]
+                                                                                         :get-linked-refs? get-linked-refs?
+                                                                                         :extract-query-pages? extract-query-pages?}))]
+                                            (swap! ext-context str " \n " page-data)))
+              :else                     (do
+                                          (swap! ext-context str " \n " cstr))))
+          (swap! res conj  (with-out-str
+                             (print "\n")
+                             (print (merge
+                                      (when (some? (:title context-with-query-pages))
+                                        {:title (:title context-with-query-pages)})
+                                      {:body  @ext-context}
+                                      (when (some? (:refs context-with-query-pages))
+                                         {:refs (:refs context-with-query-pages)})))
+                             (print "\n"))))
+        (swap! res conj (first context-with-query-pages)))))
+  @res)
+
+
+(comment
+  (get-child-with-str "KScozVenE" "Context")
+  (get-first-pass-context
+    {:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"},
+    true true false)
+  ;; in results graph
+  (extract-query-pages
+    {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
+    true true false (atom [])))
 
