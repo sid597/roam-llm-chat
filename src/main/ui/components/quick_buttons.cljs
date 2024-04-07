@@ -39,8 +39,8 @@
         default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
         default-model            (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))
-        res                      (atom [])]
+        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
+
 
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
@@ -118,8 +118,7 @@
                                                                 nodes
                                                                 @get-linked-refs?
                                                                 @extract-query-pages?
-                                                                @extract-query-pages-ref?
-                                                                res))
+                                                                @extract-query-pages-ref?))
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens

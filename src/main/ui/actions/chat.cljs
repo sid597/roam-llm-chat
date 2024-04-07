@@ -62,19 +62,16 @@
         m-uid    (:uid messages)
         children (:children chat)
         c-uid    (:uid chat)
-        ext-context (r/atom "\n Initial context: \n")
-        res          (atom [])]
+        ext-context (r/atom "\n Initial context: \n")]
 
     (p (str pre "for these: " children))
 
     (go
-      (extract-query-pages
-          context
-          @get-linked-refs?
-          @extract-query-pages?
-          @extract-query-pages-ref?
-          res)
-      (swap! ext-context str @res)
+      (swap! ext-context str (extract-query-pages
+                               context
+                               @get-linked-refs?
+                               @extract-query-pages?
+                               @extract-query-pages-ref?))
       (doseq [child children]
         ^{:key child}
         (let [child-uid (:uid child)

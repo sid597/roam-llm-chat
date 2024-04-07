@@ -357,41 +357,44 @@
 
 
 
-(defn extract-query-pages [context get-linked-refs? extract-query-pages? only-pages? res]
-  (p context)
-  (doseq [child (:children context)]
-    (p "child: " child)
-    (let [context-with-query-pages (get-first-pass-context
-                                     child
-                                     get-linked-refs?
-                                     extract-query-pages?
-                                     only-pages?)
-          _ (p "context with query pages: " context-with-query-pages)
-          ext-context              (r/atom "")]
-      (if only-pages?
-        (do
-          (doseq [cstr (:body context-with-query-pages)]
-            (cond
-              (some? (is-a-page? cstr)) (do
-                                          (p "---" cstr)
-                                          (let [page-data (clojure.string/join " \n " (data-for-nodes
-                                                                                        {:nodes [(is-a-page? cstr)]
-                                                                                         :get-linked-refs? get-linked-refs?
-                                                                                         :extract-query-pages? extract-query-pages?}))]
-                                            (swap! ext-context str " \n " page-data)))
-              :else                     (do
-                                          (swap! ext-context str " \n " cstr))))
-          (swap! res conj  (with-out-str
-                             (print "\n")
-                             (print (merge
-                                      (when (some? (:title context-with-query-pages))
-                                        {:title (:title context-with-query-pages)})
-                                      {:body  @ext-context}
-                                      (when (some? (:refs context-with-query-pages))
-                                         {:refs (:refs context-with-query-pages)})))
-                             (print "\n"))))
-        (swap! res conj (first context-with-query-pages)))))
-  @res)
+(defn extract-query-pages [context get-linked-refs? extract-query-pages? only-pages?]
+  (p "extract query pages context: ")
+  (let [res (atom [])]
+    (doseq [child (:children context)]
+      (p "child: " child)
+      (let [context-with-query-pages (get-first-pass-context
+                                       child
+                                       get-linked-refs?
+                                       extract-query-pages?
+                                       only-pages?)
+            _ (p "context with query pages: " context-with-query-pages)
+            ext-context              (r/atom "")]
+        (if only-pages?
+          (do
+            (doseq [cstr (:body context-with-query-pages)]
+              (cond
+                (some? (is-a-page? cstr)) (do
+                                            (p "---" cstr)
+                                            (let [page-data (clojure.string/join " \n " (data-for-nodes
+                                                                                          {:nodes [(is-a-page? cstr)]
+                                                                                           :get-linked-refs? get-linked-refs?
+                                                                                           :extract-query-pages? extract-query-pages?}))]
+                                              (swap! ext-context str " \n " page-data)))
+                :else                     (do
+                                            (p "normal string" cstr)
+                                            (swap! ext-context str " \n " cstr))))
+            (swap! res conj  (with-out-str
+                               (print "\n")
+                               (print (merge
+                                        (when (some? (:title context-with-query-pages))
+                                          {:title (:title context-with-query-pages)})
+                                        {:body  @ext-context}
+                                        (when (some? (:refs context-with-query-pages))
+                                           {:refs (:refs context-with-query-pages)})))
+                               (print "\n"))))
+          (swap! res conj (first context-with-query-pages)))))
+    (p "extracted the query pages")
+    @res))
 
 
 (comment
@@ -401,6 +404,9 @@
     true true false)
   ;; in results graph
   (extract-query-pages
+    {:children [{:order 0, :string "((G5U5UaV7F))", :uid "idyAjL4Xd"}],}
+    true true true)
+  (extract-query-pages
     {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
-    true true false (atom [])))
+    true true false))
 
