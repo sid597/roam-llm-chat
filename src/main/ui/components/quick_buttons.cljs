@@ -2,10 +2,9 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [reagent.core :as r :refer [atom]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.extract-data.chat :as ed :refer [data-for-nodes get-all-images-for-node]]
+            [ui.extract-data.chat :as ed :refer [extract-query-pages data-for-nodes get-all-images-for-node]]
             [ui.components.chat :refer [chat-context]]
             [ui.components.chin :refer [chin]]
-            [ui.components.graph-overview-ai :refer [filtered-pages-button]]
             [ui.utils :refer [button-popover model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
@@ -26,21 +25,22 @@
 
 
 (defn button-with-settings [button-name]
-  (let [block-uid (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
-        get-linked-refs? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
-                                   true
-                                   false))
-        extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
-                                       true
-                                       false))
+  (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+                                           true
+                                           false))
+        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+                                           true
+                                           false))
         extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
                                            true
                                            false))
-        active? (r/atom false)
-        default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
-        default-temp (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
-        default-model (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        context (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))]
+        active?                  (r/atom false)
+        default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
+        default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
+        default-model            (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
+        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" button-name "Context"))
+        res                      (atom [])]
 
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
@@ -90,16 +90,6 @@
                                    (let [pre               "*Summarise this page* :"
                                          current-page-uid    (<p! (get-open-page-uid))
                                          title               (uid->title current-page-uid)
-                                         block-data          (when (nil? title)
-                                                               (str
-                                                                 "```"
-                                                                 (clojure.string/join "\n -----" (data-for-nodes
-                                                                                                  {:nodes                [current-page-uid]
-                                                                                                   :get-linked-refs?      @get-linked-refs?
-                                                                                                   :block?               true
-                                                                                                   :extract-query-pages? @extract-query-pages?
-                                                                                                   :only-pages?          @extract-query-pages-ref?}))
-                                                                 "```"))
                                          already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
                                          res-block-uid       (gen-new-uid)
@@ -118,14 +108,18 @@
                                          context             (extract-context-children-data-as-str
                                                                (r/atom (get-child-of-child-with-str-on-page
                                                                          "LLM chat settings" "Quick action buttons" button-name "Context")))
-                                         page-data           (when-not (nil? title) (data-for-nodes
-                                                                                     {:nodes               [{:text (str title)}]
-                                                                                      :get-linked-refs?     @get-linked-refs?
-                                                                                      :only-pages?          @extract-query-pages-ref?
-                                                                                      :extract-query-pages? @extract-query-pages?}))
-                                         send-data           (if (nil? title)
-                                                                 (str @context "\n" block-data)
-                                                                 (str @context "\n" page-data))
+                                         nodes              (if (nil? title)
+                                                              {:children [{:string (str "((" current-page-uid "))")}]}
+                                                              {:children [{:string (str "[[" title "]]" "\n")}]})
+                                         send-data          (str
+                                                              @context
+                                                              " \n "
+                                                              (extract-query-pages
+                                                                nodes
+                                                                @get-linked-refs?
+                                                                @extract-query-pages?
+                                                                @extract-query-pages-ref?
+                                                                res))
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
@@ -147,7 +141,7 @@
                                                   {:messages messages
                                                    :settings settings
                                                    :callback (fn [response]
-                                                               (p (str pre "openai api response received: " response))
+                                                               (p (str pre "llm response received: " response))
                                                                (let [res-str (-> response
                                                                                :body)]
                                                                  (update-block-string
