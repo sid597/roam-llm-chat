@@ -241,20 +241,21 @@
 
 
 (defn replace-block-uids [block-str]
-  (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
-        matches (re-seq re block-str)]
-    (-> (reduce (fn [s [whole-match uid]]
+  (when (some? block-str)
+   (let [re (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)")
+         matches (re-seq re block-str)]
+     (-> (reduce (fn [s [whole-match uid]]
 
-                  (let [replace-str (str
-                                      (:string (ffirst (uid-to-block uid))))
+                   (let [replace-str (str
+                                       (:string (ffirst (uid-to-block uid))))
 
-                        replacement (if (str/starts-with? whole-match "(((")
-                                      (str "(" replace-str ")")
-                                      replace-str)]
-                    (str/replace s whole-match replacement)))
-          block-str
-          matches)
-      remove-entry)))
+                         replacement (if (str/starts-with? whole-match "(((")
+                                       (str "(" replace-str ")")
+                                       replace-str)]
+                     (str/replace s whole-match replacement)))
+           block-str
+           matches)
+       remove-entry))))
 
 (comment
   (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") "((hello))"))
@@ -434,6 +435,10 @@
                        {:s "Temperature"
                         :c [{:s "0.9"}]}
                        {:s "Get linked refs"
+                        :c [{:s "false"}]}
+                       {:s "Extract query pages"
+                        :c [{:s "false"}]}
+                       {:s "Extract query pages ref?"
                         :c [{:s "false"}]}]}
                   {:s "Graph overview default pre prompt"
                    :c [{:s "Pre prompt:"
@@ -469,7 +474,11 @@
        {:s "Get linked refs"
         :c [{:s "true"}]}
        {:s "Active?"
-        :c [{:s "false"}]}]})
+        :c [{:s "false"}]}
+       {:s "Extract query pages"
+        :c [{:s "true"}]}
+       {:s "Extract query pages ref?"
+        :c [{:s "true"}]}]})
 
 
 (defn common-chat-struct [context-structure context-block-uid context-open?]
@@ -617,7 +626,7 @@
         alternate-messages (atom [])]
     (p (str pre "create alternate messages"))
     (doseq [msg messages]
-      (let [msg-str (:string msg)]
+      (let [msg-str (replace-block-uids (:string msg))]
         (if (str/starts-with? msg-str "**Assistant:** ")
           (do
             (swap! alternate-messages conj {:role    "user"

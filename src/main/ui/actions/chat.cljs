@@ -2,9 +2,9 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :refer [create-alternate-messages count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+    [ui.utils :refer [replace-block-uids create-alternate-messages count-tokens-api call-llm-api update-block-string-for-block-with-child q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
     [cljs.core.async.interop :as asy :refer [<p!]]
-    [ui.extract-data.chat :as ed :refer [data-for-pages]]
+    [ui.extract-data.chat :as ed :refer [extract-query-pages data-for-nodes]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]))
 
 
@@ -49,54 +49,29 @@
                                                                                       500))))})))
 
 
-(defn load-context [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom]
+
+
+(defn load-context [{:keys [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom extract-query-pages? extract-query-pages-ref?]}]
   #_(println "load context ")
-  (p "*load context* for block with uid:" parent-id)
+  (p "*load context* for block with uid:" parent-id "get-linked-refs? " @get-linked-refs? "extract-query-pages? " @extract-query-pages? "extract-query-pages-ref?" @extract-query-pages-ref?)
   (let [pre      "*load context* :"
         messages (get-child-with-str parent-id "Messages")
         chat     (get-child-with-str parent-id "Chat")
         context  (get-child-with-str parent-id "Context")
-        con-uid  (:uid context)
         m-len    (count (:children messages))
         m-uid    (:uid messages)
         children (:children chat)
         c-uid    (:uid chat)
-        count    (count children)
         ext-context (r/atom "\n Initial context: \n")]
 
     (p (str pre "for these: " children))
+
     (go
-      (doseq [child (:children context)]
-        (let [cstr (:string child)
-              child-uid (:uid child)]
-          (p (str pre " == " cstr))
-          (cond
-            (or (= "{{query block}}"
-                  cstr)
-              (= "{{ query block }}"
-                cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
-                                             (.then (fn [r]
-                                                      (p (str pre "This is query block: " cstr))
-
-                                                      (let [res (vec (map (fn [m]
-                                                                            (update m :text is-a-page?))
-                                                                       (js->clj r :keywordize-keys true)))
-
-
-                                                            _ (p pre "updated query results are " res)
-                                                            page-data (clojure.string/join "\n "(data-for-pages res get-linked-refs?))]
-                                                        (p (str pre "extracted data from query pages: " page-data))
-                                                        (swap! ext-context str "\n " page-data))))))
-            (some? (is-a-page? cstr)) (do
-                                        (p (str pre "This is a page: " cstr)
-                                          (let [page-data (clojure.string/join "\n " (data-for-pages
-                                                                                       [{:text (is-a-page? cstr)}]
-                                                                                       get-linked-refs?))]
-                                            (p (str pre "extracted data for the page: " page-data))
-                                            (swap! ext-context str "\n " page-data))))
-            :else                     (do
-                                        (p (str pre "This is a normal block: " cstr))
-                                        (swap! ext-context str "\n " cstr)))))
+      (swap! ext-context str (extract-query-pages
+                               context
+                               @get-linked-refs?
+                               @extract-query-pages?
+                               @extract-query-pages-ref?))
       (doseq [child children]
         ^{:key child}
         (let [child-uid (:uid child)
@@ -108,14 +83,19 @@
               (or (= "{{query block}}"
                     cstr)
                 (= "{{ query block }}"
-                  cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuery] child-uid)
+                  cstr))                (<p! (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] child-uid)
                                                (.then (fn [r]
                                                         (p (str pre "This is query block: " cstr))
                                                         (p (str pre "Query result are: " r))
-                                                        (let [res (js->clj r :keywordize-keys true)
+                                                        (let [res (vec (map (fn [m]
+                                                                              (is-a-page? m))
+                                                                         (js->clj r :keywordize-keys true)))
                                                               page-data (str
                                                                           "```"
-                                                                          (clojure.string/join "\n -----" (data-for-pages res get-linked-refs?))
+                                                                          (clojure.string/join "\n -----" (data-for-nodes
+                                                                                                            {:nodes res
+                                                                                                             :get-linked-refs? @get-linked-refs?
+                                                                                                             :extract-query-pages? @extract-query-pages?}))
                                                                           "```")]
                                                           (p (str pre "extracted data from query pages: " page-data))
                                                           (update-block-string-and-move
@@ -127,9 +107,10 @@
                                           (p (str pre "This is a page: " cstr))
                                           (let [page-data (str
                                                             "```"
-                                                            (clojure.string/join "\n -----" (data-for-pages
-                                                                                              [{:text (is-a-page? cstr)}]
-                                                                                              get-linked-refs?))
+                                                            (clojure.string/join "\n -----" (data-for-nodes
+                                                                                              {:nodes [(is-a-page? cstr)]
+                                                                                               :get-linked-refs? @get-linked-refs?
+                                                                                               :extract-query-pages? @extract-query-pages?}))
                                                             "```")]
                                             (p (str pre "extracted data for the page: " page-data))
                                             (<p! (update-block-string-and-move
@@ -144,16 +125,16 @@
                                                  child-uid
                                                  (str "**User:** " cstr)
                                                  m-uid
-                                                 order)))))))
+                                                 order))))))
 
-      (<p! (create-new-block c-uid "first" "" ()))
-      (<p! (js/Promise. (fn [_]
-                          (p (str pre "refresh messages window with parent-id: " parent-id))
-                          (reset! messages-atom (get-child-with-str parent-id "Messages"))
-                          #_(println "messages atom reset")
-                          (send-context-and-message messages-atom parent-id active? settings token-count-atom @ext-context))))
-      (<p! (js/Promise. (fn [_]
-                          (p (str pre "refresh chat window with parent-id: " parent-id))
-                          (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))
+       (<p! (create-new-block c-uid "first" "" ()))
+       (<p! (js/Promise. (fn [_]
+                           (p (str pre "refresh messages window with parent-id: " parent-id))
+                           (reset! messages-atom (get-child-with-str parent-id "Messages"))
+                           #_(println "messages atom reset")
+                           (send-context-and-message messages-atom parent-id active? settings token-count-atom @ext-context))))
+       (<p! (js/Promise. (fn [_]
+                           (p (str pre "refresh chat window with parent-id: " parent-id))
+                           (reset! chat-atom (get-child-with-str parent-id "Chat")))))))))
 
 

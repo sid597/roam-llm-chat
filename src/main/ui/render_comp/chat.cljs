@@ -25,9 +25,15 @@
         default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
         default-temp       (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
         default-model      (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        get-linked-refs    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
-                                     true
-                                     false))]
+        get-linked-refs?    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+                                      true
+                                      false))
+        extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+                                       true
+                                       false))
+        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
+                                           true
+                                           false))]
     (watch-children
       (:uid @messages)
       (fn [_ aft]
@@ -62,9 +68,24 @@
       (get-child-of-child-with-str block-uid "Settings" "Get linked refs" false)
       (fn [_ aft]
         (p "get linked refs changed" aft)
-        (reset! get-linked-refs (if (= "true" (:string aft))
-                                   true
-                                   false))))
+        (reset! get-linked-refs? (if (= "true" (:string aft))
+                                    true
+                                    false))))
+    (watch-string
+      (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
+      (fn [_ aft]
+        (p "extract query results changed" aft)
+        (reset! extract-query-pages? (if (= "true" (:string aft))
+                                       true
+                                       false))))
+    (watch-string
+      (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?" false)
+      (fn [_ aft]
+        (p "extract query result's ref changed" aft)
+        (reset! extract-query-pages-ref? (if (= "true" (:string aft))
+                                           true
+                                           false))))
+
     (watch-string
       (get-child-of-child-with-str block-uid "Settings" "Active?" false)
       (fn [_ aft]
@@ -84,18 +105,20 @@
                                    (update-block-string-for-block-with-child block-uid "Settings" "Active?" (str (not @active?)))
                                    (reset! active? true)
                                    (load-context
-                                     chat
-                                     messages
-                                     b-uid
-                                     active?
-                                     get-linked-refs
-                                     (merge
-                                       {:model       (get model-mappings @default-model)
-                                        :max-tokens  @default-max-tokens
-                                        :temperature @default-temp}
-                                       (when (= "gemini" @default-model)
-                                         {:safety-settings (get-safety-settings b-uid)}))
-                                     token-count))))
+                                     {:chat-atom chat
+                                      :messages-atom messages
+                                      :parent-id b-uid
+                                      :active? active?
+                                      :get-linked-refs? get-linked-refs?
+                                      :settings (merge
+                                                  {:model       (get model-mappings @default-model)
+                                                   :max-tokens  @default-max-tokens
+                                                   :temperature @default-temp}
+                                                  (when (= "gemini" @default-model)
+                                                    {:safety-settings (get-safety-settings b-uid)}))
+                                      :token-count-atom token-count
+                                      :extract-query-pages? extract-query-pages?
+                                      :extract-query-pages-ref? extract-query-pages-ref?}))))
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
@@ -136,8 +159,15 @@
                     :background-color "#f6cbfe3d"
                     :border "1px"}}
            [chat-context chat handle-key-event]]
-          [chin default-model default-max-tokens default-temp get-linked-refs active? block-uid callback]]]]))))
-
+          [chin {:default-model        default-model
+                 :default-max-tokens   default-max-tokens
+                 :default-temp         default-temp
+                 :get-linked-refs?      get-linked-refs?
+                 :active?              active?
+                 :block-uid            block-uid
+                 :callback             callback
+                 :extract-query-pages? extract-query-pages?
+                 :extract-query-pages-ref? extract-query-pages-ref?}]]]]))))
 
 
 (defn main [{:keys [:block-uid]} & args]

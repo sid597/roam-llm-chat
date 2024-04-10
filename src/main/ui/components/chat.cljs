@@ -14,18 +14,24 @@
    (let [context-ref (r/atom nil)
          chat-loaded (r/atom nil)
          update-fn   (fn [this]
-                       (when-let [context-el @context-ref]
-                         ;(println "4. chat context update fn")
-                         ;(set! (.-innerHTML context-el ) "")
-                         (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                               (clj->js {:uid (:uid @context)
-                                         :zoom-path true
-                                         :el context-el}))
-                           (.then
-                             (fn [_]
-                               (p "chat context block rendered successfully")))
-                           (.catch (fn [e]
-                                     (log "Error in chat context block" (:uid @context) e @context))))))]
+                       (let [context-el @context-ref
+                             uid (:uid @context)]
+                         (when (and context-el
+                                 uid)
+                           ;(println "4. chat context update fn")
+                           ;(set! (.-innerHTML context-el ) "")
+
+                           (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                                 (clj->js {:uid (:uid @context)
+                                           :zoom-path true
+                                           :el context-el}))
+                             (.then
+                               (fn [_]
+                                 (p "chat context block rendered successfully")))
+                             (.catch (fn [e]
+                                       (log "Error in" (if (not-empty style-map)
+                                                         "chat-area-"
+                                                         "chat-context-") (:uid @context) "--" e "--" @context "--" context-el)))))))]
 
      (r/create-class
        {:component-did-mount  update-fn
@@ -35,7 +41,9 @@
           (let [cmsg (:children @context)]
             #_(println "3. chat context insdie component")
             [:div
-             {:class-name (str "chat-context-" (:uid @context))
+             {:class-name (str (if (not-empty style-map)
+                                 "chat-area-"
+                                 "chat-context-") (:uid @context))
               :ref (fn [el] (reset! context-ref el))
               :on-key-down handle-keydown-event
               :style (merge {:flex "1 1 auto"
