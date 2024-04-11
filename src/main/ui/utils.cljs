@@ -571,8 +571,6 @@
 (goog-define url-endpoint "")
 
 (defn call-api [url messages settings callback]
-  (p (str "------------ " url))
-  (p (str "------------ " settings))
   (let [passphrase (j/get-in js/window [:localStorage :passphrase])
         data    (clj->js {:documents messages
                           :settings settings

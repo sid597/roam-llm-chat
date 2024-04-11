@@ -2,7 +2,7 @@
   (:require
     [applied-science.js-interop :as j]
     [reagent.core :as r]
-    [ui.utils :as utils :refer [is-a-page? title->uid markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
+    [ui.utils :as utils :refer [is-a-page? uid->title title->uid markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
 (def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary"})
@@ -88,49 +88,53 @@
 
 
 (defn extract-strings [{:keys [tree extract-query-pages? only-pages?]}]
-   (let [result (atom [])
-         stack (atom [tree])]
-       (while (not (empty? @stack))
-         (let [node             (peek @stack)
-               string           (replace-block-uids (:string node))
-               block-ref?       (when string (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string node)))
-               query-block?     (= string "{{query block}}")
-               refed-qry-block? (and query-block?
-                                  (some? block-ref?))
-               node-uid         (if refed-qry-block?
-                                  (second (first block-ref?))
-                                  (:uid node))
-               current-image?   (if string (extract-markdown-image string) false)
-               embed?           (when (some? string)
-                                  (ffirst (not-empty (extract-embeds (:string node)))))
-               children         (:children node)]
-           (swap! stack pop)
-           (when (and string
-                   (not (contains? skip-blocks-with-string string)))
-            ; (p "string" string node-uid)
-             (cond
-               (and query-block?
-                 extract-query-pages?)      (let [query-result (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] node-uid)
-                                                                 (js->clj :keywordize-keys true))]
-                                              (p "query-result" query-result)
-                                              (doseq [n query-result]
-                                                (if only-pages?
-                                                  (swap! result conj (str "[[" (:text n) "]]"))
-                                                  (let [ext [(-> (extract-all-data (:text n))
-                                                               (sort-children))]]
-                                                    (swap! stack conj (first ext))))))
-               embed?                       (swap! result conj (:string embed?))
-               current-image?               (str/replace
-                                              string
-                                              markdown-image-pattern
-                                              (str " Image alt text: " (:text current-image?)))
-               :else                         (swap! result conj string)))
-           (doseq [child (reverse (sort-by :order children))]
-             (when (and (not query-block?)
-                      (not (contains? skip-blocks-with-string string)))
-               (swap! stack conj child)))))
-     ;(p "result" @result)
-     @result))
+  (let [result (atom [])
+        stack (atom [tree])]
+      (while (not (empty? @stack))
+        (let [node             (peek @stack)
+              string           (replace-block-uids (:string node))
+              block-ref?       (when string (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string node)))
+              query-block?     (= string "{{query block}}")
+              refed-qry-block? (and query-block?
+                                 (some? block-ref?))
+              node-uid         (if refed-qry-block?
+                                 (second (first block-ref?))
+                                 (:uid node))
+              current-image?   (if string (extract-markdown-image string) false)
+              embed?           (when (some? string)
+                                 (ffirst (not-empty (extract-embeds (:string node)))))
+              children         (:children node)]
+          (swap! stack pop)
+          (when (and string
+                  (not (contains? skip-blocks-with-string string)))
+           ; (p "string" string node-uid)
+            (cond
+              (and query-block?
+                extract-query-pages?)      (let [query-result (-> (j/call-in js/window [:roamjs :extension :queryBuilder :runQuerySync] node-uid)
+                                                                (js->clj :keywordize-keys true))]
+                                             (p "query-result" query-result)
+                                             (doseq [n query-result]
+                                               (p " query res: "(:uid n) (:text n))
+                                               (let [nstr  (:text n)
+                                                     page? (some? (uid->title (:uid n)))]
+                                                (cond
+                                                  (not page?) (swap! result conj (replace-block-uids nstr))
+                                                  only-pages? (swap! result conj (str "[[" nstr "]]"))
+                                                  :else       (let [ext [(-> (extract-all-data nstr)
+                                                                           (sort-children))]]
+                                                                (swap! stack conj (first ext)))))))
+              embed?                       (swap! result conj (:string embed?))
+              current-image?               (str/replace
+                                             string
+                                             markdown-image-pattern
+                                             (str " Image alt text: " (:text current-image?)))
+              :else                         (swap! result conj string)))
+          (doseq [child (reverse (sort-by :order children))]
+            (when (and (not query-block?)
+                     (not (contains? skip-blocks-with-string string)))
+              (swap! stack conj child)))))
+    ;(p "result" @result)
+    @result))
 
 
 (defn get-children-for [{:keys [node block? extract-query-pages? only-pages?]}]
