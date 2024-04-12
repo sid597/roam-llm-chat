@@ -124,11 +124,7 @@
                                                                            (sort-children))]]
                                                                 (swap! stack conj (first ext)))))))
               embed?                       (swap! result conj (:string embed?))
-              current-image?               (str/replace
-                                             string
-                                             markdown-image-pattern
-                                             (str " Image alt text: " (:text current-image?)))
-              :else                         (swap! result conj string)))
+              :else                        (swap! result conj string)))
           (doseq [child (reverse (sort-by :order children))]
             (when (and (not query-block?)
                      (not (contains? skip-blocks-with-string string)))
@@ -149,26 +145,28 @@
                                      eid))
          embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
          sorted-by-children (sort-children raw-children-data)
-         block-string       (:string raw-children-data)
          extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
                                               :extract-query-pages? (or extract-query-pages? false)
-                                              :only-pages?          only-pages?})
-        ; _ (p "extracted-strings" extracted-strings)
-         plain-text         (str/join " \n " (concat
-                                               (when (and block-string (not (int? node)))
-                                                 [block-string])
-                                               extracted-strings))]
+                                              :only-pages?          only-pages?})]
 
     ; (p "Successfully extracted children for page or block with node: " node)
      (if only-pages?
        {:extracted-query-pages extracted-strings}
-       {:plain-text plain-text})))
+       {:plain-text extracted-strings})))
 
 
 (comment
+
+  (get-children-for {:node "Test: Image to text"
+                     :only-pages? true})
+
+
   (get-children-for {:node "Test: extract query pages"
-                     :extract-query-pages? true})
-  (get-children-for {:node "sIZw65xin"
+                     :extract-query-pages? false
+                     :only-pages? false
+                     :get-linked-refs? true})
+
+  (get-children-for {:node "G5U5UaV7F"
                      :block? true
                      :get-linked-refs? false
                      :only-pages? true
@@ -215,16 +213,18 @@
        (let [uid  (title->uid ref-title)]
          (when-let [_ (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
            (p "----This is discourse node ---" uid)
-           (swap! res conj (str "Referenced discourse node "index " title: " ref-title
-                             " \n and its page content: \n "
-                             (:plain-text (get-children-for {:node ref-title}))
-                             " \n ")))))
+           (let [page-data (:plain-text (get-children-for {:node ref-title}))
+                 pre-s     (str "Referenced discourse node title : " ref-title " \n and its page content: \n ")]
+             (swap! res concat [pre-s] page-data [" \n "])))))
      (p "Successfully extracted ref data for all pages ")
-     (first @res)))
+     (vec @res)))
 
 
 (comment
   (get-all-refs-for {:title "Test: extract query pages"})
+
+  (get-children-for {:node "[[EVD]] - llm test page 2 - [[@source]]"})
+
   (get-children-for {:node "Test: extract query pages"})
 
   (get-all-refs-for {:title "G5U5UaV7F"
@@ -269,11 +269,7 @@
                           node-data (get-all-data-for args)]
                       (if only-pages?
                         node-data
-                       (conj old-res
-                          (with-out-str
-                            (print "\n")
-                            (print node-data)
-                            (print "\n"))))))))
+                       (conj old-res node-data))))))
     @res))
 
 
@@ -360,6 +356,136 @@
                                                     :extract-query-pages? extract-query-pages?})))))
 
 
+(defn extract-for-message-array
+  ([messages initial-message]
+   (extract-for-message-array messages initial-message ""))
+  ([messages initial-message closing-message]
+   (let [new-map         (atom [])
+         current-message (atom initial-message)]
+     (p "messages" messages)
+     (doseq [message messages]
+       (let [current-image? (extract-markdown-image message)]
+         (cond
+           (some? (:text current-image?))  (do
+                                             (swap! new-map conj {:text @current-message})
+                                             (reset! current-message "")
+                                             (swap! new-map conj {:image_url (:url current-image?)}))
+           :else                           (swap! current-message str "\n" message))))
+     (p "current message" @current-message)
+     (when (not= "" @current-message)
+       (swap! current-message str closing-message)
+       (swap! new-map conj {:text @current-message}))
+     @new-map)))
+
+
+(extract-for-message-array
+  ["sid/left-sidebar/personal-shortcuts"
+   "![](GMGMMG)"
+   "^^Secret message: TESTING 5^^"
+   "1"
+   "Sections" ""]
+  "GM")
+
+(defn generate-roles-for-map [message-map]
+  (p "message  map"  message-map)
+  (let [body-map (extract-for-message-array
+                   (:body message-map)
+                   (str "{:title " (:title message-map) "\n :body \n"))
+        ref-map   (extract-for-message-array
+                    (:refs message-map)
+                    (str ":refs \n "))
+
+        res       (vec (concat body-map ref-map))]
+   res))
+
+
+
+(defn generate-messages-by-role [messages title refs]
+  (let [res             (atom [])
+        current-message (atom (str "{: title " title " \n  :body \n "))
+        ref-map         (extract-for-message-array
+                          refs
+                          (str ":refs \n ")
+                          "}")]
+    (doseq [message messages]
+      (let [current-image? (when (string? message) (extract-markdown-image message))]
+        (p "current image????" current-image?)
+        (cond
+          (not (string? message))         (do
+                                            (swap! res conj {:text @current-message})
+                                            (reset! current-message "")
+                                            (swap! res concat (generate-roles-for-map (first message)))
+                                            (swap! res vec))
+          (some? (:text current-image?))  (do
+                                            (swap! res conj {:text @current-message})
+                                            (reset! current-message "")
+                                            (swap! res conj {:image_url (:url current-image?)}))
+          :else                           (swap! current-message str " \n " message))))
+    (when (not= "" @current-message)
+      (swap! res conj {:text @current-message}))
+   (vec (concat @res ref-map))))
+
+
+(generate-messages-by-role ["sid/left-sidebar/personal-shortcuts"
+                            "![](GMGMMG)"
+                            "^^Secret message: TESTING 5^^"
+                            "1"
+                            "Sections"]
+  "GM"
+  ["1" "2"])
+(generate-messages-by-role ["Zoomed in page demo"
+                            "scratch"
+                            "custom"
+                            "selections"
+                            "conditions"
+                            "2"
+                            "3"
+                            "4"
+                            "5"
+                            "6"
+                            "7"
+                            "8"
+                            [{:title "testing 2",
+                              :body ["Greeting 1: Hello world"
+                                     "Greeting 2: Hello solar system"
+                                     "**Secret message 2: ** ^^From query pages: Alright!!^^"
+                                     "![](query page image)"],
+                              :refs ["Referenced discourse node title : [[QUE]] - Second testing node \nand its page content: \n"
+                                     "Summary "
+                                     "Workbench"
+                                     "Papers to look through"
+                                     "Notes"
+                                     "Related [[QUE]] [[CLM]] [[EVD]]"
+                                     "Testable hypotheses"
+                                     "**Secret message 3**: ^^From page referencing query page: Shhhh this is super secret message^^"
+                                     "[[testing 2]]"
+                                     " \n"]}]
+                            "9"
+                            "10"
+                            [{:title "testing 2",
+                              :body ["Greeting 1: Hello world"
+                                     "Greeting 2: Hello solar system"
+                                     "**Secret message 2: ** ^^From query pages: Alright!!^^"
+                                     "![](query page image)"],
+                              :refs ["Referenced discourse node title : [[QUE]] - Second testing node \nand its page content: \n"
+                                     "Summary "
+                                     "Workbench"
+                                     "Papers to look through"
+                                     "Notes"
+                                     "Related [[QUE]] [[CLM]] [[EVD]]"
+                                     "Testable hypotheses"
+                                     "**Secret message 3**: ^^From page referencing query page: Shhhh this is super secret message^^"
+                                     "[[testing 2]]"
+                                     " \n"]}]
+                            "11"
+                            "12"
+                            "{{query block}}"
+                            "13"
+                            "14"
+                            "![](main page Image )"]
+  "Test"
+  ["1"])
+
 
 (defn extract-query-pages [context get-linked-refs? extract-query-pages? only-pages?]
   (p "extract query pages context: ")
@@ -372,30 +498,33 @@
                                        extract-query-pages?
                                        only-pages?)
             _ (p "context with query pages: " context-with-query-pages)
-            ext-context              (r/atom "")]
+            new-res                  (atom [])]
         (if only-pages?
           (do
             (doseq [cstr (:body context-with-query-pages)]
               (cond
                 (some? (is-a-page? cstr)) (do
                                             (p "---" cstr)
-                                            (let [page-data (clojure.string/join " \n " (data-for-nodes
-                                                                                          {:nodes [(is-a-page? cstr)]
-                                                                                           :get-linked-refs? get-linked-refs?
-                                                                                           :extract-query-pages? extract-query-pages?}))]
-                                              (swap! ext-context str " \n " page-data)))
+                                            (let [page-data (data-for-nodes
+                                                                     {:nodes [(is-a-page? cstr)]
+                                                                      :get-linked-refs? get-linked-refs?
+                                                                      :extract-query-pages? extract-query-pages?})]
+                                              (swap! new-res conj  page-data)))
                 :else                     (do
                                             (p "normal string" cstr)
-                                            (swap! ext-context str " \n " cstr))))
-            (swap! res conj  (with-out-str
-                               (print "\n")
-                               (print (merge
-                                        (when (some? (:title context-with-query-pages))
-                                          {:title (:title context-with-query-pages)})
-                                        {:body  @ext-context}
-                                        (when (some? (:refs context-with-query-pages))
-                                           {:refs (:refs context-with-query-pages)})))
-                               (print "\n"))))
+                                            (swap! new-res conj cstr))))
+            (swap! res conj (generate-messages-by-role
+                              @new-res
+                              (:title context-with-query-pages)
+                              (:refs context-with-query-pages)) #_@new-res #_(with-out-str
+                                                                               (print "\n")
+                                                                               (print (merge
+                                                                                        (when (some? (:title context-with-query-pages))
+                                                                                          {:title (:title context-with-query-pages)})
+                                                                                        {:body  @ext-context}
+                                                                                        (when (some? (:refs context-with-query-pages))
+                                                                                           {:refs (:refs context-with-query-pages)})))
+                                                                               (print "\n"))))
           (swap! res conj (first context-with-query-pages)))))
     (p "extracted the query pages")
     @res))
@@ -403,14 +532,23 @@
 
 (comment
   (get-child-with-str "KScozVenE" "Context")
+
   (get-first-pass-context
     {:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"},
-    true true false)
+    true false false)
+
+  (get-first-pass-context {:string "[[Test: Image to text]]"} true true true)
   ;; in results graph
+  (extract-query-pages
+    {:children [{:string "[[testing 5]]"}
+                {:string "[[testing 2]]" }],}
+    true true true)
+
   (extract-query-pages
     {:children [{:order 0, :string "((G5U5UaV7F))", :uid "idyAjL4Xd"}],}
     true true true)
+
   (extract-query-pages
     {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
-    true true false))
+    true true true))
 
