@@ -215,12 +215,12 @@
        (let [uid  (title->uid ref-title)]
          (when-let [_ (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
            (p "----This is discourse node ---" uid)
-           (swap! res conj (str "Referenced discourse node "index " title: " ref-title
+           (swap! res conj (str "Referenced discourse node title: " ref-title
                              " \n and its page content: \n "
                              (:plain-text (get-children-for {:node ref-title}))
                              " \n ")))))
      (p "Successfully extracted ref data for all pages ")
-     (first @res)))
+     (clojure.string/join "\n" @res)))
 
 
 (comment
