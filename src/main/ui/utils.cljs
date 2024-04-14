@@ -272,6 +272,8 @@
                uid))]
     c))
 
+(comment
+  (extract-embeds "{{[[embed]]: ((oyU-xMonE))}}"))
 
 (defn move-block [parent-uid order block-uid]
   (-> (j/call-in js/window [:roamAlphaAPI :data :block :move]

@@ -68,10 +68,10 @@
 
     (go
       (swap! ext-context str (extract-query-pages
-                               context
-                               @get-linked-refs?
-                               @extract-query-pages?
-                               @extract-query-pages-ref?))
+                               {:context              context
+                                :get-linked-refs?     @get-linked-refs?
+                                :extract-query-pages? @extract-query-pages?
+                                :only-pages?          @extract-query-pages-ref?}))
       (doseq [child children]
         ^{:key child}
         (let [child-uid (:uid child)

@@ -115,10 +115,10 @@
                                                               @context
                                                               " \n "
                                                               (extract-query-pages
-                                                                nodes
-                                                                @get-linked-refs?
-                                                                @extract-query-pages?
-                                                                @extract-query-pages-ref?))
+                                                                {:context              nodes
+                                                                 :get-linked-refs?     @get-linked-refs?
+                                                                 :extract-query-pages? @extract-query-pages?
+                                                                 :only-pages?          @extract-query-pages-ref?}))
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
