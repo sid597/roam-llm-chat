@@ -533,7 +533,8 @@
 ;; ---- ai specific ----
 
 (def model-mappings
-  {"gpt-4"            "gpt-4-0125-preview"
+  {"gpt-4"            "gpt-4-turbo"
+   "gpt-4-vision"     "gpt-4-turbo"
    "gpt-3.5"          "gpt-3.5-turbo-0125"
    "claude-3-sonnet"  "claude-3-sonnet-20240229"
    "claude-3-opus"    "claude-3-opus-20240229"
@@ -619,13 +620,22 @@
 
 
 (defn create-alternate-messages [messages initial-context pre]
-  (let [pre-prompt        (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
-                                 :children
-                                 first
-                                 :string))
-        current-message   (atom (str pre-prompt "\n" (extract-from-code-block initial-context)))
-        alternate-messages (atom [])]
+  (let [pre-prompt          (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
+                                   :children
+                                   first
+                                   :string))
+        context-type-string? (string? initial-context)
+        current-message      (if context-type-string?
+                               (atom (str pre-prompt "\n Initial context: \n " (extract-from-code-block initial-context)))
+                               (atom ""))
+        alternate-messages   (if context-type-string?
+                               (atom [])
+                               (atom (vec (concat
+                                            [{:type "text"
+                                              :text (str pre-prompt "\n Initial context: \n")}]
+                                            (vec initial-context)))))]
     (p (str pre "create alternate messages"))
+    (p @alternate-messages)
     (doseq [msg messages]
       (let [msg-str (replace-block-uids (:string msg))]
         (if (str/starts-with? msg-str "**Assistant:** ")
