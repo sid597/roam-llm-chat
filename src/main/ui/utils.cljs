@@ -630,10 +630,11 @@
                                (atom ""))
         alternate-messages   (if context-type-string?
                                (atom [])
-                               (atom (vec (concat
-                                            [{:type "text"
-                                              :text (str pre-prompt "\n Initial context: \n")}]
-                                            (vec initial-context)))))]
+                               (atom [{:role "user"
+                                       :content (vec (concat
+                                                       [{:type "text"
+                                                         :text (str pre-prompt "\n Initial context: \n")}]
+                                                       (vec initial-context)))}]))]
     (p (str pre "create alternate messages"))
     (p @alternate-messages)
     (doseq [msg messages]

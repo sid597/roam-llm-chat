@@ -126,7 +126,7 @@
               embed?                       (do
                                              (swap! result conj (:string embed?))
                                              (swap! children concat (:children embed?)))
-
+              current-image?               (swap! result conj (:text current-image?))
               :else                        (swap! result conj string)))
           (doseq [child (reverse (sort-by :order @children))]
             (when (and
@@ -385,14 +385,17 @@
        (let [current-image? (extract-markdown-image message)]
          (cond
            (some? (:text current-image?))  (do
-                                             (swap! new-map conj {:text @current-message})
+                                             (swap! new-map conj {:type "text"
+                                                                  :text (:text @current-message)})
                                              (reset! current-message "")
-                                             (swap! new-map conj {:image_url (:url current-image?)}))
+                                             (swap! new-map conj {:type      "image_url"
+                                                                  :image_url (:url current-image?)}))
            :else                           (swap! current-message str "\n" message))))
      (p "current message" @current-message)
      (when (not= "" @current-message)
        (swap! current-message str closing-message)
-       (swap! new-map conj {:text @current-message}))
+       (swap! new-map conj {:type "text"
+                            :text @current-message}))
      @new-map)))
 
 
@@ -436,7 +439,7 @@
                                             (swap! res vec))
           (some? (:text current-image?))  (do
                                             (swap! res conj {:type "text"
-                                                             :text @current-message})
+                                                             :text (:text @current-message)})
                                             (reset! current-message "")
                                             (swap! res conj {:type "image_url"
                                                              :image_url {:url (:url current-image?)}}))
@@ -446,66 +449,6 @@
                        :text @current-message}))
    (vec (concat @res ref-map))))
 
-
-(generate-messages-by-role ["sid/left-sidebar/personal-shortcuts"
-                            "![](GMGMMG)"
-                            "^^Secret message: TESTING 5^^"
-                            "1"
-                            "Sections"]
-  "GM"
-  ["1" "2"])
-(generate-messages-by-role ["Zoomed in page demo"
-                            "scratch"
-                            "custom"
-                            "selections"
-                            "conditions"
-                            "2"
-                            "3"
-                            "4"
-                            "5"
-                            "6"
-                            "7"
-                            "8"
-                            [{:title "testing 2",
-                              :body ["Greeting 1: Hello world"
-                                     "Greeting 2: Hello solar system"
-                                     "**Secret message 2: ** ^^From query pages: Alright!!^^"
-                                     "![](query page image)"],
-                              :refs ["Referenced discourse node title : [[QUE]] - Second testing node \nand its page content: \n"
-                                     "Summary "
-                                     "Workbench"
-                                     "Papers to look through"
-                                     "Notes"
-                                     "Related [[QUE]] [[CLM]] [[EVD]]"
-                                     "Testable hypotheses"
-                                     "**Secret message 3**: ^^From page referencing query page: Shhhh this is super secret message^^"
-                                     "[[testing 2]]"
-                                     " \n"]}]
-                            "9"
-                            "10"
-                            [{:title "testing 2",
-                              :body ["Greeting 1: Hello world"
-                                     "Greeting 2: Hello solar system"
-                                     "**Secret message 2: ** ^^From query pages: Alright!!^^"
-                                     "![](query page image)"],
-                              :refs ["Referenced discourse node title : [[QUE]] - Second testing node \nand its page content: \n"
-                                     "Summary "
-                                     "Workbench"
-                                     "Papers to look through"
-                                     "Notes"
-                                     "Related [[QUE]] [[CLM]] [[EVD]]"
-                                     "Testable hypotheses"
-                                     "**Secret message 3**: ^^From page referencing query page: Shhhh this is super secret message^^"
-                                     "[[testing 2]]"
-                                     " \n"]}]
-                            "11"
-                            "12"
-                            "{{query block}}"
-                            "13"
-                            "14"
-                            "![](main page Image )"]
-  "Test"
-  ["1"])
 
 
 (defn extract-query-pages [{:keys [context get-linked-refs? extract-query-pages? only-pages? vision?]}]
@@ -643,6 +586,12 @@
      :get-linked-refs?     true
      :extract-query-pages? true
      :only-pages?          false
-     :vision?              true}))
+     :vision?              true})
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string "[[Test: Image to text]]", :uid "idyAjL4Xd"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          false
+     :vision?              false}))
 
 
