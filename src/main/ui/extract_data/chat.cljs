@@ -87,7 +87,7 @@
     node))
 
 
-(defn extract-strings [{:keys [tree extract-query-pages? only-pages?]}]
+(defn extract-strings [{:keys [tree extract-query-pages? only-pages? vision?]}]
   (let [result (atom [])
         stack (atom [tree])]
       (while (not (empty? @stack))
@@ -126,7 +126,8 @@
               embed?                       (do
                                              (swap! result conj (:string embed?))
                                              (swap! children concat (:children embed?)))
-              current-image?               (swap! result conj (:text current-image?))
+              (and (not vision?)
+                current-image?)            (swap! result conj (:text current-image?))
               :else                        (swap! result conj string)))
           (doseq [child (reverse (sort-by :order @children))]
             (when (and
@@ -137,7 +138,7 @@
     @result))
 
 
-(defn get-children-for [{:keys [node block? extract-query-pages? only-pages?]}]
+(defn get-children-for [{:keys [node block? extract-query-pages? only-pages? vision?]}]
    (p "Inside get children for particular page or block function: " node)
    (let [eid               (cond
                              (int? node) node
@@ -151,7 +152,8 @@
          sorted-by-children (sort-children raw-children-data)
          extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
                                               :extract-query-pages? (or extract-query-pages? false)
-                                              :only-pages?          only-pages?})]
+                                              :only-pages?          only-pages?
+                                              :vision?              vision?})]
 
     ; (p "Successfully extracted children for page or block with node: " node)
      (if only-pages?
@@ -243,12 +245,13 @@
   (get-all-refs-for {:title "Limit LLM Chat Linked References to dgraph nodes"}))
 
 
-(defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages?]}]
+(defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
   (p "Inside get all data for particular page function")
   (let [children (get-children-for {:node                 title
                                     :block?               block?
                                     :extract-query-pages? extract-query-pages?
-                                    :only-pages?          only-pages?})]
+                                    :only-pages?          only-pages?
+                                    :vision?              vision?})]
       (merge
        (when (not block?)
          {:title title})
@@ -262,7 +265,7 @@
 
 
 (defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
-  (p "Inside extract data for pages function" nodes get-linked-refs? block? extract-query-pages? only-pages?)
+  (p "Inside extract data for pages function" nodes get-linked-refs? block? extract-query-pages? only-pages? vision?)
   (let [res (atom [])]
     (doseq [node nodes]
        (swap! res (fn [old-res]
@@ -270,7 +273,8 @@
                                      :get-linked-refs?     (or get-linked-refs? false)
                                      :block?               (or block? false)
                                      :extract-query-pages? (or extract-query-pages? false)
-                                     :only-pages?          (or only-pages? false)}
+                                     :only-pages?          (or only-pages? false)
+                                     :vision?              vision?}
                           _ (p "args" args)
                           node-data (get-all-data-for args)]
                       (cond
@@ -386,7 +390,7 @@
          (cond
            (some? (:text current-image?))  (do
                                              (swap! new-map conj {:type "text"
-                                                                  :text (:text @current-message)})
+                                                                  :text @current-message})
                                              (reset! current-message "")
                                              (swap! new-map conj {:type      "image_url"
                                                                   :image_url (:url current-image?)}))
@@ -429,7 +433,7 @@
                           "}")]
     (doseq [message messages]
       (let [current-image? (when (string? message) (extract-markdown-image message))]
-        (p "current image????" current-image?)
+        (p "current image????" current-image? "--" message)
         (cond
           (not (string? message))         (do
                                             (swap! res conj {:type "text"
@@ -439,7 +443,7 @@
                                             (swap! res vec))
           (some? (:text current-image?))  (do
                                             (swap! res conj {:type "text"
-                                                             :text (:text @current-message)})
+                                                             :text @current-message})
                                             (reset! current-message "")
                                             (swap! res conj {:type "image_url"
                                                              :image_url {:url (:url current-image?)}}))
@@ -509,10 +513,8 @@
         (print (clojure.string/join " " @res))
         (print "\n")))))
 
-(extract-query-pages
-  {:context {:children [{:string "[[testing 5]]"}
-                        {:string "[[testing 2]]" }],}
-   :vision? true})
+
+
 
 (comment
   (get-child-with-str "KScozVenE" "Context")
@@ -585,13 +587,18 @@
     {:context              {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
      :get-linked-refs?     true
      :extract-query-pages? true
-     :only-pages?          false
-     :vision?              true})
+     :only-pages?          true
+     :vision?              false})
+
   (extract-query-pages
     {:context              {:children [{:order 0, :string "[[Test: Image to text]]", :uid "idyAjL4Xd"}],}
      :get-linked-refs?     true
      :extract-query-pages? true
      :only-pages?          false
-     :vision?              false}))
+     :vision?              true})
+
+ (extract-query-pages
+   {:context              {:children [{:order 0, :string "((4y3qbZBo1))", :uid "idyAjL4Xd"}],}
+    :vision?              true}))
 
 
