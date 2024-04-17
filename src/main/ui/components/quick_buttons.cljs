@@ -111,22 +111,24 @@
                                          nodes              (if (nil? title)
                                                               {:children [{:string (str "((" current-page-uid "))")}]}
                                                               {:children [{:string (str "[[" title "]]" "\n")}]})
-                                         send-data          (str
-                                                              @context
-                                                              " \n "
-                                                              (extract-query-pages
-                                                                {:context              nodes
-                                                                 :get-linked-refs?     @get-linked-refs?
-                                                                 :extract-query-pages? @extract-query-pages?
-                                                                 :only-pages?          @extract-query-pages-ref?}))
+
+                                         messages           [{:role "user"
+                                                              :content (concat
+                                                                         [{:type "text"
+                                                                           :text @context}]
+                                                                         (vec
+                                                                           (extract-query-pages
+                                                                             {:context              nodes
+                                                                              :get-linked-refs?     @get-linked-refs?
+                                                                              :extract-query-pages? @extract-query-pages?
+                                                                              :only-pages?          @extract-query-pages-ref?
+                                                                              :vision?              (= "gpt-4-vision" @default-model)})))}]
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
                                                                 :temperature @default-temp}
                                                                (when (= "gemini" @default-model)
-                                                                 {:safety-settings (get-safety-settings block-uid)}))
-                                         messages            [{:role "user"
-                                                               :content send-data}]]
+                                                                 {:safety-settings (get-safety-settings block-uid)}))]
                                      (do
                                        (create-struct struct top-parent res-block-uid false
                                          (p (str pre "Created a new `AI summary` block with uid: " res-block-uid " and parent uid: " parent-block-uid "and with context: ")))
@@ -153,6 +155,7 @@
                                                                      500))))})))))))))}
 
                     "Summarise this page"]]])))
+
 
 (defn generate-description-for-images-without-one [block-uid description-option]
   [:div.img-desc
