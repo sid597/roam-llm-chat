@@ -105,20 +105,21 @@
                                    (update-block-string-for-block-with-child block-uid "Settings" "Active?" (str (not @active?)))
                                    (reset! active? true)
                                    (load-context
-                                     {:chat-atom chat
-                                      :messages-atom messages
-                                      :parent-id b-uid
-                                      :active? active?
-                                      :get-linked-refs? get-linked-refs?
-                                      :settings (merge
-                                                  {:model       (get model-mappings @default-model)
-                                                   :max-tokens  @default-max-tokens
-                                                   :temperature @default-temp}
-                                                  (when (= "gemini" @default-model)
-                                                    {:safety-settings (get-safety-settings b-uid)}))
-                                      :token-count-atom token-count
-                                      :extract-query-pages? extract-query-pages?
-                                      :extract-query-pages-ref? extract-query-pages-ref?}))))
+                                     {:chat-atom                chat
+                                      :messages-atom            messages
+                                      :parent-id                b-uid
+                                      :active?                  active?
+                                      :get-linked-refs?         get-linked-refs?
+                                      :settings                 (merge
+                                                                  {:model       (get model-mappings @default-model)
+                                                                   :max-tokens  @default-max-tokens
+                                                                   :temperature @default-temp}
+                                                                  (when (= "gemini" @default-model)
+                                                                    {:safety-settings (get-safety-settings b-uid)}))
+                                      :token-count-atom         token-count
+                                      :extract-query-pages?     extract-query-pages?
+                                      :extract-query-pages-ref? extract-query-pages-ref?
+                                      :vision?                  (= "gpt-4-vision" @default-model)}))))
            handle-key-event  (fn [event]
                                (when (and (.-altKey event) (= "Enter" (.-key event)))
                                  (let [buid (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
