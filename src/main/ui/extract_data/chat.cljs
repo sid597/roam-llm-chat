@@ -87,7 +87,7 @@
     node))
 
 
-(defn extract-strings [{:keys [tree extract-query-pages? only-pages?]}]
+(defn extract-strings [{:keys [tree extract-query-pages? only-pages? vision?]}]
   (let [result (atom [])
         stack (atom [tree])]
       (while (not (empty? @stack))
@@ -103,7 +103,7 @@
               current-image?   (if string (extract-markdown-image string) false)
               embed?           (when (some? string)
                                  (ffirst (not-empty (extract-embeds (:string node)))))
-              children         (:children node)]
+              children         (atom (:children node))]
           (swap! stack pop)
           (when (and string
                   (not (contains? skip-blocks-with-string string)))
@@ -123,21 +123,22 @@
                                                   :else       (let [ext [(-> (extract-all-data nstr)
                                                                            (sort-children))]]
                                                                 (swap! stack conj (first ext)))))))
-              embed?                       (swap! result conj (:string embed?))
-              current-image?               (str/replace
-                                             string
-                                             markdown-image-pattern
-                                             (str " Image alt text: " (:text current-image?)))
-              :else                         (swap! result conj string)))
-          (doseq [child (reverse (sort-by :order children))]
-            (when (and (not query-block?)
-                     (not (contains? skip-blocks-with-string string)))
+              embed?                       (do
+                                             (swap! result conj (:string embed?))
+                                             (swap! children concat (:children embed?)))
+              (and (not vision?)
+                current-image?)            (swap! result conj (:text current-image?))
+              :else                        (swap! result conj string)))
+          (doseq [child (reverse (sort-by :order @children))]
+            (when (and
+                    (not query-block?)
+                    (not (contains? skip-blocks-with-string string)))
               (swap! stack conj child)))))
     ;(p "result" @result)
     @result))
 
 
-(defn get-children-for [{:keys [node block? extract-query-pages? only-pages?]}]
+(defn get-children-for [{:keys [node block? extract-query-pages? only-pages? vision?]}]
    (p "Inside get children for particular page or block function: " node)
    (let [eid               (cond
                              (int? node) node
@@ -149,26 +150,31 @@
                                      eid))
          embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
          sorted-by-children (sort-children raw-children-data)
-         block-string       (:string raw-children-data)
          extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
                                               :extract-query-pages? (or extract-query-pages? false)
-                                              :only-pages?          only-pages?})
-        ; _ (p "extracted-strings" extracted-strings)
-         plain-text         (str/join " \n " (concat
-                                               (when (and block-string (not (int? node)))
-                                                 [block-string])
-                                               extracted-strings))]
+                                              :only-pages?          only-pages?
+                                              :vision?              vision?})]
 
     ; (p "Successfully extracted children for page or block with node: " node)
      (if only-pages?
        {:extracted-query-pages extracted-strings}
-       {:plain-text plain-text})))
+       {:plain-text extracted-strings})))
 
 
 (comment
+
+  (get-children-for {:node "testing 5"})
+
+  (get-children-for {:node "Test: Image to text"
+                     :only-pages? true})
+
+
   (get-children-for {:node "Test: extract query pages"
-                     :extract-query-pages? true})
-  (get-children-for {:node "sIZw65xin"
+                     :extract-query-pages? false
+                     :only-pages? false
+                     :get-linked-refs? true})
+
+  (get-children-for {:node "G5U5UaV7F"
                      :block? true
                      :get-linked-refs? false
                      :only-pages? true
@@ -215,16 +221,18 @@
        (let [uid  (title->uid ref-title)]
          (when-let [_ (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
            (p "----This is discourse node ---" uid)
-           (swap! res conj (str "Referenced discourse node title: " ref-title
-                             " \n and its page content: \n "
-                             (:plain-text (get-children-for {:node ref-title}))
-                             " \n ")))))
+           (let [page-data (:plain-text (get-children-for {:node ref-title}))
+                 pre-s     (str "Referenced discourse node title : " ref-title " \n and its page content: \n ")]
+             (swap! res concat [pre-s] page-data [" \n "])))))
      (p "Successfully extracted ref data for all pages ")
-     (clojure.string/join "\n" @res)))
+     (vec @res)))
 
 
 (comment
   (get-all-refs-for {:title "Test: extract query pages"})
+
+  (get-children-for {:node "[[EVD]] - llm test page 2 - [[@source]]"})
+
   (get-children-for {:node "Test: extract query pages"})
 
   (get-all-refs-for {:title "G5U5UaV7F"
@@ -237,12 +245,13 @@
   (get-all-refs-for {:title "Limit LLM Chat Linked References to dgraph nodes"}))
 
 
-(defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages?]}]
+(defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
   (p "Inside get all data for particular page function")
   (let [children (get-children-for {:node                 title
                                     :block?               block?
                                     :extract-query-pages? extract-query-pages?
-                                    :only-pages?          only-pages?})]
+                                    :only-pages?          only-pages?
+                                    :vision?              vision?})]
       (merge
        (when (not block?)
          {:title title})
@@ -255,8 +264,8 @@
            {:refs refs})))))
 
 
-(defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages?]}]
-  (p "Inside extract data for pages function" nodes get-linked-refs? block? extract-query-pages? only-pages?)
+(defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
+  (p "Inside extract data for pages function" nodes get-linked-refs? block? extract-query-pages? only-pages? vision?)
   (let [res (atom [])]
     (doseq [node nodes]
        (swap! res (fn [old-res]
@@ -264,22 +273,27 @@
                                      :get-linked-refs?     (or get-linked-refs? false)
                                      :block?               (or block? false)
                                      :extract-query-pages? (or extract-query-pages? false)
-                                     :only-pages?          (or only-pages? false)}
+                                     :only-pages?          (or only-pages? false)
+                                     :vision?              vision?}
                           _ (p "args" args)
                           node-data (get-all-data-for args)]
-                      (if only-pages?
-                        node-data
-                       (conj old-res
-                          (with-out-str
-                            (print "\n")
-                            (print node-data)
-                            (print "\n"))))))))
+                      (cond
+                        only-pages? node-data
+                        vision?     (conj old-res node-data)
+                        :else       (conj old-res (with-out-str
+                                                    (print "\n")
+                                                    (print node-data)
+                                                    (print "\n"))))))))
     @res))
 
 
 
 (comment
   ;; ------------------
+
+  (data-for-nodes {:nodes ["testing 5"
+                           "testing 2"]
+                   :vision? true})
 
   ;; Extract without linked refs or query pages
   (data-for-nodes {:nodes ["Test: extract query pages"]})
@@ -292,26 +306,28 @@
   (data-for-nodes {:nodes ["Test: extract query pages"]
                    :extract-query-pages? true})
 
+  ;; Only pages
+  (data-for-nodes {:nodes ["Test: extract query pages"]
+                   :only-pages? true})
 
   ;; Extract with linked refs and query pages
-  (data-for-nodes {:nodes ["Test: extract query pages"]
-                   :get-linked-refs? true
-                   :extract-query-pages? true})
 
-  (data-for-nodes {:nodes ["UAXMYAZuB"]
-                   :get-linked-refs? true
-                   :extract-query-pages? true
-                   :block? true})
 
   (data-for-nodes {:nodes                ["Test: extract query pages"]
                    :get-linked-refs?     true
-                   :extract-query-pages? true
-                   :only-pages?          true})
+                   :extract-query-pages? true})
+
+  ;; Extract with all 3
 
   (get-all-data-for {:title                "Test: extract query pages"
                      :get-linked-refs?     true
                      :extract-query-pages? true
                      :only-pages?          true})
+
+  (data-for-nodes {:nodes ["UAXMYAZuB"]
+                     :get-linked-refs? true
+                     :extract-query-pages? true
+                     :block? true})
 
     ;; ------------------
 
@@ -343,25 +359,103 @@
 
 
 
-(defn get-first-pass-context [child get-linked-refs? extract-query-pages? only-pages?]
+(defn get-first-pass-context [child get-linked-refs? extract-query-pages? only-pages? vision?]
   (let [cstr             (:string child)
         block-ref?       (when cstr (re-seq (re-pattern "\\(\\(\\(?([^)]*)\\)?\\)\\)") (:string child)))]
 
     (cond
-      (some? (is-a-page? cstr))  (data-for-nodes {:nodes [(is-a-page? cstr)]
-                                                  :get-linked-refs? get-linked-refs?
+      (some? (is-a-page? cstr))  (data-for-nodes {:nodes                [(is-a-page? cstr)]
+                                                  :get-linked-refs?     get-linked-refs?
                                                   :extract-query-pages? extract-query-pages?
-                                                  :only-pages? only-pages?})
+                                                  :only-pages?          only-pages?
+                                                  :vision?              vision?})
       (some? block-ref?)         (let [block-uid (second (first block-ref?))]
                                    (data-for-nodes {:nodes                [block-uid]
                                                     :block?               true
                                                     :get-linked-refs?     get-linked-refs?
                                                     :only-pages?          only-pages?
-                                                    :extract-query-pages? extract-query-pages?})))))
+                                                    :extract-query-pages? extract-query-pages?
+                                                    :vision?              vision?})))))
+
+
+(defn extract-for-message-array
+  ([messages initial-message]
+   (extract-for-message-array messages initial-message ""))
+  ([messages initial-message closing-message]
+   (let [new-map         (atom [])
+         current-message (atom initial-message)]
+     (p "messages" messages)
+     (doseq [message messages]
+       (let [current-image? (extract-markdown-image message)]
+         (cond
+           (some? (:text current-image?))  (do
+                                             (swap! new-map conj {:type "text"
+                                                                  :text @current-message})
+                                             (reset! current-message "")
+                                             (swap! new-map conj {:type      "image_url"
+                                                                  :image_url (:url current-image?)}))
+           :else                           (swap! current-message str "\n" message))))
+     (p "current message" @current-message)
+     (when (not= "" @current-message)
+       (swap! current-message str closing-message)
+       (swap! new-map conj {:type "text"
+                            :text @current-message}))
+     @new-map)))
+
+
+(extract-for-message-array
+  ["sid/left-sidebar/personal-shortcuts"
+   "![](GMGMMG)"
+   "^^Secret message: TESTING 5^^"
+   "1"
+   "Sections" ""]
+  "GM")
+
+(defn generate-roles-for-map [message-map]
+  (p "message  map"  message-map)
+  (let [body-map (extract-for-message-array
+                   (:body message-map)
+                   (str "{:title " (:title message-map) "\n :body \n"))
+        ref-map   (extract-for-message-array
+                    (:refs message-map)
+                    (str ":refs \n "))
+
+        res       (vec (concat body-map ref-map))]
+   res))
+
+
+(defn generate-messages-by-role [messages title refs]
+  (let [res             (atom [])
+        current-message (atom (str "{: title " title " \n  :body \n "))
+        ref-map         (extract-for-message-array
+                          refs
+                          (str ":refs \n ")
+                          "}")]
+    (doseq [message messages]
+      (let [current-image? (when (string? message) (extract-markdown-image message))]
+        (p "current image????" current-image? "--" message)
+        (cond
+          (not (string? message))         (do
+                                            (swap! res conj {:type "text"
+                                                             :text @current-message})
+                                            (reset! current-message "")
+                                            (swap! res concat (generate-roles-for-map (first message)))
+                                            (swap! res vec))
+          (some? (:text current-image?))  (do
+                                            (swap! res conj {:type "text"
+                                                             :text @current-message})
+                                            (reset! current-message "")
+                                            (swap! res conj {:type "image_url"
+                                                             :image_url {:url (:url current-image?)}}))
+          :else                           (swap! current-message str " \n " message))))
+    (when (not= "" @current-message)
+      (swap! res conj {:type "text"
+                       :text @current-message}))
+   (vec (concat @res ref-map))))
 
 
 
-(defn extract-query-pages [context get-linked-refs? extract-query-pages? only-pages?]
+(defn extract-query-pages [{:keys [context get-linked-refs? extract-query-pages? only-pages? vision?]}]
   (p "extract query pages context: ")
   (let [res (atom [])]
     (doseq [child (:children context)]
@@ -370,47 +464,141 @@
                                        child
                                        get-linked-refs?
                                        extract-query-pages?
-                                       only-pages?)
+                                       only-pages?
+                                       vision?)
             _ (p "context with query pages: " context-with-query-pages)
-            ext-context              (r/atom "")]
-        (if only-pages?
-          (do
-            (doseq [cstr (:body context-with-query-pages)]
-              (cond
-                (some? (is-a-page? cstr)) (do
-                                            (p "---" cstr)
-                                            (let [page-data (clojure.string/join " \n " (data-for-nodes
-                                                                                          {:nodes [(is-a-page? cstr)]
-                                                                                           :get-linked-refs? get-linked-refs?
-                                                                                           :extract-query-pages? extract-query-pages?}))]
-                                              (swap! ext-context str " \n " page-data)))
-                :else                     (do
-                                            (p "normal string" cstr)
-                                            (swap! ext-context str " \n " cstr))))
-            (swap! res conj  (with-out-str
-                               (print "\n")
-                               (print (merge
-                                        (when (some? (:title context-with-query-pages))
-                                          {:title (:title context-with-query-pages)})
-                                        {:body  @ext-context}
-                                        (when (some? (:refs context-with-query-pages))
-                                           {:refs (:refs context-with-query-pages)})))
-                               (print "\n"))))
-          (swap! res conj (first context-with-query-pages)))))
+            new-res                  (atom [])]
+        (cond
+          only-pages? (do
+                        (doseq [cstr (:body context-with-query-pages)]
+                          (cond
+                            (some? (is-a-page? cstr)) (do
+                                                        (p "---" cstr)
+                                                        (let [page-data (data-for-nodes
+                                                                                 {:nodes                [(is-a-page? cstr)]
+                                                                                  :get-linked-refs?     get-linked-refs?
+                                                                                  :extract-query-pages? extract-query-pages?
+                                                                                  :vision?              vision?})]
+                                                          (if vision?
+                                                            (swap! new-res conj  page-data)
+                                                            (swap! new-res concat page-data))))
+                            :else                     (do
+                                                        (p "normal string" cstr)
+                                                        (swap! new-res conj cstr))))
+                        (if vision?
+                          (swap! res concat (generate-messages-by-role
+                                              @new-res
+                                              (:title context-with-query-pages)
+                                              (:refs context-with-query-pages)))
+                          (swap! res conj (with-out-str
+                                            (print "\n")
+                                            (print (merge
+                                                     (when (some? (:title context-with-query-pages))
+                                                       {:title (:title context-with-query-pages)})
+                                                     {:body @new-res}
+                                                     (when (some? (:refs context-with-query-pages))
+                                                        {:refs (:refs context-with-query-pages)})))
+                                            (print "\n")))))
+          vision?      (do
+                         (swap! res concat (generate-messages-by-role
+                                             (:body (first context-with-query-pages))
+                                             (:title context-with-query-pages)
+                                             (:refs context-with-query-pages))))
+          :else        (swap! res conj (first context-with-query-pages)))))
     (p "extracted the query pages")
-    @res))
+    (if vision?
+      @res
+      (with-out-str
+        (print "\n")
+        (print (clojure.string/join " " @res))
+        (print "\n")))))
+
+
 
 
 (comment
   (get-child-with-str "KScozVenE" "Context")
+
   (get-first-pass-context
     {:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"},
-    true true false)
+    true false false true)
+
+  (get-first-pass-context {:string "[[Test: Image to text]]"} true true true true)
   ;; in results graph
+
   (extract-query-pages
-    {:children [{:order 0, :string "((G5U5UaV7F))", :uid "idyAjL4Xd"}],}
-    true true true)
+   {:context {:children [{:string "[[testing 5]]"}
+                         {:string "[[testing 2]]" }],}
+    :get-linked-refs? true
+    :extract-query-pages? true
+    :only-pages? true})
+
   (extract-query-pages
-    {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
-    true true false))
+   {:context {:children [{:string "[[testing 5]]"}
+                         {:string "[[testing 2]]" }],}
+    :vision? true})
+
+  (extract-query-pages
+   {:context {:children [{:string "[[testing 5]]"}
+                         {:string "[[testing 2]]" }],}
+    :get-linked-refs? true})
+
+  (extract-query-pages
+    {:context {:children [{:string "[[testing 5]]"}
+                          {:string "[[testing 2]]" }],}
+     :get-linked-refs? true
+     :extract-query-pages? true})
+
+  (extract-query-pages
+   {:context {:children [{:string "[[testing 5]]"}
+                         {:string "[[testing 2]]" }],}
+    :get-linked-refs? true
+    :extract-query-pages? true
+    :only-pages? true
+    :vision? false})
+
+  (extract-query-pages
+    {:context {:children [{:string "[[testing 5]]"}
+                          {:string "[[testing 2]]" }],}
+     :get-linked-refs? true
+     :extract-query-pages? true
+     :only-pages? false
+     :vision? true})
+
+  (extract-query-pages
+    {:context {:children [{:order 0, :string "((G5U5UaV7F))", :uid "idyAjL4Xd"}],}
+     :get-linked-refs? true
+     :extract-query-pages? true
+     :only-pages? true})
+
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          true
+     :vision?              true})
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          true
+     :vision?              false})
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string "[[Test: extract query pages]]", :uid "idyAjL4Xd"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          true
+     :vision?              false})
+
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string "[[Test: Image to text]]", :uid "idyAjL4Xd"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          false
+     :vision?              true})
+
+ (extract-query-pages
+   {:context              {:children [{:order 0, :string "((4y3qbZBo1))", :uid "idyAjL4Xd"}],}
+    :vision?              true}))
+
 

@@ -48,10 +48,27 @@
                                                                                         (reset! active? false))
                                                                                       500))))})))
 
+(comment
+  (create-alternate-messages
+    (vec (sort-by :order (:children (get-child-with-str "aDKm-_42K" "Messages"))))
+    (extract-query-pages
+      {:context              {:children [{:order 0, :string "[[Test: Image to text]]", :uid "idyAjL4Xd"}],}
+       :get-linked-refs?     true
+       :extract-query-pages? true
+       :only-pages?          false
+       :vision?              true})
+    "GG: "))
 
-
-
-(defn load-context [{:keys [chat-atom messages-atom parent-id active? get-linked-refs? settings token-count-atom extract-query-pages? extract-query-pages-ref?]}]
+(defn load-context [{:keys [chat-atom
+                            messages-atom
+                            parent-id
+                            active?
+                            get-linked-refs?
+                            settings
+                            token-count-atom
+                            extract-query-pages?
+                            extract-query-pages-ref?
+                            vision?]}]
   #_(println "load context ")
   (p "*load context* for block with uid:" parent-id "get-linked-refs? " @get-linked-refs? "extract-query-pages? " @extract-query-pages? "extract-query-pages-ref?" @extract-query-pages-ref?)
   (let [pre      "*load context* :"
@@ -62,16 +79,17 @@
         m-uid    (:uid messages)
         children (:children chat)
         c-uid    (:uid chat)
-        ext-context (r/atom "\n Initial context: \n")]
+        ext-context (atom "\n Initial context: \n")]
 
     (p (str pre "for these: " children))
 
     (go
-      (swap! ext-context str (extract-query-pages
-                               context
-                               @get-linked-refs?
-                               @extract-query-pages?
-                               @extract-query-pages-ref?))
+      (reset! ext-context (extract-query-pages
+                            {:context              context
+                             :get-linked-refs?     @get-linked-refs?
+                             :extract-query-pages? @extract-query-pages?
+                             :only-pages?          @extract-query-pages-ref?
+                             :vision?              vision?}))
       (doseq [child children]
         ^{:key child}
         (let [child-uid (:uid child)
@@ -132,7 +150,7 @@
                            (p (str pre "refresh messages window with parent-id: " parent-id))
                            (reset! messages-atom (get-child-with-str parent-id "Messages"))
                            #_(println "messages atom reset")
-                           (send-context-and-message messages-atom parent-id active? settings token-count-atom @ext-context))))
+                           (send-context-and-message  messages-atom parent-id active? settings token-count-atom @ext-context))))
        (<p! (js/Promise. (fn [_]
                            (p (str pre "refresh chat window with parent-id: " parent-id))
                            (reset! chat-atom (get-child-with-str parent-id "Chat")))))))))

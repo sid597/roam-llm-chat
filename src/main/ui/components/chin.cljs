@@ -120,6 +120,14 @@
                          (reset! default-model "gpt-4"))}]
            [:> Divider]
            [:> Menu.Item
+            {:text "gpt-4-vision"
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+                         (p "chose gpt-4-vision")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4-vision")
+                         (reset! default-model "gpt-4-vision"))}]
+           [:> Divider]
+           [:> Menu.Item
             {:text "gpt-3.5"
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
