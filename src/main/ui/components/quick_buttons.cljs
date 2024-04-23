@@ -24,6 +24,7 @@
   (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Summarise this page" "Context"))
 
 
+
 (defn button-with-settings [button-name]
   (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
@@ -236,3 +237,80 @@
                                       (reset! loading? true)
                                       (image-to-text-for all-images total-images-count loading? image-prompt-str default-max-tokens)))))}
          (str "Generate description for: " @description-for)]]])))
+
+
+(defn discourse-graph-this-page-button []
+  (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+                                           true
+                                           false))
+        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+                                           true
+                                           false))
+        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
+                                           true
+                                           false))
+        active?                  (r/atom false)
+        default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
+        default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
+        default-model            (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
+        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page button" "Context"))]
+    (fn [_]
+      #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
+      [:> ButtonGroup
+       {:class-name "button-with-settings"
+        :style {:overflow "hidden"
+                :display "flex"
+                :flex-direction "row"
+                :justify-content "space-between"
+                :align-items "center"
+                :flex "1 1 1"}
+        :minimal true}
+       [:div {:style {:flex "1 1 1"}}
+        [settings-button-popover
+         [:> Card {:elevation 3
+                   :style {:flex "1"
+                           :margin "0"
+                           :display "flex"
+                           :flex-direction "column"
+                           :border "2px solid rgba(0, 0, 0, 0.2)"
+                           :border-radius "8px"}}
+          [:div.summary-component
+           {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+           [:div.chat-input-container
+            {:style {:display "flex"
+                     :flex-direction "row"
+                     :background-color "#f6cbfe3d"
+                     :border "1px"}}
+            [chat-context context #()]]
+           [chin {:default-model        default-model
+                  :default-max-tokens   default-max-tokens
+                  :default-temp         default-temp
+                  :get-linked-refs?     get-linked-refs?
+                  :active?              active?
+                  :block-uid            block-uid
+                  :extract-query-pages? extract-query-pages?
+                  :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
+       [:div {:style {:flex "1 1 1"}}
+        [:> Button {:minimal true
+                    :small true
+                    :loading @active?
+                    :on-click (fn [e]
+                                (go
+                                  (let [pre            "*Discourse graph this page* "
+                                        open-page-uid  (<p! (get-open-page-uid))
+                                        node-uid       (gen-new-uid)]
+                                    (create-struct
+                                      {:s "Discourse node suggestion"
+                                       :c [{:s (str "Model: " default-model)
+                                            :c [{:s "{{llm-dg-suggestions}}"}]}]}
+                                      open-page-uid
+                                      node-uid
+                                      false))))}
+         "Discourse graph this page"]]])))
+
+
+
+
+
+

@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [ui.actions.graph-overview-ai :refer [create-chat-ui-blocks-for-selected-overview]]
-            [ui.utils :refer [p ]]
+            [ui.utils :refer [p]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 

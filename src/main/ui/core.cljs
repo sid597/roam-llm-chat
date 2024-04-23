@@ -5,6 +5,7 @@
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
             [ui.utils :refer [p chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
+            [ui.render-comp.discourse-suggestions :refer [llm-dg-suggestions-main]]
             [reagent.dom :as rd]))
 
 
@@ -87,14 +88,9 @@
         pbuid (and (not (empty? dom-id)) (extract-last-substring dom-id))]
     (when pbuid
       (p "Load plugin ui for block with uid: " pbuid)
-      (let [children-exist? (children-exist? pbuid)]
-        (p "Does this {{ chat-llm }} block have Context, Messages and Chat as children?: " children-exist?)
+      (if (= "chat-llm" (j/get node :innerText))
         (main {:block-uid pbuid} "filler" dom-id)
-        #_(if children-exist?
-            (main {:block-uid pbuid} "filler" dom-id)
-            (do
-             (p "Seems like the block was created by directly typing in {{ chat-llm }}, so creating children for the plugin. ")
-             (create-blocks pbuid #(rc/main {:block-uid pbuid} "filler" dom-id))))))))
+        (llm-dg-suggestions-main  pbuid  dom-id)))))
 
 
 (defn get-matches [d class-name tag-name]
@@ -102,7 +98,8 @@
                     array-seq
                     (filter #(and
                                (= (j/get % :nodeName) tag-name)
-                               (= "chat-llm" (j/get % :innerText)))))]
+                               (or (= "chat-llm" (j/get % :innerText))
+                                   (= "llm-dg-suggestions" (j/get % :innerText))))))]
     matches))
 
 (defn mutation-callback [mutations observer]
