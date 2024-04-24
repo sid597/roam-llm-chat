@@ -90,6 +90,7 @@
       (str s " \n "))))
 
 
+
 (defn unnamespace-keys
   [m]
   (let [remove-ns (fn [k] (keyword (name k)))] ; Helper to remove namespace
@@ -346,39 +347,46 @@
           :c [{:s "Messages"}
               {:s "Context"}]}]}
     "8yCGreTXI")
-
 (defn create-struct
   ([struct top-parent chat-block-uid open-in-sidebar?]
    (create-struct struct top-parent chat-block-uid open-in-sidebar? #()))
   ([struct top-parent chat-block-uid open-in-sidebar? cb]
    (let [pre   "*Creating struct*: "
          stack (atom [struct])
-         t? (:t struct)
          res (atom [top-parent])]
      (p pre struct)
      (p (str pre "open in sidebar?") open-in-sidebar?)
      (go
        (while (not-empty @stack)
           (let [cur                  (first @stack)
-                {:keys [t u s o op]} cur
+                {:keys [t u s o op
+                        string
+                        title
+                        uid
+                        order]}      cur
                 new-uid              (j/call-in js/window [:roamAlphaAPI :util :generateUID])
                 parent               (first @res)
+                u                    (or u uid)
+                o                    (or o order)
+                s                    (or s string)
+                t                    (or t title)
+                c                    (or (:c cur) (:children cur))
                 args                 {:parent-uid parent
-                                       :block-uid  (if (some? u) u new-uid)
+                                       :block-uid  (if (some? u ) u new-uid)
                                        :order      (if (some? o) o "last")
                                        :string     s
                                        :open      (if (some? op) op true)}]
               (swap! stack rest)
-              (swap! stack #(vec (concat % (:c cur))))
+              (swap! stack #(vec (concat % (sort-by :order c))))
               ;(println "block-" string "-parent-" parent #_(first @res))
               (p (str pre "creating with args: " t  " -- " args))
-              (if (some? t)
-                (<p! (create-new-page t (if (some? u) u new-uid)))
+              (if (some? (or t title))
+                (<p! (create-new-page t (if (some? u) u  new-uid)))
                 (<p! (create-new-block-with-id args)))
               (swap! res rest)
-              (swap! res #(vec (concat % (vec (repeat (count (:c cur))
-                                                (if (some? (:u cur))
-                                                  (:u cur)
+              (swap! res #(vec (concat % (vec (repeat (count c)
+                                                (if (some? u)
+                                                  u
                                                   new-uid))))))))
        (when open-in-sidebar?
          (p "open window in sidebar? " open-in-sidebar?)
@@ -411,7 +419,6 @@
   (-> (j/call-in js/window [:roamAlphaAPI :ui :getFocusedBlock])
     (j/get :block-uid)))
 
-(get-block-parent-with-order "khffC8IRS")
 
 (defn llm-chat-settings-page-struct []
   (let [page-uid    (gen-new-uid)
@@ -482,6 +489,7 @@
         :c [{:s "true"}]}
        {:s "Extract query pages ref?"
         :c [{:s "true"}]}]})
+
 
 
 (defn common-chat-struct [context-structure context-block-uid context-open?]

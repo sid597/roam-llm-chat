@@ -2,8 +2,45 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.utils :refer [get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [gen-new-uid get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [clojure.string :as str]
             [reagent.dom :as rd]))
+
+
+(defn get-discourse-template [node-name]
+  (:children (ffirst (q '[:find (pull ?c [{:block/children ...} :block/string :block/order])
+                          :in $ ?node-name
+                          :where [?e :node/title ?node-name]
+                          [?e :block/children ?c]
+                          [?c :block/string "Template"]]
+                       node-name))))
+
+(comment
+  (get-discourse-template "discourse-graph/nodes/Source"))
+
+
+(defn template-data-for-node [suggestion-str]
+  (let [pre "discourse-graph/nodes/"]
+   (cond
+     (str/starts-with? suggestion-str "[[EVD]] -") (get-discourse-template (str pre "Evidence"))
+     (str/starts-with? suggestion-str "[[QUE]] -") (get-discourse-template (str pre "Question"))
+     (str/starts-with? suggestion-str "[[CLM]] -") (get-discourse-template (str pre "Claim")))))
+
+(defn create-discourse-node-with-title [node-title]
+  (let [node-type (template-data-for-node node-title)]
+    (when (some? node-type)
+      (let [page-uid (gen-new-uid)]
+        (create-struct
+          {:title node-title
+           :u     page-uid
+           :c     node-type}
+          page-uid
+          page-uid
+          true)))))
+
+(defn delete-block [uid]
+  (j/call-in js/window [:roamAlphaAPI :data :block :delete]
+    (clj->js {:block {:uid uid}})))
 
 
 (defn actions [child m-uid selections]
@@ -37,7 +74,9 @@
                     :fill       false
                     :small      true
                     :on-click   (fn [e]
-                                  (p "Create discourse node"))}]
+                                  (p "Create discourse node")
+                                  (create-discourse-node-with-title (:string child)))}]
+
         [:> Button {:class-name (str "scroll-up-button" m-uid)
                     :style      {:width "30px"}
                     :icon       "cross"
@@ -45,15 +84,18 @@
                     :fill       false
                     :small      true
                     :on-click   (fn [e]
-                                  (p "Discard selected option"))}]
+                                  (p "Discard selected option")
+                                  (delete-block (:uid child)))}]
+
         [:> Checkbox
          {:style     {:margin-bottom "0px"
                       :padding-left  "30px"}
           :checked   @checked
           :on-change (fn []
                        (do
-                         (println "clicked checked")
-                         (swap! selections conj m-uid)
+                         (if (contains? @selections child)
+                           (swap! selections disj child)
+                           (swap! selections conj child))
                          (swap! checked not @checked)))}]]])))
 
 (defn chat-history [m-uid m-children selections]
@@ -83,7 +125,7 @@
  (let [suggestions-data (get-child-with-str block-uid "Suggestions")
        uid              (:uid suggestions-data)
        suggestions      (r/atom (:children suggestions-data))
-       selections       (r/atom [])]
+       selections       (r/atom #{})]
    (watch-children
      uid
      (fn [_ aft]
@@ -118,12 +160,18 @@
          [:> Button {:class-name (str "scroll-down-button")
                      :minimal true
                      :fill false
-                     :small true}
+                     :small true
+                     :on-click (fn [_]
+                                 (doseq [node @selections]
+                                   (create-discourse-node-with-title (:string node))))}
           "Create selected"]
          [:> Button {:class-name (str "scroll-up-button")
                      :minimal true
                      :fill false
-                     :small true}
+                     :small true
+                     :on-click (fn [_]
+                                 (doseq [node @selections]
+                                   (delete-block (:uid node))))}
           "Discard selected"]]]]])))
 
 
