@@ -114,16 +114,15 @@
                                                               {:children [{:string (str "[[" title "]]" "\n")}]})
 
                                          messages           [{:role "user"
-                                                              :content (concat
+                                                              :content (conj
                                                                          [{:type "text"
-                                                                           :text @context}]
-                                                                         (vec
-                                                                           (extract-query-pages
-                                                                             {:context              nodes
-                                                                              :get-linked-refs?     @get-linked-refs?
-                                                                              :extract-query-pages? @extract-query-pages?
-                                                                              :only-pages?          @extract-query-pages-ref?
-                                                                              :vision?              (= "gpt-4-vision" @default-model)})))}]
+                                                                           :text (str @context
+                                                                                   (extract-query-pages
+                                                                                     {:context              nodes
+                                                                                      :get-linked-refs?     @get-linked-refs?
+                                                                                      :extract-query-pages? @extract-query-pages?
+                                                                                      :only-pages?          @extract-query-pages-ref?
+                                                                                      :vision?              (= "gpt-4-vision" @default-model)}))}])}]
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
@@ -241,20 +240,21 @@
 
 (defn discourse-graph-this-page-button []
   (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
-        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
+        discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
+        default-model            (r/atom (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
+        default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
+        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
                                            true
                                            false))
-        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
+        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
                                            true
                                            false))
-        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
+        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
                                            true
                                            false))
         active?                  (r/atom false)
-        default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
-        default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
-        default-model            (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page button" "Context"))]
+        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))
+        _ (p "++++++>>>>>" @context)]
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
@@ -284,10 +284,8 @@
                      :border "1px"}}
             [chat-context context #()]]
            [chin {:default-model        default-model
-                  :default-max-tokens   default-max-tokens
                   :default-temp         default-temp
                   :get-linked-refs?     get-linked-refs?
-                  :active?              active?
                   :block-uid            block-uid
                   :extract-query-pages? extract-query-pages?
                   :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
@@ -296,17 +294,65 @@
                     :small true
                     :loading @active?
                     :on-click (fn [e]
+                                (when (not @active?)
+                                  (reset! active? true))
                                 (go
                                   (let [pre            "*Discourse graph this page* "
                                         open-page-uid  (<p! (get-open-page-uid))
-                                        node-uid       (gen-new-uid)]
-                                    (create-struct
-                                      {:s "Discourse node suggestion"
-                                       :c [{:s (str "Model: " default-model)
-                                            :c [{:s "{{llm-dg-suggestions}}"}]}]}
-                                      open-page-uid
-                                      node-uid
-                                      false))))}
+                                        title          (uid->title open-page-uid)
+                                        suggestion-uid (gen-new-uid)
+                                        node-uid       (gen-new-uid)
+                                        nodes          (if (nil? title)
+                                                         {:children [{:string (str "((" open-page-uid "))")}]}
+                                                         {:children [{:string (str "[[" title "]]" "\n")}]})
+                                        messages      [{:role "user"
+                                                        :content (conj
+                                                                   [{:type "text"
+                                                                     :text (str @context
+                                                                                (extract-query-pages
+                                                                                  {:context              nodes
+                                                                                   :get-linked-refs?     @get-linked-refs?
+                                                                                   :extract-query-pages? @extract-query-pages?
+                                                                                   :only-pages?          @extract-query-pages-ref?
+                                                                                   :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                        settings       (merge
+                                                         {:model       (get model-mappings @default-model)
+                                                          :temperature @default-temp}
+                                                         (when (= "gemini" @default-model)
+                                                           {:safety-settings (get-safety-settings block-uid)}))]
+                                    (do
+                                      (create-struct
+                                        {:s "Discourse node suggestion"
+                                         :c [{:s (str "Model: " @default-model)
+                                              :c [{:s "{{llm-dg-suggestions}}"
+                                                   :op false
+                                                   :c [{:s "Suggestions"
+                                                        :c [{:s ""
+                                                             :u suggestion-uid}]}]}]}]}
+                                        open-page-uid
+                                        node-uid
+                                        false)
+                                      (p "===>" messages)
+                                      (<p! (js/Promise.
+                                             (fn [_]
+                                               (p (str pre "Calling openai api, with settings : " settings))
+                                               (p (str pre "and messages : " messages))
+                                               (p (str pre "Now sending message and wait for response ....."))
+                                               (call-llm-api
+                                                 {:messages messages
+                                                  :settings settings
+                                                  :callback (fn [response]
+                                                              (p (str pre "llm response received: " response))
+                                                              (let [res-str (-> response
+                                                                              :body)]
+                                                                (update-block-string
+                                                                  suggestion-uid
+                                                                  (str res-str)
+                                                                  (js/setTimeout
+                                                                    (fn []
+                                                                      (p (str pre "Updated block " suggestion-uid " with response from openai api"))
+                                                                      (reset! active? false))
+                                                                    500))))}))))))))}
          "Discourse graph this page"]]])))
 
 

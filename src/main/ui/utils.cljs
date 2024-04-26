@@ -460,9 +460,21 @@
                         :c [{:s "Max tokens"
                              :c [{:s "300"}]}
                             {:s "Generate description for:"
-                             :c [{:s "Images without description"}]}]}]}]}]}
-
-
+                             :c [{:s "Images without description"}]}]}]}
+                  {:s "Discourse graph this page"
+                   :c [{:s "Context"
+                        :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nGiven the following data from a page suggest some new suggestions for discourse nodes bade on the provided data. go in depth.\n\nNote: \n\n 1. follow the following format, this is format of the following lines `node type - format to follow if the node is of this type`\n\n```javascript\n [[CON]] - {content}\n [[RES]] - {content} - {Source}\n [[HYP]] - {content}\n[[ISS]] - {content}\n@{content}\n[[EVD]] - {content} - {Source}\n [[QUE]] - {content}\n[[CLM]] - {content}```\n\n2. following the format does not mean degrading your answer quality. We want both follow the format and high quality suggestions. \n3. Please only reply with discourse node suggestions, not explanations, keep them high quality. \n\nData from page: "}]}
+                       {:s "Settings"
+                        :c [{:s "Model"
+                             :c [{:s "gpt-3.5"}]}
+                            {:s "Temperature"
+                             :c [{:s "0.9"}]}
+                            {:s "Get linked refs"
+                             :c [{:s "false"}]}
+                            {:s "Extract query pages"
+                             :c [{:s "false"}]}
+                            {:s "Extract query pages ref?"
+                             :c [{:s "false"}]}]}]}]}]}
         page-uid
         nil
         nil
