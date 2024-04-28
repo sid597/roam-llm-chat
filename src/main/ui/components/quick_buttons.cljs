@@ -321,7 +321,7 @@
                                                            {:safety-settings (get-safety-settings block-uid)}))]
                                     (do
                                       (create-struct
-                                        {:s "Discourse node suggestion"
+                                        {:s "AI Discourse node suggestions"
                                          :c [{:s (str "Model: " @default-model)
                                               :c [{:s "{{llm-dg-suggestions}}"
                                                    :op false
