@@ -253,8 +253,7 @@
                                            true
                                            false))
         active?                  (r/atom false)
-        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))
-        _ (p "++++++>>>>>" @context)]
+        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))]
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
@@ -331,7 +330,6 @@
                                         open-page-uid
                                         node-uid
                                         false)
-                                      (p "===>" messages)
                                       (<p! (js/Promise.
                                              (fn [_]
                                                (p (str pre "Calling openai api, with settings : " settings))
@@ -349,7 +347,7 @@
                                                                                           (-> response
                                                                                             :body
                                                                                             clojure.string/split-lines))]
-                                                                (p "suggestions -->" res-str)
+                                                                (p "suggestions: " res-str)
                                                                 (do
                                                                   (create-struct
                                                                     {:u suggestion-uid
