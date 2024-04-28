@@ -286,7 +286,7 @@
            [chin {:default-model        default-model
                   :default-temp         default-temp
                   :get-linked-refs?     get-linked-refs?
-                  :block-uid            block-uid
+                  :block-uid            discourse-graph-page-uid
                   :extract-query-pages? extract-query-pages?
                   :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
        [:div {:style {:flex "1 1 1"}}
@@ -327,8 +327,7 @@
                                               :c [{:s "{{llm-dg-suggestions}}"
                                                    :op false
                                                    :c [{:s "Suggestions"
-                                                        :c [{:s ""
-                                                             :u suggestion-uid}]}]}]}]}
+                                                        :u suggestion-uid}]}]}]}
                                         open-page-uid
                                         node-uid
                                         false)
@@ -343,20 +342,24 @@
                                                   :settings settings
                                                   :callback (fn [response]
                                                               (p (str pre "llm response received: " response))
-                                                              (let [res-str (-> response
-                                                                              :body)]
-                                                                (update-block-string
-                                                                  suggestion-uid
-                                                                  (str res-str)
-                                                                  (js/setTimeout
-                                                                    (fn []
-                                                                      (p (str pre "Updated block " suggestion-uid " with response from openai api"))
-                                                                      (reset! active? false))
-                                                                    500))))}))))))))}
+                                                              (let [res-str             (map
+                                                                                          (fn [s]
+                                                                                            (when (not-empty s)
+                                                                                              {:s (str s)}))
+                                                                                          (-> response
+                                                                                            :body
+                                                                                            clojure.string/split-lines))]
+                                                                (p "suggestions -->" res-str)
+                                                                (do
+                                                                  (create-struct
+                                                                    {:u suggestion-uid
+                                                                     :c (vec res-str)}
+                                                                    suggestion-uid
+                                                                    nil
+                                                                    false
+                                                                    (js/setTimeout
+                                                                      (fn []
+                                                                        (p (str pre "Updated block " suggestion-uid " with suggestions from openai api"))
+                                                                        (reset! active? false))
+                                                                      500)))))}))))))))}
          "Discourse graph this page"]]])))
-
-
-
-
-
-

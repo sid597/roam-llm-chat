@@ -380,9 +380,9 @@
               (swap! stack #(vec (concat % (sort-by :order c))))
               ;(println "block-" string "-parent-" parent #_(first @res))
               (p (str pre "creating with args: " t  " -- " args))
-              (if (some? (or t title))
-                (<p! (create-new-page t (if (some? u) u  new-uid)))
-                (<p! (create-new-block-with-id args)))
+              (cond
+                (some? t) (<p! (create-new-page t (if (some? u) u  new-uid)))
+                (some? s) (<p! (create-new-block-with-id args)))
               (swap! res rest)
               (swap! res #(vec (concat % (vec (repeat (count c)
                                                 (if (some? u)

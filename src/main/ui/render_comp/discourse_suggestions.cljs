@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.utils :refer [gen-new-uid get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [gen-new-uid uid-to-block update-block-string get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [clojure.string :as str]
             [reagent.dom :as rd]))
 
@@ -24,11 +24,18 @@
    (cond
      (str/starts-with? suggestion-str "[[EVD]] -") (get-discourse-template (str pre "Evidence"))
      (str/starts-with? suggestion-str "[[QUE]] -") (get-discourse-template (str pre "Question"))
+     (str/starts-with? suggestion-str "[[CON]] -") (get-discourse-template (str pre "Conclusion"))
+     (str/starts-with? suggestion-str "[[RES]] -") (get-discourse-template (str pre "Result"))
+     (str/starts-with? suggestion-str "[[HYP]] -") (get-discourse-template (str pre "Hypothesis"))
+     (str/starts-with? suggestion-str "[[@")       (get-discourse-template (str pre "Source"))
+     (str/starts-with? suggestion-str "[[ISS]] -") (get-discourse-template (str pre "Issue"))
      (str/starts-with? suggestion-str "[[CLM]] -") (get-discourse-template (str pre "Claim")))))
+
 
 (defn create-discourse-node-with-title [node-title]
   (let [node-type (template-data-for-node node-title)]
     (when (some? node-type)
+      (p "Node type for title:" node-title " is -- " node-type)
       (let [page-uid (gen-new-uid)]
         (create-struct
           {:title node-title
@@ -74,8 +81,13 @@
                     :fill       false
                     :small      true
                     :on-click   (fn [e]
-                                  (p "Create discourse node")
-                                  (create-discourse-node-with-title (:string child)))}]
+                                  (let [block-uid    (:uid child)
+                                        block-string (:string (ffirst (uid-to-block block-uid)))]
+                                    (p "Create discourse node" child)
+                                    (do
+                                     (create-discourse-node-with-title block-string)
+                                     (when (template-data-for-node block-string)
+                                       (update-block-string block-uid (str "^^ {{[[DONE]]}} " block-string "^^"))))))}]
 
         [:> Button {:class-name (str "scroll-up-button" m-uid)
                     :style      {:width "30px"}
@@ -162,8 +174,13 @@
                      :fill false
                      :small true
                      :on-click (fn [_]
-                                 (doseq [node @selections]
-                                   (create-discourse-node-with-title (:string node))))}
+                                 (doseq [child @selections]
+                                   (let [block-uid    (:uid child)
+                                         block-string (:string (ffirst (uid-to-block block-uid)))]
+                                     (do
+                                        (create-discourse-node-with-title block-string)
+                                        (when (template-data-for-node block-string)
+                                          (update-block-string block-uid (str "^^ {{[[DONE]]}}" block-string "^^")))))))}
           "Create selected"]
          [:> Button {:class-name (str "scroll-up-button")
                      :minimal true
