@@ -296,39 +296,50 @@
                                 (when (not @active?)
                                   (reset! active? true))
                                 (go
-                                  (let [pre            "*Discourse graph this page* "
-                                        open-page-uid  (<p! (get-open-page-uid))
-                                        title          (uid->title open-page-uid)
-                                        suggestion-uid (gen-new-uid)
-                                        node-uid       (gen-new-uid)
-                                        nodes          (if (nil? title)
-                                                         {:children [{:string (str "((" open-page-uid "))")}]}
-                                                         {:children [{:string (str "[[" title "]]" "\n")}]})
-                                        messages      [{:role "user"
-                                                        :content (conj
-                                                                   [{:type "text"
-                                                                     :text (str @context
-                                                                                (extract-query-pages
-                                                                                  {:context              nodes
-                                                                                   :get-linked-refs?     @get-linked-refs?
-                                                                                   :extract-query-pages? @extract-query-pages?
-                                                                                   :only-pages?          @extract-query-pages-ref?
-                                                                                   :vision?              (= "gpt-4-vision" @default-model)}))}])}]
-                                        settings       (merge
-                                                         {:model       (get model-mappings @default-model)
-                                                          :temperature @default-temp}
-                                                         (when (= "gemini" @default-model)
-                                                           {:safety-settings (get-safety-settings block-uid)}))]
+                                  (let [pre                "*Discourse graph this page* "
+                                        open-page-uid      (<p! (get-open-page-uid))
+                                        title              (uid->title open-page-uid)
+                                        suggestion-uid     (gen-new-uid)
+                                        node-uid           (gen-new-uid)
+                                        already-suggested? (block-with-str-on-page? open-page-uid  "AI Discourse node suggestions")
+                                        struct             (if (nil? already-suggested?)
+                                                             {:s "AI Discourse node suggestions"
+                                                              :c [{:s (str "Model: " @default-model)
+                                                                   :c [{:s "{{llm-dg-suggestions}}"
+                                                                        :op false
+                                                                        :c [{:s "Suggestions"
+                                                                             :u suggestion-uid}]}]}]}
+                                                             {:s (str "Model: " @default-model)
+                                                              :c [{:s "{{llm-dg-suggestions}}"
+                                                                   :op false
+                                                                   :c [{:s "Suggestions"
+                                                                        :u suggestion-uid}]}]})
+                                        top-parent         (if (nil? already-suggested?)
+                                                             open-page-uid
+                                                             already-suggested?)
+                                        nodes              (if (nil? title)
+                                                             {:children [{:string (str "((" open-page-uid "))")}]}
+                                                             {:children [{:string (str "[[" title "]]" "\n")}]})
+                                        messages           [{:role "user"
+                                                             :content (conj
+                                                                        [{:type "text"
+                                                                          :text (str @context
+                                                                                     (extract-query-pages
+                                                                                       {:context              nodes
+                                                                                        :get-linked-refs?     @get-linked-refs?
+                                                                                        :extract-query-pages? @extract-query-pages?
+                                                                                        :only-pages?          @extract-query-pages-ref?
+                                                                                        :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                        settings           (merge
+                                                             {:model       (get model-mappings @default-model)
+                                                              :temperature @default-temp}
+                                                             (when (= "gemini" @default-model)
+                                                               {:safety-settings (get-safety-settings block-uid)}))]
                                     (do
                                       (create-struct
-                                        {:s "AI Discourse node suggestions"
-                                         :c [{:s (str "Model: " @default-model)
-                                              :c [{:s "{{llm-dg-suggestions}}"
-                                                   :op false
-                                                   :c [{:s "Suggestions"
-                                                        :u suggestion-uid}]}]}]}
-                                        open-page-uid
-                                        node-uid
+                                        struct
+                                        top-parent
+                                        nil
                                         false)
                                       (<p! (js/Promise.
                                              (fn [_]
