@@ -228,6 +228,10 @@
 (defn get-open-page-uid []
   (j/call-in js/window [:roamAlphaAPI :ui :mainWindow :getOpenPageOrBlockUid]))
 
+(defn delete-block [uid]
+  (j/call-in js/window [:roamAlphaAPI :data :block :delete]
+    (clj->js {:block {:uid uid}})))
+
 (comment
   (get-open-page-uid))
 
