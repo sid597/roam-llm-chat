@@ -17,7 +17,6 @@
         context            (r/atom (get-child-with-str block-uid "Context"))
         messages           (r/atom (get-child-with-str block-uid "Messages"))
         chat               (r/atom (get-child-with-str block-uid "Chat"))
-        messages-atom      (r/atom (get-child-with-str block-uid "Messages"))
         active?            (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Active?"))
                                      true
                                      false))
@@ -38,7 +37,7 @@
       (:uid @messages)
       (fn [_ aft]
         ;(p "context children changed" aft)
-        (reset! messages-atom aft)))
+        (reset! messages aft)))
 
     (watch-string
       (get-child-of-child-with-str block-uid "Settings" "Token count" false)
@@ -95,9 +94,7 @@
                           false))))
 
    (fn [_]
-     (let [msg-children      @messages-atom
-           c-msg             (:children @context)
-           callback          (fn [{:keys [b-uid] :or {b-uid block-uid}}]
+     (let [callback          (fn [{:keys [b-uid] :or {b-uid block-uid}}]
                                ;(println "called callback to load context")
                                (when (not @active?)
                                  (p "*Send* Button clicked")
@@ -151,7 +148,17 @@
                                       :background-color "whitesmoke"
                                       :padding-bottom "10px"}]]
 
-         [chat-history (:uid messages) messages-atom token-count {:key (hash msg-children)}]
+         ;;  Using Keys to Force Re-renders: If msg-children is changing, but the chat-history'
+         ;;  component isn't updating, try adding a key to the chat-history' component that changes whenever
+         ;; 'msg-children changes. This could be a simple incremented counter or a hash of 'msg-children's]
+         [chat-history
+          messages
+          (:uid @messages)
+          token-count
+          default-model
+          default-temp
+          block-uid
+          {:key (hash (:children @messages))}]
          [:div.bottom-comp
           {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
           [:div.chat-input-container

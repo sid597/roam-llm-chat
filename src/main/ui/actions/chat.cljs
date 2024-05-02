@@ -12,7 +12,10 @@
   (p "*load context* send message to llm for uid: " block-uid)
   (let [pre             "*load context* :"
         message-block   (get-child-with-str block-uid "Messages")
-        messages        (vec (sort-by :order (:children message-block)))
+        messages        (filterv
+                          (fn [n]
+                            (not= "{{llm-dg-suggestions}}" (:string n)))
+                          (vec (sort-by :order (:children message-block))))
         message-by-role (create-alternate-messages messages context pre)
         m-uid           (:uid message-block)]
 
@@ -143,16 +146,15 @@
                                                  child-uid
                                                  (str "**User:** " cstr)
                                                  m-uid
-                                                 order))))))
-
-       (<p! (create-new-block c-uid "first" "" ()))
-       (<p! (js/Promise. (fn [_]
+                                                 order)))))))
+     (<p! (create-new-block c-uid "first" "" ()))
+     (<p! (js/Promise. (fn [_]
                            (p (str pre "refresh messages window with parent-id: " parent-id))
                            (reset! messages-atom (get-child-with-str parent-id "Messages"))
                            #_(println "messages atom reset")
                            (send-context-and-message  messages-atom parent-id active? settings token-count-atom @ext-context))))
-       (<p! (js/Promise. (fn [_]
+     (<p! (js/Promise. (fn [_]
                            (p (str pre "refresh chat window with parent-id: " parent-id))
-                           (reset! chat-atom (get-child-with-str parent-id "Chat")))))))))
+                           (reset! chat-atom (get-child-with-str parent-id "Chat"))))))))
 
 
