@@ -5,7 +5,11 @@
     [ui.utils :as utils :refer [is-a-page? uid->title title->uid markdown-image-pattern p extract-embeds uid->eid replace-block-uids q uid-to-block get-eid]]
     [clojure.string :as str]))
 
-(def skip-blocks-with-string #{"{{ chat-llm }}" "AI chats" "AI summary" "AI Discourse node suggestions"})
+(def skip-blocks-with-string #{"{{ chat-llm }}"
+                               "AI chats"
+                               "AI summary"
+                               "AI Discourse node suggestions"
+                               "{{llm-dg-suggestions}}"})
 
 (comment
   (contains? skip-blocks-with-string "{{ chat-llm }}"))

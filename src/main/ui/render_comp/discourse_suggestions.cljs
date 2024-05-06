@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.utils :refer [gen-new-uid uid-to-block update-block-string get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [delete-block gen-new-uid uid-to-block update-block-string get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [clojure.string :as str]
             [reagent.dom :as rd]))
 
@@ -44,10 +44,6 @@
           page-uid
           page-uid
           true)))))
-
-(defn delete-block [uid]
-  (j/call-in js/window [:roamAlphaAPI :data :block :delete]
-    (clj->js {:block {:uid uid}})))
 
 
 (defn actions [child m-uid selections]
@@ -123,7 +119,7 @@
    [:div
     {:class-name (str "chat-history-" m-uid)
      :style {:overflow-y "auto"
-             :min-height "300px"
+             :min-height "100px"
              :max-height "700px"
              :background "aliceblue"}}
     (doall
@@ -135,6 +131,7 @@
 (defn discourse-node-suggestions-ui [block-uid]
  #_(println "block uid for chat" block-uid)
  (let [suggestions-data (get-child-with-str block-uid "Suggestions")
+       type             (get-child-with-str block-uid "Type")
        uid              (:uid suggestions-data)
        suggestions      (r/atom (:children suggestions-data))
        selections       (r/atom #{})]
@@ -144,14 +141,15 @@
        (reset! suggestions (:children aft))))
    (fn [_]
      [:div
-      {:class-name (str "dg-suggestions-container-" block-uid)
-       :style {:display "flex"
-               :flex-direction "column"
-               :border-radius "8px"
-               :overflow "hidden"}}
+        {:class-name (str "dg-suggestions-container-" block-uid)
+         :style {:display "flex"
+                 :flex-direction "column"
+                 :border-radius "8px"
+                 :overflow "hidden"}}
       [:> Card {:elevation 3
                 :style {:flex "1"
                         :margin "0"
+                        :padding "5px"
                         :display "flex"
                         :flex-direction "column"
                         :border "2px solid rgba(0, 0, 0, 0.2)"
@@ -167,12 +165,12 @@
           :style {:display "flex"
                   :flex-direction "row"
                   :justify-content "end"
-                  :padding "10px"
+                  :padding "5px"
                   :align-items "center"}}
-         [:> Button {:class-name (str "scroll-down-button")
+         [:> Button {:class-name (str "create-node-button")
                      :minimal true
                      :fill false
-                     :small true
+                     ;:style {:background-color "whitesmoke"}
                      :on-click (fn [_]
                                  (doseq [child @selections]
                                    (let [block-uid    (:uid child)
@@ -182,10 +180,11 @@
                                         (when (template-data-for-node block-string)
                                           (update-block-string block-uid (str "^^ {{[[DONE]]}}" block-string "^^")))))))}
           "Create selected"]
-         [:> Button {:class-name (str "scroll-up-button")
+         [:> Button {:class-name (str "discard-node-button")
                      :minimal true
+                     #_#_:style {:background-color "whitesmoke"
+                                 :margin "10px"}
                      :fill false
-                     :small true
                      :on-click (fn [_]
                                  (doseq [node @selections]
                                    (delete-block (:uid node))))}
