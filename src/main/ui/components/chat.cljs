@@ -155,15 +155,15 @@
 
                                           settings           (merge
                                                                {:model       (get model-mappings model)
-                                                                :temperature temp}
+                                                                :temperature temp
+                                                                :max-tokens  500}
                                                                (when (= "gemini" model)
                                                                  {:safety-settings (get-safety-settings block-uid)}))
                                           messages           (vec
                                                                (conj
-                                                                 (create-alternate-messages filtered-messages "" pre)
+                                                                 (create-alternate-messages filtered-messages "_" pre)
                                                                  {:role "user"
-                                                                  :content [{:type "text"
-                                                                             :text suggestion-context}]}))]
+                                                                  :content suggestion-context}))]
                                       (do
                                         (create-struct
                                           struct

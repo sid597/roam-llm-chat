@@ -114,17 +114,25 @@
                                          nodes              (if (nil? title)
                                                               {:children [{:string (str "((" current-page-uid "))")}]}
                                                               {:children [{:string (str "[[" title "]]" "\n")}]})
-
+                                         vision?            (= "gpt-4-vision" @default-model)
+                                         extracted-qry-pg  (extract-query-pages
+                                                             {:context              nodes
+                                                              :get-linked-refs?     @get-linked-refs?
+                                                              :extract-query-pages? @extract-query-pages?
+                                                              :only-pages?          @extract-query-pages-ref?
+                                                              :vision?              vision?})
+                                         content           (if vision?
+                                                             (vec
+                                                               (concat
+                                                                 [{:type "text"
+                                                                   :text (str @context)}]
+                                                                 extracted-qry-pg))
+                                                             (clojure.string/join
+                                                               "\n"
+                                                               [(str @context)
+                                                                extracted-qry-pg]))
                                          messages           [{:role "user"
-                                                              :content (conj
-                                                                         [{:type "text"
-                                                                           :text (str @context
-                                                                                   (extract-query-pages
-                                                                                     {:context              nodes
-                                                                                      :get-linked-refs?     @get-linked-refs?
-                                                                                      :extract-query-pages? @extract-query-pages?
-                                                                                      :only-pages?          @extract-query-pages-ref?
-                                                                                      :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                                              :content content}]
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
@@ -239,7 +247,6 @@
                                       (image-to-text-for all-images total-images-count loading? image-prompt-str default-max-tokens)))))}
          (str "Generate description for: " @description-for)]]])))
 
-
 (defn discourse-graph-this-page-button []
   (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
         discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
@@ -323,19 +330,30 @@
                                         nodes              (if (nil? title)
                                                              {:children [{:string (str "((" open-page-uid "))")}]}
                                                              {:children [{:string (str "[[" title "]]" "\n")}]})
+                                        vision?            (= "gpt-4-vision" @default-model)
+                                        extracted-qry-pg   (extract-query-pages
+                                                             {:context              nodes
+                                                              :get-linked-refs?     @get-linked-refs?
+                                                              :extract-query-pages? @extract-query-pages?
+                                                              :only-pages?          @extract-query-pages-ref?
+                                                              :vision?              vision?})
+                                        context-c          (extract-context-children-data-as-str context)
+                                        content            (if vision?
+                                                             (vec
+                                                               (concat
+                                                                 [{:type "text"
+                                                                   :text (str @context-c)}]
+                                                                 extracted-qry-pg))
+                                                             (clojure.string/join
+                                                               "\n"
+                                                               [(str @context-c)
+                                                                extracted-qry-pg]))
                                         messages           [{:role "user"
-                                                             :content (conj
-                                                                        [{:type "text"
-                                                                          :text (str @context
-                                                                                     (extract-query-pages
-                                                                                       {:context              nodes
-                                                                                        :get-linked-refs?     @get-linked-refs?
-                                                                                        :extract-query-pages? @extract-query-pages?
-                                                                                        :only-pages?          @extract-query-pages-ref?
-                                                                                        :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                                             :content content}]
                                         settings           (merge
                                                              {:model       (get model-mappings @default-model)
-                                                              :temperature @default-temp}
+                                                              :temperature @default-temp
+                                                              :max-tokens  500}
                                                              (when (= "gemini" @default-model)
                                                                {:safety-settings (get-safety-settings block-uid)}))]
                                     (do
