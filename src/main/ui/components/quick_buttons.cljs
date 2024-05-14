@@ -62,6 +62,7 @@
                            :display "flex"
                            :flex-direction "column"
                            :border "2px solid rgba(0, 0, 0, 0.2)"
+                           :max-width "800px"
                            :border-radius "8px"}}
           [:div.summary-component
             {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
@@ -273,7 +274,8 @@
                            :display "flex"
                            :flex-direction "column"
                            :border "2px solid rgba(0, 0, 0, 0.2)"
-                           :border-radius "8px"}}
+                           :border-radius "8px"
+                           :max-width "800px"}}
           [:div.summary-component
            {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
            [:div.chat-input-container
