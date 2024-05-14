@@ -774,4 +774,6 @@
                 :style {:background-color bg-color}}]
     [:> Menu
      {:style {:padding "20px"}}
-     render-comp]]))
+     [:div
+       {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
+       render-comp]]]))
