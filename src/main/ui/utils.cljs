@@ -559,8 +559,8 @@
 ;; ---- ai specific ----
 
 (def model-mappings
-  {"gpt-4"            "gpt-4-turbo"
-   "gpt-4-vision"     "gpt-4-turbo"
+  {"gpt-4"            "gpt-4o"
+   "gpt-4-vision"     "gpt-4o"
    "gpt-3.5"          "gpt-3.5-turbo-0125"
    "claude-3-sonnet"  "claude-3-sonnet-20240229"
    "claude-3-opus"    "claude-3-opus-20240229"
@@ -774,4 +774,6 @@
                 :style {:background-color bg-color}}]
     [:> Menu
      {:style {:padding "20px"}}
-     render-comp]]))
+     [:div
+       {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
+       render-comp]]]))

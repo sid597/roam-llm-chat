@@ -54,7 +54,8 @@
                 :align-items "center"
                 :flex "1 1 1"}
         :minimal true}
-       [:div {:style {:flex "1 1 1"}}
+       [:div {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"
+              :style {:flex "1 1 1"}}
         [settings-button-popover
          [:> Card {:elevation 3
                    :style {:flex "1"
@@ -62,6 +63,7 @@
                            :display "flex"
                            :flex-direction "column"
                            :border "2px solid rgba(0, 0, 0, 0.2)"
+                           :max-width "950px"
                            :border-radius "8px"}}
           [:div.summary-component
             {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
@@ -112,17 +114,25 @@
                                          nodes              (if (nil? title)
                                                               {:children [{:string (str "((" current-page-uid "))")}]}
                                                               {:children [{:string (str "[[" title "]]" "\n")}]})
-
+                                         vision?            (= "gpt-4-vision" @default-model)
+                                         extracted-qry-pg  (extract-query-pages
+                                                             {:context              nodes
+                                                              :get-linked-refs?     @get-linked-refs?
+                                                              :extract-query-pages? @extract-query-pages?
+                                                              :only-pages?          @extract-query-pages-ref?
+                                                              :vision?              vision?})
+                                         content           (if vision?
+                                                             (vec
+                                                               (concat
+                                                                 [{:type "text"
+                                                                   :text (str @context)}]
+                                                                 extracted-qry-pg))
+                                                             (clojure.string/join
+                                                               "\n"
+                                                               [(str @context)
+                                                                extracted-qry-pg]))
                                          messages           [{:role "user"
-                                                              :content (conj
-                                                                         [{:type "text"
-                                                                           :text (str @context
-                                                                                   (extract-query-pages
-                                                                                     {:context              nodes
-                                                                                      :get-linked-refs?     @get-linked-refs?
-                                                                                      :extract-query-pages? @extract-query-pages?
-                                                                                      :only-pages?          @extract-query-pages-ref?
-                                                                                      :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                                              :content content}]
                                          settings            (merge
                                                                {:model       (get model-mappings @default-model)
                                                                 :max-tokens  @default-max-tokens
@@ -237,7 +247,6 @@
                                       (image-to-text-for all-images total-images-count loading? image-prompt-str default-max-tokens)))))}
          (str "Generate description for: " @description-for)]]])))
 
-
 (defn discourse-graph-this-page-button []
   (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
         discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
@@ -273,7 +282,8 @@
                            :display "flex"
                            :flex-direction "column"
                            :border "2px solid rgba(0, 0, 0, 0.2)"
-                           :border-radius "8px"}}
+                           :border-radius "8px"
+                           :max-width "950px"}}
           [:div.summary-component
            {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
            [:div.chat-input-container
@@ -320,19 +330,30 @@
                                         nodes              (if (nil? title)
                                                              {:children [{:string (str "((" open-page-uid "))")}]}
                                                              {:children [{:string (str "[[" title "]]" "\n")}]})
+                                        vision?            (= "gpt-4-vision" @default-model)
+                                        extracted-qry-pg   (extract-query-pages
+                                                             {:context              nodes
+                                                              :get-linked-refs?     @get-linked-refs?
+                                                              :extract-query-pages? @extract-query-pages?
+                                                              :only-pages?          @extract-query-pages-ref?
+                                                              :vision?              vision?})
+                                        context-c          (extract-context-children-data-as-str context)
+                                        content            (if vision?
+                                                             (vec
+                                                               (concat
+                                                                 [{:type "text"
+                                                                   :text (str @context-c)}]
+                                                                 extracted-qry-pg))
+                                                             (clojure.string/join
+                                                               "\n"
+                                                               [(str @context-c)
+                                                                extracted-qry-pg]))
                                         messages           [{:role "user"
-                                                             :content (conj
-                                                                        [{:type "text"
-                                                                          :text (str @context
-                                                                                     (extract-query-pages
-                                                                                       {:context              nodes
-                                                                                        :get-linked-refs?     @get-linked-refs?
-                                                                                        :extract-query-pages? @extract-query-pages?
-                                                                                        :only-pages?          @extract-query-pages-ref?
-                                                                                        :vision?              (= "gpt-4-vision" @default-model)}))}])}]
+                                                             :content content}]
                                         settings           (merge
                                                              {:model       (get model-mappings @default-model)
-                                                              :temperature @default-temp}
+                                                              :temperature @default-temp
+                                                              :max-tokens  500}
                                                              (when (= "gemini" @default-model)
                                                                {:safety-settings (get-safety-settings block-uid)}))]
                                     (do

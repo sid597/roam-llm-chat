@@ -93,6 +93,7 @@
 
 
 (defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages? extract-query-pages-ref?]}]
+  (let [dismiss-popover? (if (some? callback) true false)]
    [:div.chin
     {:style {:display "flex"
              :flex-direction "row"
@@ -104,7 +105,8 @@
              :align-items "center"
              :border "1px"}}
     [:> ButtonGroup
-     [:div {:style {:overflow  "hidden"}}
+     [:div
+       {:style {:overflow  "hidden"}}
       (when (some? default-model)
         [button-popover
           (str "Model: " @default-model)
@@ -113,6 +115,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "gpt-4"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose gpt-4")
@@ -121,6 +124,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "gpt-4-vision"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose gpt-4-vision")
@@ -129,6 +133,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "gpt-3.5"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose gpt-3.5")
@@ -137,6 +142,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "claude-3-opus"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose claude-3-opus")
@@ -145,6 +151,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "claude-3-sonnet"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose claude-3-sonnet")
@@ -153,6 +160,7 @@
            [:> Divider]
            [:> Menu.Item
             {:text "gemini"
+             :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose gemini")
@@ -174,7 +182,9 @@
        [:div {:style {:overflow  "hidden"}}
         [button-popover
          (str "Max Tokens: " @default-max-tokens)
-         [:div.bp3-popover-dismiss
+         [:div
+          (when (some? callback)
+            {:class-name "bp3-popover-dismiss"})
           [:span {:style {:margin-bottom "5px"}} "Max output length:"]
           [:> Slider {:min 0
                       :max 2048
@@ -193,8 +203,11 @@
        [:div {:style {:overflow  "hidden"}}
         [button-popover
          (str "Temp: " (js/parseFloat (.toFixed @default-temp 1)))
-         [:div.bp3-popover-dismiss
-          {:style {:margin-bottom "10px"}}
+         [:div
+          (merge
+           (when (some? callback)
+             {:class-name "bp3-popover-dismiss"})
+           {:style {:margin-bottom "10px"}})
           [:span {:style {:margin-bottom "5px"}} "Temperature:"]
           [:> Slider {:min 0
                       :max 2
@@ -261,4 +274,4 @@
     (when (some? callback)
       [send-message-component
        active?
-       callback])])
+       callback])]))
