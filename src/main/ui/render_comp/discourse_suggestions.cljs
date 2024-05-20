@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-            [ui.utils :refer [delete-block gen-new-uid uid-to-block update-block-string get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [q delete-block gen-new-uid uid-to-block update-block-string get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [clojure.string :as str]
             [reagent.dom :as rd]))
 
@@ -31,16 +31,42 @@
      (str/starts-with? suggestion-str "[[ISS]] -") (get-discourse-template (str pre "Issue"))
      (str/starts-with? suggestion-str "[[CLM]] -") (get-discourse-template (str pre "Claim")))))
 
+(defn extract-parent-breadcrumbs [block-uid]
+  (q '[:find ?u
+       :in $ ?uid
+       :where
+       [?e :block/uid ?uid]
+       [?e :block/parents ?p]
+       [?p :block/string ?s]
+       [?p :block/uid ?u]]
+    block-uid))
 
-(defn create-discourse-node-with-title [node-title]
-  (let [node-type (template-data-for-node node-title)]
-    (when (some? node-type)
-      (p "Node type for title:" node-title " is -- " node-type)
+(comment
+  (extract-parent-breadcrumbs "9gT7Psy9Y")
+  (clojure.string/join " > " (map #(str "((" % "))") (take 2 (flatten (extract-parent-breadcrumbs "9gT7Psy9Y"))))))
+
+
+(defn create-discourse-node-with-title [node-title suggestion-ref]
+  (p "Create discourse with title" node-title)
+  (let [all-breadcrumbs (extract-parent-breadcrumbs (str suggestion-ref))
+        breadcrumbs     (->>
+                          all-breadcrumbs
+                          flatten
+                          (take 2)
+                          (map #(str "((" % "))"))
+                          (clojure.string/join " > "))
+        node-template   (conj (->> (template-data-for-node node-title)
+                                (map #(update % :order inc))
+                                (into []))
+                              {:order 0
+                               :string (str "This came from: " breadcrumbs)})]
+    (when (some? node-template)
+      (p "Node type for title:" node-title " is -- " node-template)
       (let [page-uid (gen-new-uid)]
         (create-struct
           {:title node-title
            :u     page-uid
-           :c     node-type}
+           :c     node-template}
           page-uid
           page-uid
           true)))))
@@ -81,9 +107,10 @@
                                         block-string (:string (ffirst (uid-to-block block-uid)))]
                                     (p "Create discourse node" child)
                                     (do
-                                     (create-discourse-node-with-title block-string)
-                                     (when (template-data-for-node block-string)
-                                       (update-block-string block-uid (str "^^ {{[[DONE]]}} " block-string "^^"))))))}]
+                                      (create-discourse-node-with-title block-string block-uid)
+                                      (when (template-data-for-node block-string)
+                                        (p "Suggestion node created, updating block string")
+                                        (update-block-string block-uid (str "^^ {{[[DONE]]}} " block-string "^^"))))))}]
 
         [:> Button {:class-name (str "scroll-up-button" m-uid)
                     :style      {:width "30px"}
@@ -176,9 +203,10 @@
                                    (let [block-uid    (:uid child)
                                          block-string (:string (ffirst (uid-to-block block-uid)))]
                                      (do
-                                        (create-discourse-node-with-title block-string)
-                                        (when (template-data-for-node block-string)
-                                          (update-block-string block-uid (str "^^ {{[[DONE]]}}" block-string "^^")))))))}
+                                       (create-discourse-node-with-title block-string block-uid)
+                                       (when (template-data-for-node block-string)
+                                         (p "Suggestion node created, updating block string")
+                                         (update-block-string block-uid (str "^^ {{[[DONE]]}}" block-string "^^")))))))}
           "Create selected"]
          [:> Button {:class-name (str "discard-node-button")
                      :minimal true
