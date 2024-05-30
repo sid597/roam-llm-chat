@@ -2,9 +2,10 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components.quick-buttons :refer [button-with-settings text-to-image-button discourse-graph-this-page-button]]
+            [cljs-http.client :as http]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -12,7 +13,6 @@
 
 (defn bottom-bar-buttons []
   (p "Creating bottom bar buttons")
-
   (fn []
     (p "Render bottom bar buttons")
     [:> ButtonGroup
@@ -83,9 +83,45 @@
                                     chat-block-uid
                                     true
                                     (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
-
-
        "Start chat in daily notes, show in sidebar"]]
+     [:> Divider]
+     #_[:div
+        {:style {:flex "1 1 1"}}
+        [:> Button
+         {:minimal true
+          :small true
+          :on-click (fn [e]
+                      (let [url          "http://localhost:3000/get-openai-embeddings"
+                            upsert-data  (clj->js {:input (subvec (all-dg-nodes) 1600)})
+                            multiple-query-data   (clj->js {:input ["Myosin plays a critical role in assisting endocytosis under conditions of high membrane tension"
+                                                                    #_"Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization"]
+                                                            :top-k "8"})
+                            single-query-data (clj->js {:input ["Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization
+                             Resistance to internalization increased as myosin unbinding rate decreased at higher membrane tension in simulations
+                             At 20 pN/nm membrane tension, areas with low myosin unbinding rates had decreased internalization resistance
+                            Investigate the relationship between myosin catch bonding parameters and internalization efficiency in live cell experiments
+                            Myosin assists more broadly in membrane internalization under higher tension conditions
+                            High membrane tension facilitates myosin’s role in overcoming resistance to internalization  "]
+                                                        :top-k "3"})
+
+
+
+                            headers      {"Content-Type" "application/json"}
+                            res-ch       (http/post url {:with-credentials? false
+                                                         :headers headers
+                                                         :json-params multiple-query-data})]
+                        #_(println "SENDING EMBEDDINGS REQUEST" (count (all-dg-nodes))) ""
+                        #_(println "DATA : " (take 2 upsert-data))
+                        (println "query data" single-query-data)
+                        (take! res-ch (fn [res]
+                                        (let [embeddings (->> (js->clj (-> res :body ) :keywordize-keys true)
+                                                           (map
+                                                             (fn [x]
+                                                               (str (-> x :metadata :title) "- Score: " (:score x)))))]
+                                          (cljs.pprint/pprint embeddings)
+                                          (cljs.pprint/pprint res)
+                                          #_(println "GOT EMBEDDINGS :" "--" embeddings))))))}
+         "Create embeddings"]]
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
