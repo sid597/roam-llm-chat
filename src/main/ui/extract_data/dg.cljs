@@ -64,42 +64,6 @@
 (comment
   (flatten extract-all-sources))
 
-
-;; ============ DEPRECATED==========
-(def all-title
-  (q '[:find ?u  ?t
-       :where [?e :node/title ?t]
-       [?e :block/uid ?u]]))
-
-(def dg-nodes
-  (filter
-    #(let [uid (str (first %))
-           dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
-       (when dg?
-         %))
-    all-title))
-
-(defn node-count [t]
-  (->> (filter
-         #(let [s (second %)]
-            (when (clojure.string/starts-with? s (str "[[" t "]]"))
-              (second %)))
-         dg-nodes)
-    (map second)))
-
-
-(comment
-  (count (node-count "EVD"))
-  (node-count "EVD")
-  (let [my-set   (into #{} (->> (extract-all-discourse-for "EVD")
-                             (map :title)))
-        official  (into #{} (node-count "EVD"))]
-    (clojure.set/difference  official my-set)
-    (clojure.set/difference my-set official)))
-
-;; ============ DEPRECATED==========
-
-
 (defn hypothesis-informedBy-issue []
   (q '[:find (pull ?hyp-page [:node/title :block/uid])
        ?rel
@@ -316,36 +280,7 @@
   (flatten (apply concat [(evd-src-nodes)(extract-all-inform-discourse "EVD" "QUE")])))
 
 
-(extract-all-inform-discourse "EVD" "QUE")
 
-(def discourse-queries  (apply concat [;; Informs(Evidence) => (Question)
-                                       (extract-all-inform-discourse "EVD" "QUE")
-                                       ;Informs(Result) => (Question)
-                                       (extract-all-inform-discourse "RES" "QUE")
-                                       ;Informs(Claim) => (Question)
-                                       (claim-informs-question)
-                                       ;(extract-all-inform-discourse "CLM" "QUE")
-                                       ;Informs(Evidence) => (Hypothesis)
-                                       (extract-all-inform-discourse "EVD" "HYP")
-                                       ;Informs (Hypothesis) => (Issue)
-                                       (extract-all-inform-discourse "HYP" "ISS")
-                                       ;Supports(Evidence) => (Claim)
-                                       (extract-all-from-to-relation "CLM" "EVD" "[[SupportedBy]]")
-                                       ;(extract-all-from-to-relation "EVD" "CLM" "[[Supports]]")
-                                       ;Opposes(Evidence) => (Claim)
-                                       (extract-all-from-to-relation "CLM" "EVD" "[[OpposedBy]]")
-                                       ;Supports(Result) => (Conclusion)
-                                       (extract-all-from-to-relation "CON" "RES"  "[[SupportedBy]]]")
-                                       ;Opposes(Result) => (Conclusion)
-                                       (extract-all-from-to-relation "CON" "RES" "[[OpposedBy]]")
-                                       ;Supports(Evidence) => (Hypothesis)
-                                       (extract-all-from-to-relation "HYP" "EVD" "[[SupportedBy]]]")
-                                       ;Opposes(Evidence) => (Hypothesis)
-                                       (extract-all-from-to-relation "HYP" "EVD" "[[OpposedBy]]")
-                                       ;Reproduces(Evidence) => (Evidence)
-                                       (extract-all-from-to-relation "EVD" "EVD" "[[Reproduces]]")
-                                       (hypothesis-informedBy-issue)
-                                       #_(evd-src-nodes)]))
 
 (defn get-node-regex [node]
   (if (= node "EVD")
@@ -494,160 +429,83 @@
 
 
 (defn get-all-discourse-node-from-akamatsu-graph-for [node]
-  (let [ntype (determine-node-type node)]
-    (println "ntype" ntype)
-    (case ntype
-      :RES (concat []
-             (extract-node-where-destination-is-regex node "HYP" "[[Supports]]" "Supports")
-             (extract-node-where-source-is-regex      node "HYP" "[[SupportedBy]]" "Supports")
-             (extract-node-where-source-is-regex      node "CON" "[[SupportedBy]]" "Supports")
-             (extract-node-where-source-is-regex      node "CON" "[[OpposedBy]]" "Opposes")
-             (extract-node-where-source-is-regex      node "HYP" "[[OpposedBy]]" "Opposes")
-             (extract-inform-node-where-source-is-regex node "QUE" "Informs"))
-      :EVD (concat []
-             (extract-node-where-destination-is-regex  node "CLM" "[[Supports]]" "Supports")
-             (extract-node-where-source-is-regex       node "CLM" "[[SupportedBy]]" "Supports")
-             (extract-node-where-destination-is-regex  node "HYP" "[[Supports]]" "Supports")
-             (extract-node-where-source-is-regex       node "HYP" "[[SupportedBy]]" "Supports")
-             (extract-node-where-source-is-regex       node "CLM" "[[OpposedBy]]" "Opposes")
-             (extract-node-where-source-is-regex       node "HYP" "[[OpposedBy]]" "Opposes")
-             (extract-node-where-destination-is-regex  node "EVD" "[[Supports]]" "Supports")
-             (extract-node-where-source-is-regex       node "EVD" "[[Supports]]" "Supports")
-             (extract-node-where-source-is-regex       node "EVD" "[[Reproduces]]" "Reproduces")
-             (extract-node-where-destination-is-regex  node "EVD" "[[Reproduces]]" "Reproduces")
-             (extract-inform-node-where-source-is-regex node "QUE" "Informs")
-             (extract-inform-node-where-source-is-regex node "HYP" "Informs"))
-      :QUE (concat []
-             #_(que-infors-hyp)
-             (informs-in-a-page-destination-regex node "CLM" "InformedBy")
-             (extract-inform-node-where-destination-is-regex node "EVD" "InformedBy")
-             (extract-inform-node-where-destination-is-regex node "RES" "InformedBy"))
+  (let [ntype (determine-node-type node)
+        data  (case ntype
+                :RES (concat []
+                       (extract-node-where-destination-is-regex node "HYP" "[[Supports]]" "Supports")
+                       (extract-node-where-source-is-regex      node "HYP" "[[SupportedBy]]" "Supports")
+                       (extract-node-where-source-is-regex      node "CON" "[[SupportedBy]]" "Supports")
+                       (extract-node-where-source-is-regex      node "CON" "[[OpposedBy]]" "Opposes")
+                       (extract-node-where-source-is-regex      node "HYP" "[[OpposedBy]]" "Opposes")
+                       (extract-inform-node-where-source-is-regex node "QUE" "Informs"))
+                :EVD (concat []
+                       (extract-node-where-destination-is-regex  node "CLM" "[[Supports]]" "Supports")
+                       (extract-node-where-source-is-regex       node "CLM" "[[SupportedBy]]" "Supports")
+                       (extract-node-where-destination-is-regex  node "HYP" "[[Supports]]" "Supports")
+                       (extract-node-where-source-is-regex       node "HYP" "[[SupportedBy]]" "Supports")
+                       (extract-node-where-source-is-regex       node "CLM" "[[OpposedBy]]" "Opposes")
+                       (extract-node-where-source-is-regex       node "HYP" "[[OpposedBy]]" "Opposes")
+                       (extract-node-where-destination-is-regex  node "EVD" "[[Supports]]" "Supports")
+                       (extract-node-where-source-is-regex       node "EVD" "[[Supports]]" "Supports")
+                       (extract-node-where-source-is-regex       node "EVD" "[[Reproduces]]" "Reproduces")
+                       (extract-node-where-destination-is-regex  node "EVD" "[[Reproduces]]" "Reproduces")
+                       (extract-inform-node-where-source-is-regex node "QUE" "Informs")
+                       (extract-inform-node-where-source-is-regex node "HYP" "Informs"))
+                :QUE (concat []
+                       #_(que-infors-hyp)
+                       (informs-in-a-page-destination-regex node "CLM" "InformedBy")
+                       (extract-inform-node-where-destination-is-regex node "EVD" "InformedBy")
+                       (extract-inform-node-where-destination-is-regex node "RES" "InformedBy"))
 
-      :ISS (concat []
-             (extract-inform-node-where-source-is-regex node "HYP" "InformedBy")
-             (informs-in-a-page-source-is-regex node "HYP" "InformedBy"))
+                :ISS (concat []
+                       (extract-inform-node-where-source-is-regex node "HYP" "InformedBy")
+                       (informs-in-a-page-source-is-regex node "HYP" "InformedBy"))
 
-      :CLM (concat []
-             (informs-in-a-page-source-is-regex         node "QUE" "Informs")
-             (extract-node-where-destination-is-regex  node "EVD" "[[SupportedBy]]" "SupportedBy")
-             (extract-node-where-source-is-regex       node "EVD" "[[Supports]]" "SupportedBy")
-             (extract-node-where-destination-is-regex  node "EVD" "[[OpposedBy]]" "OpposedBy"))
-      :CON (concat []
-             (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy")
-             (extract-node-where-destination-is-regex node "RES" "[[OpposedBy]]" "OpposedBy"))
-      :HYP (concat []
-             #_(hyp-informed-by-que)
-             (extract-inform-node-where-destination-is-regex node "EVD" "InformedBy")
-             (extract-inform-node-where-destination-is-regex node "ISS" "Informs")
-             (informs-in-a-page-destination-regex            node "ISS" "Informs")
-             (extract-node-where-destination-is-regex node "EVD" "[[OpposedBy]]" "OpposedBy")
-             (extract-node-where-destination-is-regex node "RES" "[[OpposedBy]]" "OpposedBy")
-             (extract-node-where-destination-is-regex node "EVD" "[[SupportedBy]]" "SupportedBy")
-             (extract-node-where-source-is-regex      node "EVD" "[[Supports]]" "SupportedBy")
-             (extract-node-where-source-is-regex      node "RES" "[[Supports]]" "SupportedBy")
-             (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy")))))
-
-
-(def nodex
-  "[[EVD]] - Incubation of STxB with Arp2-depleted cells for 5 min at 37C led to the appearance of STxB-containing tubular structures in HeLa cells - [[@romer2010actin]]")
-
-(def n2
-  "[[CLM]] - Actin polymerization participates in the scission of CLIC endocytic tubules")
-(determine-node-type n2)
-
-(def n3 "[[QUE]] - Does actin polymerization adjacent to CLICs help to form CLIC tubules or scission of CLICs?")
-
-(def tc1 "[[QUE]] - What is the actin filament-binding site for HipR?")
-
-(q '[:find
-     #_(pull ?page  [:node/title :block/uid])
-     (pull ?destination-page [:node/title :block/uid])
-     :in $ ?source ?destination-regex
-     :where
-     [?page :node/title ?source]
-     [?block :block/refs ?page]
-     [?block :block/children ?potential]
-     [?destination-page :node/title ?destination-node]
-     [?potential :block/refs ?destination-page]
-     [(re-find ?destination-regex ?destination-node)]]
-  n3
-  (get-node-regex "CLM"))
-
-(extract-inform-node-where-destination-is-regex
-  tc1
-  (get-node-regex "EVD")
-  "Informed by")
-
-(q '[:find ;(pull ?page [:node/title :block/uid])
-     (pull ?block [:block/string])
-     :in $ ?source-node ?destination-regex
-     :where
-     [?page :node/title ?source-node]
-     [?dg :node/title ?destination-tit]
-     [(re-find ?destination-regex ?destination-tit)]
-     [?block :block/refs ?dg]
-     [?block :block/page ?page]]
-  "[[QUE]] - Dummy question"
-  (get-node-regex "EVD"))
-
-(extract-inform-node-where-destination-is-regex
-  "[[QUE]] - Dummy question"
-  "EVD"
-  "InformedBy")
-
-(extract-inform-node-where-source-is-regex
-  "[[EVD]] - Dummy evidence - [@ars"
-  "QUE"
-  "Informs")
-
-(get-all-discourse-node-from-akamatsu-graph-for tc1)
+                :CLM (concat []
+                       (informs-in-a-page-source-is-regex         node "QUE" "Informs")
+                       (extract-node-where-destination-is-regex  node "EVD" "[[SupportedBy]]" "SupportedBy")
+                       (extract-node-where-source-is-regex       node "EVD" "[[Supports]]" "SupportedBy")
+                       (extract-node-where-destination-is-regex  node "EVD" "[[OpposedBy]]" "OpposedBy"))
+                :CON (concat []
+                       (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy")
+                       (extract-node-where-destination-is-regex node "RES" "[[OpposedBy]]" "OpposedBy"))
+                :HYP (concat []
+                       #_(hyp-informed-by-que)
+                       (extract-inform-node-where-destination-is-regex node "EVD" "InformedBy")
+                       (extract-inform-node-where-destination-is-regex node "ISS" "Informs")
+                       (informs-in-a-page-destination-regex            node "ISS" "Informs")
+                       (extract-node-where-destination-is-regex node "EVD" "[[OpposedBy]]" "OpposedBy")
+                       (extract-node-where-destination-is-regex node "RES" "[[OpposedBy]]" "OpposedBy")
+                       (extract-node-where-destination-is-regex node "EVD" "[[SupportedBy]]" "SupportedBy")
+                       (extract-node-where-source-is-regex      node "EVD" "[[Supports]]" "SupportedBy")
+                       (extract-node-where-source-is-regex      node "RES" "[[Supports]]" "SupportedBy")
+                       (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy")))
+        nodes (reduce (fn [acc [source _ target]]
+                        (-> acc
+                         (assoc (:title source) {:uid (:uid source)
+                                                 :title (:title source)
+                                                 :type (name (determine-node-type (:title source)))})
+                         (assoc (:title target) {:uid (:uid target)
+                                                 :title (:title target)
+                                                 :type (name (determine-node-type (:title target)))})))
+                {}
+                data)]
+    {:nodes nodes
+     :edges data}))
 
 
-(informs-in-a-page-destination-regex n3 "CLM" "InformedBy")
-(informs-in-a-page-source-is-regex        n2 "QUE" "Informs")
-(extract-node-where-destination-is-regex  n2 "EVD" "[[SupportedBy]]" "SupportedBy")
-(extract-node-where-source-is-regex       n2 "EVD" "[[Supports]]" "SupportedBy")
-(extract-node-where-destination-is-regex  n2 "EVD" "[[OpposedBy]]" "OpposedBy")
-
-#_(count (get-all-discourse-node-from-akamatsu-graph-for nodex))
-(count (get-all-discourse-node-from-akamatsu-graph-for n2))
-
+(defn convert-to-cytoscape-edges [data]
+  (mapv (fn [[source label target]]
+          {:data {:id (str (:uid source) "-" (:uid target))
+                  :source (:uid source)
+                  :target (:uid target)
+                  :label label}
+           :group "edges"})
+    data))
 
 (comment
- ["Evidence" "Informs" "Question"]
- ["Question" "InformedBy" "Evidence"];; use-informs
- ["Evidence" "Supports" "Claim"]
- ["Claim" "SupportedBy" "Evidence"]
- ["Evidence" "Opposes" "Claim"]   ;1
- ["Claim" "OpposedBy" "Evidence"] ;1
- ["Issue" "InformedBy" "Hypothesis"] ;; 2 ways
- ["Hypothesis" "Informs" "Issue"] ;; 2 ways
- ["Result" "Supports" "Conclusion"]    ;2
- ["Conclusion" "SupportedBy" "Result"] ;2
- ["Result" "Opposes" "Conclusion"]    ;3
- ["Conclusion" "OpposedBy" "Result"] ;3
- ["Question" "InformedBy" "Result"] ;use-informs
- ["Result" "Informs" "Question"]    ;use-informs
- ["Hypothesis" "InformedBy" "Evidence"] ;use-informs
- ["Evidence" "Informs" "Hypothesis"]    ;use-informs
- ["Hypothesis" "SupportedBy" "Evidence"]
- ["Evidence" "Supports" "Hypothesis"]
- ["Hypothesis" "OpposedBy" "Evidence"] ;4
- ["Evidence" "Opposes" "Hypothesis"]   ;4
-
- ;; Hypothesis InformedBy Question
- ;; Any page
- ;; - QUE
- ;; - - [[InformedBy]] HYP
-
-
- ["Question" "InformedBy" "Claim"] ;use-informs
- ["Claim" "Informs" "Question"]    ;use-informs
- ["Evidence" "Reproduces" "Evidence"]
- ["Evidence" "Supports" "Evidence"]
- ["Hypothesis" "SupportedBy" "Result"]
- ["Result" "Supports" "Hypothesis"]
- ["Hypothesis" "OpposedBy" "Result"] ;5
- ["Result" "Opposes" "Hypothesis"]) ;r
-
-
+ (def n2 "[[CLM]] - Actin polymerization participates in the scission of CLIC endocytic tubules")
+ (def n3 "[[QUE]] - Does actin polymerization adjacent to CLICs help to form CLIC tubules or scission of CLICs?")
+ (get-all-discourse-node-from-akamatsu-graph-for n2)
+ (get-all-discourse-node-from-akamatsu-graph-for n3)
+ (cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))
