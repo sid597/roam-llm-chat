@@ -255,7 +255,6 @@
 
 
 (defn evd-src-nodes []
-  (println "evd src nodes")
   (reduce (fn [arr node]
             (let [evd (:title node)
                   src (extract-source (get-evd-src evd))]
@@ -290,10 +289,6 @@
 
 (defn extract-node-where-source-is-regex [destination-node source-node rel edge-name]
   (let [source-node-regex (get-node-regex source-node)]
-    (println "destination node" destination-node)
-    (println "source node" source-node)
-    (println "rel" rel)
-    (println "edge name" edge-name)
     (->> (q '[:find (pull ?source-page [:node/title :block/uid])
               (pull ?destination-page [:node/title :block/uid])
               :in $ ?source-node-regex ?destination-node ?rel
@@ -314,7 +309,6 @@
 
 (defn extract-node-where-destination-is-regex [source-node destination-node rel edge-name]
   (let [destination-node-regex (get-node-regex destination-node)]
-    (println "extract " rel destination-node-regex)
     (->> (q '[:find (pull ?source-page [:node/title :block/uid])
               (pull ?destination-page [:node/title :block/uid])
               :in $ ?source-node ?destination-node-regex ?rel
@@ -347,7 +341,6 @@
               [?block :block/page ?page]]
            source-node
            destination-node-regex)
-
       (map (fn [[source destination]]
              [source rel-name destination])))))
 
@@ -371,7 +364,6 @@
 
 (defn informs-in-a-page-destination-regex [source destination name]
   (let [destination-node-regex (get-node-regex destination)]
-    (println "SOURCE" source "DESTINATION" destination)
     (->> (q '[:find
               (pull ?page  [:node/title :block/uid])
               (pull ?destination-page [:node/title :block/uid])
@@ -392,7 +384,6 @@
 
 (defn informs-in-a-page-source-is-regex [destination source name]
   (let [source-node-regex (get-node-regex source)]
-    (println "SOURCE" source "DESTINATION" destination)
     (->> (q '[:find
               (pull ?page  [:node/title :block/uid])
               (pull ?destination-page [:node/title :block/uid])
@@ -418,11 +409,9 @@
 (def node-pattern-match (re-pattern "^\\[\\[(.*?)\\]\\] - (.*?)$"))
 
 (defn determine-node-type [s]
-  (println "node type" s)
   (cond
     (re-matches source-pattern s) :source
     :else (let [node-match (re-matches node-pattern-match s)]
-            (println "no" node-match)
             (if node-match
               (keyword (second node-match))
               :unknown))))
@@ -506,6 +495,6 @@
 (comment
  (def n2 "[[CLM]] - Actin polymerization participates in the scission of CLIC endocytic tubules")
  (def n3 "[[QUE]] - Does actin polymerization adjacent to CLICs help to form CLIC tubules or scission of CLICs?")
- (get-all-discourse-node-from-akamatsu-graph-for n2)
- (get-all-discourse-node-from-akamatsu-graph-for n3)
+ (concat [] (get-all-discourse-node-from-akamatsu-graph-for n2)
+  (get-all-discourse-node-from-akamatsu-graph-for n3))
  (cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))
