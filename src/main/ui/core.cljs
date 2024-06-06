@@ -6,6 +6,7 @@
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
             [ui.utils :refer [p chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
             [ui.render-comp.discourse-suggestions :refer [llm-dg-suggestions-main]]
+            [ui.components.cytoscape :refer [cytoscape-main]]
             [reagent.dom :as rd]))
 
 
@@ -88,18 +89,19 @@
         pbuid (and (not (empty? dom-id)) (extract-last-substring dom-id))]
     (when pbuid
       (p "Load plugin ui for block with uid: " pbuid)
-      (if (= "chat-llm" (j/get node :innerText))
-        (main {:block-uid pbuid} "filler" dom-id)
-        (llm-dg-suggestions-main  pbuid  dom-id)))))
+      (let [inner-text (j/get node :innerText)]
+       (case inner-text
+         "chat-llm"           (main {:block-uid pbuid} "filler" dom-id)
+         "llm-dg-suggestions" (llm-dg-suggestions-main  pbuid  dom-id)
+         "cytospace"          (cytoscape-main  pbuid dom-id))))))
 
 
 (defn get-matches [d class-name tag-name]
   (let [matches (->> (.getElementsByClassName  d class-name)
                     array-seq
                     (filter #(and
-                               (= (j/get % :nodeName) tag-name)
-                               (or (= "chat-llm" (j/get % :innerText))
-                                   (= "llm-dg-suggestions" (j/get % :innerText))))))]
+                              (= (j/get % :nodeName) tag-name)
+                              (some #{(j/get % :innerText)} ["chat-llm" "llm-dg-suggestions" "cytospace"]))))]
     matches))
 
 (defn mutation-callback [mutations observer]
