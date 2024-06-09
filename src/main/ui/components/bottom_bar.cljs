@@ -118,8 +118,6 @@
                                                            (map
                                                              (fn [x]
                                                                (str (-> x :metadata :title) "- Score: " (:score x)))))]
-                                          (cljs.pprint/pprint embeddings)
-                                          (cljs.pprint/pprint res)
                                           #_(println "GOT EMBEDDINGS :" "--" embeddings))))))}
          "Create embeddings"]]
      [:> Divider]

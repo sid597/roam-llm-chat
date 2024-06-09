@@ -468,15 +468,16 @@
                        (extract-node-where-destination-is-regex node "EVD" "[[SupportedBy]]" "SupportedBy")
                        (extract-node-where-source-is-regex      node "EVD" "[[Supports]]" "SupportedBy")
                        (extract-node-where-source-is-regex      node "RES" "[[Supports]]" "SupportedBy")
-                       (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy")))
+                       (extract-node-where-destination-is-regex node "RES" "[[SupportedBy]]" "SupportedBy"))
+                "default")
         nodes (reduce (fn [acc [source _ target]]
                         (-> acc
                          (assoc (:title source) {:uid (:uid source)
                                                  :title (:title source)
-                                                 :type (name (determine-node-type (:title source)))})
+                                                 :type (determine-node-type (:title source))})
                          (assoc (:title target) {:uid (:uid target)
                                                  :title (:title target)
-                                                 :type (name (determine-node-type (:title target)))})))
+                                                 :type (determine-node-type (:title target))})))
                 {}
                 data)]
     {:nodes nodes
@@ -495,6 +496,7 @@
 (comment
  (def n2 "[[CLM]] - Actin polymerization participates in the scission of CLIC endocytic tubules")
  (def n3 "[[QUE]] - Does actin polymerization adjacent to CLICs help to form CLIC tubules or scission of CLICs?")
+ (get-all-discourse-node-from-akamatsu-graph-for n3)
  (concat [] (get-all-discourse-node-from-akamatsu-graph-for n2)
   (get-all-discourse-node-from-akamatsu-graph-for n3))
  (cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))
