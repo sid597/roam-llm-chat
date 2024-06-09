@@ -164,12 +164,25 @@
 
 (defn extract-from-code-block [s]
   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
-        m (re-find pattern s)]
-    (if m
-      (str (second m) " \n ")
-      (str s " \n "))))
+        pres? (re-find pattern s)
+        relaxed-pattern #"(?s)```\s*(.*?)\s*```"
+        rpres? (re-find relaxed-pattern s)]
+    (cond
+      pres?  (str (second pres?) " \n ")
+      rpres? (str (clojure.string/trim (second rpres?)) " \n ")
+      :else  (str s " \n "))))
 
-
+(comment
+  (def t "Here is some code:\n```\nprint('Hello, world!')\n```")
+  (def tt "```javascript\n \nconsole.log('Hello, world!');\n```")
+  (def n "```
+        [[CLM]] - Actin accumulation at sites of endocytosis increases with membrane tension
+  [[CLM]] - Increased membrane tension results in slower dynamics of clathrin coated structures.
+  [[CLM]] - CG endocytosis is upregulated upon decrease of cell membrane tension.
+  ```")
+  (extract-from-code-block t)
+  (extract-from-code-block tt)
+  (extract-from-code-block n))
 
 (defn unnamespace-keys
   [m]
@@ -483,7 +496,8 @@
                            (p "Window added to right sidebar")
                            (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open])))))))
 
-      (<p! (js/Promise. (fn [_] cb)))))))
+      (<p! (js/Promise. (fn [r rr]
+                          (cb))))))))
 
 (def gemini-safety-settings-struct
   {:s "Safety settings"
