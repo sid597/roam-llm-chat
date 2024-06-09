@@ -93,7 +93,7 @@
        (case inner-text
          "chat-llm"           (main {:block-uid pbuid} "filler" dom-id)
          "llm-dg-suggestions" (llm-dg-suggestions-main  pbuid  dom-id)
-         "cytospace"          (cytoscape-main  pbuid dom-id))))))
+         "visualise-suggestions"          (cytoscape-main  pbuid dom-id ))))))
 
 
 (defn get-matches [d class-name tag-name]
@@ -101,7 +101,7 @@
                     array-seq
                     (filter #(and
                               (= (j/get % :nodeName) tag-name)
-                              (some #{(j/get % :innerText)} ["chat-llm" "llm-dg-suggestions" "cytospace"]))))]
+                              (some #{(j/get % :innerText)} ["chat-llm" "llm-dg-suggestions" "visualise-suggestions"]))))]
     matches))
 
 (defn mutation-callback [mutations observer]
