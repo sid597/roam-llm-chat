@@ -315,7 +315,7 @@
     [:div.cytoscape-container
      [:div
        {:class-name (str "cytoscape-view-" block-uid)
-        :style {:width "1500px"
+        :style {:width "1000px"
                 :border "2px solid lightgrey"
                 :height "1000px"}
         :ref (fn [el]

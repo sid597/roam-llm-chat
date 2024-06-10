@@ -499,4 +499,4 @@
  (get-all-discourse-node-from-akamatsu-graph-for n3)
  (concat [] (get-all-discourse-node-from-akamatsu-graph-for n2)
   (get-all-discourse-node-from-akamatsu-graph-for n3))
- (cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))
+ #_(cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))

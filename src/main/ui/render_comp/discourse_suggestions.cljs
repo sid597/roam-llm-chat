@@ -192,6 +192,8 @@
        suggestions      (r/atom (:children suggestions-data))
        selections       (r/atom #{})
        visualise?       (r/atom true)
+       as-indi-loading? (r/atom false)
+       as-group-loading?(r/atom false)
        cy-el            (atom nil)
        lout             (atom nil)]
    (watch-children
@@ -237,28 +239,39 @@
            [:> Button
             {:minimal true
              :fill false
+             :loading @as-indi-loading?
              ;:style {:background-color "whitesmoke"}
              :on-click (fn [x]
-                         (let [selected (into [] @selections)
-                               str-data (clj->js (mapv :string selected))
-                               uid-data (mapv  :uid    selected)
-                               url "http://localhost:3000/get-openai-embeddings"
-                               headers {"Content-Type" "application/json"}
-                               res-ch (http/post url {:with-credentials? false
-                                                      :headers           headers
-                                                      :json-params       (clj->js {:input str-data
-                                                                                   :top-k 3})})]
-                           (take! res-ch (fn [res]
-                                           (println "GOT RESPONSE")
-                                           (doseq [i (range (count uid-data))]
-                                             (let  [u (nth uid-data i)
-                                                    r (nth (:body res) i)
-                                                    matches (str "``` \n "
-                                                              (clojure.string/join
-                                                                " \n "
-                                                                (map #(-> % :metadata :title) r))
-                                                              "\n ```")]
-                                                 (create-new-block u "last" matches #())))))))}
+                         (do
+                          (reset! as-indi-loading? true)
+                          (let [selected (into [] @selections)
+                                str-data (clj->js (mapv :string selected))
+                                uid-data (mapv  :uid    selected)
+                                url      "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                                headers {"Content-Type" "application/json"}
+                                res-ch (http/post url {:with-credentials? false
+                                                       :headers           headers
+                                                       :json-params       (clj->js {:input str-data
+                                                                                    :top-k 3})})]
+                            (take! res-ch (fn [res]
+                                            (reset! selections #{})
+                                            (doseq [i (range (count uid-data))]
+                                              (let  [u (nth uid-data i)
+                                                     r (nth (:body res) i)
+                                                     matches (str "``` \n "
+                                                               (clojure.string/join
+                                                                 " \n "
+                                                                 (map #(-> % :metadata :title) r))
+                                                               "\n ```")
+                                                     node-data (merge (ffirst (q '[:find (pull ?u [{:block/children ...} :block/string :block/uid])
+                                                                                   :in $ ?nuid
+                                                                                   :where [?u :block/uid ?nuid]]
+                                                                                u))
+                                                                 {:children [{:string matches}]})]
+                                                (do
+                                                  (create-new-block u "last" matches #())
+                                                  (swap! selections conj node-data))))
+                                           (reset! as-indi-loading? false))))))}
             "As individuals"]]
           [:div.chk
            {:style {:align-self "center"
@@ -266,26 +279,30 @@
            [:> Button
             {:minimal true
              :fill false
+             :loading @as-group-loading?
              ;:style {:background-color "whitesmoke"}
              :on-click (fn [x]
-                         (let [selected (into [] @selections)
-                               str-data (clj->js [(clojure.string/join " \n " (mapv :string selected))])
-                               uid-data (mapv  :uid    selected)
-                               url      "http://localhost:3000/get-openai-embeddings"
-                               headers  {"Content-Type" "application/json"}
-                               res-ch (http/post url {:with-credentials? false
-                                                      :headers           headers
-                                                      :json-params       (clj->js {:input str-data
-                                                                                   :top-k 3})})]
-                           (take! res-ch (fn [res]
-                                           (let  [res     (-> res :body first)
-                                                  _       (println "GOT RESPONSE" res)
-                                                  matches (str "``` \n "
-                                                             (clojure.string/join
-                                                              " \n "
-                                                              (map #(-> % :metadata :title) res))
-                                                             "\n ```")]
-                                             (create-new-block uid "last" matches #()))))))}
+                         (do
+                          (reset! as-group-loading? true)
+                          (let [selected (into [] @selections)
+                                str-data (clj->js [(clojure.string/join " \n " (mapv :string selected))])
+                                uid-data (mapv  :uid    selected)
+                                url     "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                                headers  {"Content-Type" "application/json"}
+                                res-ch (http/post url {:with-credentials? false
+                                                       :headers           headers
+                                                       :json-params       (clj->js {:input str-data
+                                                                                    :top-k 3})})]
+                            (take! res-ch (fn [res]
+                                            (let  [res     (-> res :body first)
+                                                   _       (println "GOT RESPONSE" res)
+                                                   matches (str "``` \n "
+                                                              (clojure.string/join
+                                                               " \n "
+                                                               (map #(-> % :metadata :title) res))
+                                                              "\n ```")]
+                                              (create-new-block uid "last" matches #()))
+                                            (reset! as-group-loading? false))))))}
             "As group"]]]
          [:div.chk
           {:style {:align-self "center"
