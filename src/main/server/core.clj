@@ -2,11 +2,12 @@
   (:gen-class)
   (:require [compojure.core :refer :all]
             [ring.middleware.params :refer [wrap-params]]
+            [clojure.core.async :as async :refer [<! >! <!! >!! thread promise-chan go]]
             [wkok.openai-clojure.api :as api]
             [cheshire.core :as json]
             [tolkien.core :as token]
             [clj-http.client :as client]
-            [server.env :as env :refer [oai-key pass-key anthropic-key gemini-key]]
+            [server.env :as env :refer [oai-key pass-key pinecone-dg-index-host anthropic-key gemini-key pinecone-dg-nodes-key]]
             [ring.adapter.jetty :as jetty]))
 
 
@@ -228,6 +229,229 @@
     :error
     :message))
 
+(defn get-openai-embedding-for [input]
+  (let [body       (json/generate-string
+                     {:model "text-embedding-3-small"
+                      :input input})
+        headers    {"Content-Type" "application/json"
+                    "Authorization" (str "Bearer " oai-key)}
+        url        "https://api.openai.com/v1/embeddings"]
+    (client/post url
+      {:headers headers
+       :body body
+       :content-type :json
+       :as :json
+       :throw-exceptions false})))
+
+
+(defn merge-embeddings-with-metadata [embeddings uids strings]
+  (vec (map
+         (fn [e u s]
+           {:id u
+            :values (:embedding e)
+            :metadata {:title s}})
+         embeddings
+         uids
+         strings)))
+
+(defn get-openai-embedding-from [request]
+  (go
+    (let [input  (-> request
+                   :body
+                   slurp
+                   (json/parse-string true)
+                   :input)
+          result-chan (promise-chan)
+          inp-strs    (map #(:string %) input)
+          inp-uids    (map #(:uid %) input)
+          res        (<! (thread (get-openai-embedding-for inp-strs)))
+          _          (println "RES FROM OPEN AI: ")
+          res-body   (:body res)
+          reply-body (cond
+                       (not= 200
+                         (:status res)) (str "^^ Error: code: " (:status res)
+                                          " and message: "
+                                          (-> res-body (json/parse-string-strict true) :error :message)
+                                          " ^^")
+                       :else            (merge-embeddings-with-metadata (-> res-body :data) inp-uids inp-strs))]
+        ;(println "embeddings reply body: " reply-body)
+        (>!! result-chan {:status (:status res)
+                          :headers {"Content-Type" "application/json"}
+                          :body   (json/generate-string reply-body)})
+        (<!! result-chan))))
+
+
+(defn upsert-single [request]
+  (go
+   (let [embedding-res  (-> (<! (thread (get-openai-embedding-for ["Hello"])))
+                          :body
+                          :data
+                          first
+                          :embedding)
+         result-chan (promise-chan)
+         _ (println "embeddings res" embedding-res)
+         vectors        [{:id     "1"
+                          :values embedding-res}]
+         body           (json/generate-string
+                          {:vectors vectors})
+         headers    {"Content-Type" "application/json"
+                     "Api-Key" (str pinecone-dg-nodes-key)}
+         url        (str  pinecone-dg-index-host "/vectors/upsert")
+
+         res        (client/post url
+                      {:headers headers
+                       :body body
+                       :content-type :json
+                       :as :json
+                       :throw-exceptions false})
+         _ (println "RES -" res)
+         res-body   (-> res :body)
+         reply-body (cond
+                      (not= 200 (:status res))
+                      (str "^^ Error: code: " (:status res)
+                        " and message: "
+                        (-> res-body (json/parse-string-strict true) :error :message)
+                        " ^^")
+                      :else (json/generate-string (str res-body)))]
+     (println "embeddings reply body: " reply-body)
+     (>!! result-chan {:status (:status res)
+                       :headers {"Content-Type" "application/json"}
+                       :body   reply-body})
+     (<!! result-chan))))
+
+
+(defn upsert-all [request]
+  (let [rq-map (-> request
+                 :body
+                 slurp
+                 (json/parse-string true))
+        result-chan (promise-chan)]
+    (go
+      (let [input          (:input rq-map)
+            inp-strs       (map #(:title %) input)
+            inp-uids       (map #(:uid %) input)
+            embed-res      (<! (thread (get-openai-embedding-for inp-strs)))
+            embeddings     (-> embed-res :body :data)
+            all-embeddings (merge-embeddings-with-metadata embeddings inp-uids inp-strs)
+            _ (println "UPLOADING " (count all-embeddings) " EMBEDDINGS")
+            body           (json/generate-string
+                             {:vectors all-embeddings}
+                             {:pretty true})
+            headers        {"content-type" "application/json"
+                            "Api-Key" (str pinecone-dg-nodes-key)}
+            url            (str  pinecone-dg-index-host "/vectors/upsert")
+            _ (println "SENDING REQUEST ")
+            upsert-res     (<! (thread (client/post url
+                                         {:headers headers
+                                          :body body
+                                          :content-type :json
+                                          :as :json
+                                          :throw-exceptions false})))
+
+            res-body       (:body upsert-res)
+            _ (println "UPSERTED: "(-> res-body
+                                     :upsertedCount) "==" (:status upsert-res))
+            reply-body     (cond
+                             (not= 200 (:status upsert-res))
+                             (str "^^ Error: code: " (:status upsert-res)
+                               " and message: "
+                               (-> res-body (json/parse-string-strict true) :error :message)
+                               " ^^")
+                             :else res-body)]
+        (println "embeddings reply body: " reply-body)
+        (>!! result-chan {:status (:status upsert-res)
+                          :headers {"Content-Type" "application/json"}
+                          :body (json/generate-string reply-body)})))
+    (<!! result-chan)))
+
+
+
+(defn query-single-embedding [request]
+  (let [rq-map (-> request
+                 :body
+                 slurp
+                 (json/parse-string true))
+        result-chan (promise-chan)]
+    (go
+      (let [inp-str          (:input rq-map)
+            top-k            (:top-k rq-map)
+            vector-embedding (-> (<! (thread (get-openai-embedding-for inp-str)))
+                               :body :data first :embedding)
+            _ (println "--" vector-embedding)
+            body           (json/generate-string
+                             {:vector          vector-embedding
+                              :topK            top-k
+                              :includeMetadata true}
+                             {:pretty true})
+            _ (println "BODY --" body)
+            headers        {"content-type" "application/json"
+                            "Api-Key" (str pinecone-dg-nodes-key)}
+            url            (str  pinecone-dg-index-host "/query")
+            query-res     (<! (thread (client/post url
+                                        {:headers headers
+                                         :body body
+                                         :content-type :json
+                                         :as :json
+                                         :throw-exceptions false})))
+
+            res-body       (:body query-res)
+            _ (println "QUERY RESULT: "(-> res-body
+                                         :matches) "==" (:status query-res))
+            reply-body     (cond
+                             (not= 200 (:status query-res))
+                             (str "^^ Error: code: " (:status query-res)
+                               " and message: "
+                               (-> res-body (json/parse-string-strict true) :error :message)
+                               " ^^")
+                             :else (:matches res-body))]
+        (println "Query embeddings reply body: " reply-body)
+        (>!! result-chan {:status (:status query-res)
+                          :headers {"Content-Type" "application/json"}
+                          :body (json/generate-string reply-body)})))
+    (<!! result-chan)))
+
+(defn get-query-res-for [vector-embedding top-k]
+  (let [body           (json/generate-string
+                         {:vector          vector-embedding
+                          :topK            top-k
+                          :includeMetadata true}
+                         {:pretty true})
+        ;_ (println "BODY --" body)
+        headers        {"content-type" "application/json"
+                        "Api-Key" (str pinecone-dg-nodes-key)}
+        url            (str  pinecone-dg-index-host "/query")]
+    (client/post url
+      {:headers headers
+       :body body
+       :content-type :json
+       :as :json
+       :throw-exceptions false})))
+
+
+(defn query-multiple-embeddings [request]
+  (let [rq-map (-> request
+                 :body
+                 slurp
+                 (json/parse-string true))
+        result-chan (promise-chan)]
+    (go
+      (let [inp-strs         (:input rq-map)
+            top-k            (:top-k rq-map)
+            vector-embeddings (-> (<! (thread (get-openai-embedding-for inp-strs)))
+                                :body :data)
+            all-query-res     (atom [])
+            _                 (doseq [embedding vector-embeddings]
+                                (let [query-res (-> (<! (thread (get-query-res-for (-> embedding :embedding) top-k)))
+                                                  :body
+                                                  :matches)]
+                                  (swap! all-query-res conj query-res)))
+            ;_ (println "--" vector-embeddings)
+            _ (println "QUERY RESULT: " @all-query-res)]
+        (>!! result-chan {:status (:status all-query-res)
+                          :headers {"Content-Type" "application/json"}
+                          :body (json/generate-string @all-query-res)})))
+    (<!! result-chan)))
+
 
 (defn- handle-preflight [f]
    {:status 200
@@ -247,6 +471,8 @@
   (POST "/chat-anthropic" request (cors-headers (chat-anthropic request)))
   (OPTIONS "/chat-gemini" [] handle-preflight)
   (POST "/chat-gemini" request (cors-headers (chat-gemini request)))
+  (OPTIONS "/get-openai-embeddings" [] handle-preflight)
+  (POST "/get-openai-embeddings" request (cors-headers (query-multiple-embeddings request)))
   (OPTIONS "/count-tokens" [] handle-preflight)
   (POST "/count-tokens" request (cors-headers (count-tokens request))))
 
@@ -257,4 +483,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 8080}))
+  (jetty/run-jetty app {:port 3000}))

@@ -231,6 +231,46 @@
      (p "Successfully extracted ref data for all pages ")
      (vec @res)))
 
+(defn get-all-discourse-nodes [])
+(defn valid-date?
+  "Checks if the given string is a valid date according to the provided format."
+  [date-str]
+  (let [date (js/Date. date-str)]
+    (and (not (js/isNaN (.getTime date)))
+      (= date-str (-> date .toISOString (subs 0 (count date-str)))))))
+
+
+
+(def all-title
+  (q '[:find ?u  ?t
+       :where [?e :node/title ?t]
+       [?e :block/uid ?u]]))
+
+(def dg-nodes
+  (filter
+    #(let [uid (str (first %))
+           dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+       (when dg?
+         %))
+    all-title))
+
+(defn node-count [t]
+  (filter
+    #(let [s (second %)]
+       (println s)
+       (when (clojure.string/starts-with? s (str "[[" t "]]"))
+         %))
+    dg-nodes))
+
+
+(comment
+  (count (filter
+           #(let [uid (str (first %))
+                  dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+               (when dg?
+                 %))
+           all-title)))
+
 
 (comment
   (get-all-refs-for {:title "Test: extract query pages"})

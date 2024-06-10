@@ -38,6 +38,86 @@
        (js->clj :keywordize-keys true)))))
 
 
+(defn extract-all-discourse-for [node]
+  (let [node-regex (re-pattern (cond
+                                 (= "EVD" node) (str "^\\[\\[EVD\\]\\] - (.*?) - (.*?)$")
+                                 :else (str "^\\[\\[" node "\\]\\] - (.*?)$")))]
+    (flatten (q '[:find (pull ?e [:node/title :block/uid])
+                  :in $ ?node-regex
+                  :where
+                  [?e :node/title ?tit]
+                  [(re-find ?node-regex ?tit)]]
+               node-regex))))
+
+
+(defn extract-all-sources []
+  (let [node-regex (re-pattern "^@[^\\s]+$")]
+    (into [] (flatten (q '[:find
+                           (pull ?node [:block/string :node/title :block/uid])
+                           :where
+                           [(re-pattern "^@(.*?)$") ?.*?$-regex]
+                           [?node :node/title ?node-Title]
+                           [(re-find ?.*?$-regex ?node-Title)]])))))
+
+
+(defn all-dg-nodes []
+ (let [cnt (atom [])
+       nodes ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "CON"]]
+   (doseq [node nodes]
+     (let [total  (extract-all-discourse-for node)]
+       (swap! cnt concat total)))
+   (into [] (concat (into [] @cnt) (extract-all-sources)))))
+(count (all-dg-nodes))
+
+(def all-title
+  (q '[:find ?u  ?t
+       :where [?e :node/title ?t]
+       [?e :block/uid ?u]]))
+
+(def dg-nodes
+  (filter
+    #(let [uid (str (first %))
+           dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+       (when dg?
+         %))
+    all-title))
+
+(defn node-count [t]
+  (->> (filter
+         #(let [s (second %)]
+            (when (clojure.string/starts-with? s (str "[[" t "]]"))
+              (second %)))
+         dg-nodes)
+    (map second)))
+
+
+(comment
+  (count (node-count "EVD"))
+  (node-count "EVD"))
+
+(comment
+  (extract-all-discourse-for "EVD")
+  (into #{} (node-count "EVD"))
+  (clojure.set/difference
+     (into #{} (->> (extract-all-discourse-for "EVD")
+                 (map :title)))
+     (into #{} (node-count "EVD")))
+ (count (extract-all-discourse-for "CLM"))
+ (count (extract-all-discourse-for "EVD"))
+ (count (extract-all-discourse-for "HYP"))
+ (count (extract-all-discourse-for "RES"))
+ (count (extract-all-discourse-for "ISS"))
+ (count (extract-all-discourse-for "QUE"))
+ (count (extract-all-discourse-for "EXP"))
+ (count (extract-all-discourse-for "CON"))
+ (count (q '[:find ?t
+             :where [?e :node/title]])))
+
+
+
+(comment
+  (flatten extract-all-sources))
+
 (defn uid-to-block [uid]
   (q '[:find (pull ?e [*])
        :in $ ?uid
@@ -84,12 +164,25 @@
 
 (defn extract-from-code-block [s]
   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
-        m (re-find pattern s)]
-    (if m
-      (str (second m) " \n ")
-      (str s " \n "))))
+        pres? (re-find pattern s)
+        relaxed-pattern #"(?s)```\s*(.*?)\s*```"
+        rpres? (re-find relaxed-pattern s)]
+    (cond
+      pres?  (str (second pres?) " \n ")
+      rpres? (str (clojure.string/trim (second rpres?)) " \n ")
+      :else  (str s " \n "))))
 
-
+(comment
+  (def t "Here is some code:\n```\nprint('Hello, world!')\n```")
+  (def tt "```javascript\n \nconsole.log('Hello, world!');\n```")
+  (def n "```
+        [[CLM]] - Actin accumulation at sites of endocytosis increases with membrane tension
+  [[CLM]] - Increased membrane tension results in slower dynamics of clathrin coated structures.
+  [[CLM]] - CG endocytosis is upregulated upon decrease of cell membrane tension.
+  ```")
+  (extract-from-code-block t)
+  (extract-from-code-block tt)
+  (extract-from-code-block n))
 
 (defn unnamespace-keys
   [m]
@@ -403,7 +496,8 @@
                            (p "Window added to right sidebar")
                            (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open])))))))
 
-      (<p! (js/Promise. (fn [_] cb)))))))
+      (<p! (js/Promise. (fn [r rr]
+                          (cb))))))))
 
 (def gemini-safety-settings-struct
   {:s "Safety settings"
