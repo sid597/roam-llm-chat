@@ -46,15 +46,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public/app
           publish_branch: ${{ env.branch }}
-
-
-
-
-
-
-
-
-
-
-
-
