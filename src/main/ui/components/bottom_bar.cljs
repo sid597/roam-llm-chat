@@ -91,7 +91,7 @@
          {:minimal true
           :small true
           :on-click (fn [e]
-                      (let [url          "http://localhost:3000/get-openai-embeddings"
+                      (let [url         "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
                             upsert-data  (clj->js {:input (subvec (all-dg-nodes) 1600)})
                             multiple-query-data   (clj->js {:input ["Myosin plays a critical role in assisting endocytosis under conditions of high membrane tension"
                                                                     #_"Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization"]
