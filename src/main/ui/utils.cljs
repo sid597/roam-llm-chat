@@ -210,7 +210,7 @@
 
 
 (defn watch-children [block-uid cb]
-  (let [pull-pattern "[:block/uid :block/order {:block/children ...}]"
+  (let [pull-pattern "[:block/uid :block/order :block/string {:block/children ...}]"
         entity-id (str [:block/uid block-uid])]
     (println "add pull watch :" entity-id)
     (add-pull-watch pull-pattern entity-id cb)))
