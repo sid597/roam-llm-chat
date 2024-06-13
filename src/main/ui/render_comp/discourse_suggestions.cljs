@@ -26,6 +26,7 @@
                               update-block-string-and-move
                               is-a-page?
                               get-child-with-str
+                              block-has-child-with-str?
                               move-block
                               create-new-block]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
@@ -195,7 +196,8 @@
        as-indi-loading? (r/atom false)
        as-group-loading?(r/atom false)
        cy-el            (atom nil)
-       lout             (atom nil)]
+       lout             (atom nil)
+       running? (r/atom false)]
    (watch-children
      uid
      (fn [_ aft]
@@ -312,6 +314,8 @@
             :style {:width "30px"}
             :icon "play" ;; Ideal would be to have it change between play and connect, if not present then play
                          ;; otherwise connect
+            :active (not @running?)
+            :disabled @running?
             :minimal true
             :fill false
             :small true
@@ -348,7 +352,7 @@
                                                      selected)))
                               suggestion-edges (mapcat
                                                  (fn [node]
-                                                   (let [source-str        (:string node)
+                                                   (let [source-str    (:string node)
                                                          source-uid    (:uid node)
                                                          extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children node)))))
                                                          split-trimmed (mapv str/trim (str/split-lines extracted))
@@ -379,22 +383,31 @@
                                                                    non-empty      (filter (complement str/blank?) split-trimmed)]
                                                                non-empty))
                                                            selected))))
-                              extra-data   (concat suggestion-nodes suggestion-edges)]
+                              extra-data   (concat suggestion-nodes suggestion-edges)
+                              [parent-uid _] (get-block-parent-with-order block-uid)
+                              already-exist? (block-has-child-with-str? parent-uid "{{visualise-suggestions}}")]
 
-                          ;(println "Visualise button clicked")
-                          ;(println "Selected" (count @similar-nodes))
-                          (create-struct
-                            struct
-                            (first (get-block-parent-with-order block-uid))
-                            nil
-                            false
-                            #(js/setTimeout
-                               (fn [_]
-                                 (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" cyto-uid)))]
-                                   (println "rendering cytoscape")
-                                   (rd/render [cytoscape-component cyto-uid cy-el similar-nodes extra-data] el)))
-                               700))))}]]
+                          (do
 
+                            (println "Alread exirst?? " already-exist?)
+                            ;(println "Visualise button clicked")
+                            ;(println "Selected" (count @similar-nodes))
+                            (if (some? already-exist?)
+                              (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" already-exist?)))]
+                                (println "rendering cytoscape")
+                                (rd/render [cytoscape-component already-exist? cy-el similar-nodes extra-data] el))
+                              (create-struct
+                                struct
+                                (first (get-block-parent-with-order block-uid))
+                                nil
+                                false
+                                #(js/setTimeout
+                                   (fn [_]
+                                     (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" cyto-uid)))]
+                                       (println "rendering cytoscape")
+                                       (rd/render [cytoscape-component cyto-uid cy-el similar-nodes extra-data] el)))
+                                   700)))
+                            (reset! running? true))))}]]
          #_[:div.action-area
             [:> Button
              {:minimal true

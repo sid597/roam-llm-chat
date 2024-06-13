@@ -291,7 +291,7 @@
               [?e :block/order ?o]]
            block-uid)))
 
-(defn block-with-str-on-page? [page bstr]
+(defn block-has-child-with-str? [page bstr]
   (ffirst
     (q '[:find ?uid
          :in $ ?today ?bstr
@@ -305,8 +305,7 @@
 
 
 (defn ai-block-exists? [page]
-  (block-with-str-on-page? page "AI chats"))
-
+  (block-has-child-with-str? page "AI chats"))
 
 ;; --- Roam specific ---
 
