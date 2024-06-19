@@ -11,6 +11,7 @@
                               delete-block
                               gen-new-uid
                               uid-to-block
+                              get-title-with-uid
                               update-block-string
                               get-safety-settings
                               send-message-component
@@ -26,6 +27,7 @@
                               update-block-string-and-move
                               is-a-page?
                               get-child-with-str
+                              block-has-child-with-str?
                               move-block
                               create-new-block]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
@@ -99,8 +101,9 @@
           true)))))
 
 
-(defn actions [child m-uid selections]
-  (let [checked (r/atom false)]
+(defn actions [child m-uid selections cy-el]
+  (let [checked (r/atom false)
+        added?  (r/atom false)]
     (fn [_ _ _]
       [:div
        {:style {:display "flex"}}
@@ -123,7 +126,7 @@
                  :justify-content  "end"
                  :font-size        "10px"
                  :align-items      "center"}}
-        [:> Button {:class-name (str "scroll-down-button" m-uid)
+        [:> Button {:class-name (str "tick-button" m-uid)
                     :style      {:width "30px"}
                     :icon       "tick"
                     :minimal    true
@@ -139,7 +142,7 @@
                                         (p "Suggestion node created, updating block string")
                                         (update-block-string block-uid (str "^^ {{[[DONE]]}} " block-string "^^"))))))}]
 
-        [:> Button {:class-name (str "scroll-up-button" m-uid)
+        [:> Button {:class-name (str "cross-button" m-uid)
                     :style      {:width "30px"}
                     :icon       "cross"
                     :minimal    true
@@ -148,6 +151,82 @@
                     :on-click   (fn [e]
                                   (p "Discard selected option")
                                   (delete-block (:uid child)))}]
+        (when (not @added?)
+          [:> Button {:class-name (str "plus-button" m-uid)
+                      :style      {:width "30px"}
+                      :icon       "plus"
+                      :minimal    true
+                      :fill       false
+                      :small      true
+                      :on-click   (fn [e]
+                                    (let [source-str    (:string child)
+                                          source-uid    (:uid child)
+                                          suggestion-node (vals
+                                                            (suggested-nodes
+                                                              [{:string source-str
+                                                                :uid    source-uid}]))
+                                          extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children child)))))
+                                          split-trimmed (mapv str/trim (str/split-lines extracted))
+                                          non-empty     (into [] (filter (complement str/blank?) split-trimmed))
+                                          suggestion-edges (mapv
+                                                             (fn [target]
+                                                               (let [target-data (ffirst (get-title-with-uid target))
+                                                                     target-uid (:uid target-data)]
+                                                                 {:data
+                                                                  {:id     (str source-uid "-" target-uid)
+                                                                   :source source-uid
+                                                                   :target  target-uid
+                                                                   :relation "Similar to"
+                                                                   :color    "lightgrey"}}))
+                                                             non-empty)
+                                          similar-nodes    (do
+                                                             (get-cyto-format-data-for-node {:nodes non-empty}))
+                                          nodes (concat similar-nodes suggestion-node suggestion-edges)]
+                                      (do
+                                        (.add @cy-el (clj->js nodes))
+                                        (->(.layout @cy-el (clj->js{:name "cose-bilkent"
+                                                                    :animate true
+                                                                    :animationDuration 1000
+                                                                    :idealEdgeLength 100
+                                                                    :edgeElasticity 0.95
+                                                                    :gravity 1.0
+                                                                    :nodeDimensionsIncludeLabels true
+                                                                    :gravityRange 0.8
+                                                                    :padding 10}))
+                                          (.run))
+                                        (reset! added? true))))}])
+        (when @added?
+          [:> Button {:class-name (str "scroll-up-button" m-uid)
+                      :style      {:width "30px"}
+                      :icon       "minus"
+                      :minimal    true
+                      :fill       false
+                      :small      true
+                      :on-click   (fn [e]
+                                    (let [similar-nodes    (let [extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children child)))))
+                                                                  split-trimmed (mapv str/trim (str/split-lines extracted))
+                                                                  non-empty     (into [] (filter (complement str/blank?) split-trimmed))]
+                                                              (reduce
+                                                                (fn [acc t]
+                                                                 (let [u (:uid (ffirst (get-title-with-uid t)))]
+                                                                   (if (some? u) (conj acc (str "#" u)) acc)))
+                                                                []
+                                                                non-empty))
+                                          nodes (conj similar-nodes (str "#"(:uid child)))]
+                                      (do
+                                        (doseq [id nodes]
+                                          (.remove (.elements @cy-el id)))
+                                        (->(.layout @cy-el (clj->js{:name "cose-bilkent"
+                                                                    :animate true
+                                                                    :animationDuration 1000
+                                                                    :idealEdgeLength 100
+                                                                    :edgeElasticity 0.95
+                                                                    :gravity 1.0
+                                                                    :nodeDimensionsIncludeLabels true
+                                                                    :gravityRange 0.8
+                                                                    :padding 10}))
+                                          (.run))
+                                        (reset! added? false))))}])
 
         [:> Checkbox
          {:style     {:margin-bottom "0px"
@@ -160,7 +239,7 @@
                            (swap! selections conj child))
                          (swap! checked not @checked)))}]]])))
 
-(defn chat-history [m-uid m-children selections]
+(defn chat-history [m-uid m-children selections cy-el]
   [:div.middle-comp
    {:class-name (str "chat-history-container-" m-uid)
     :style
@@ -179,7 +258,7 @@
     (doall
       (for [child (sort-by :order @m-children)]
         ^{:key (:uid child)}
-        [actions child m-uid selections]))]])
+        [actions child m-uid selections cy-el]))]])
 
 
 (defn discourse-node-suggestions-ui [block-uid]
@@ -195,7 +274,9 @@
        as-indi-loading? (r/atom false)
        as-group-loading?(r/atom false)
        cy-el            (atom nil)
-       lout             (atom nil)]
+       running? (r/atom false)
+       [parent-uid _] (get-block-parent-with-order block-uid)
+       already-exist? (r/atom (block-has-child-with-str? parent-uid "{{visualise-suggestions}}"))]
    (watch-children
      uid
      (fn [_ aft]
@@ -216,7 +297,7 @@
                         :border "2px solid rgba(0, 0, 0, 0.2)"
                         :border-radius "8px"}}
 
-       [chat-history uid suggestions selections]
+       [chat-history uid suggestions selections cy-el]
        [:div.bottom-comp
         [:div.chat-input-container
          {:style {:display "flex"
@@ -309,9 +390,8 @@
                    :margin-left "5px"}}
           [:> Button
            {:class-name "visualise-button"
-            :style {:width "30px"}
-            :icon "play" ;; Ideal would be to have it change between play and connect, if not present then play
-                         ;; otherwise connect
+            :active (not @running?)
+            :disabled @running?
             :minimal true
             :fill false
             :small true
@@ -348,18 +428,14 @@
                                                      selected)))
                               suggestion-edges (mapcat
                                                  (fn [node]
-                                                   (let [source-str        (:string node)
+                                                   (let [source-str    (:string node)
                                                          source-uid    (:uid node)
                                                          extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children node)))))
                                                          split-trimmed (mapv str/trim (str/split-lines extracted))
                                                          non-empty      (filter (complement str/blank?) split-trimmed)]
                                                      (map
                                                        (fn [target]
-                                                         (let [target-data (ffirst
-                                                                             (q '[:find (pull ?e [:node/title :block/uid])
-                                                                                  :in $ ?n
-                                                                                  :where [?e :node/title ?n]]
-                                                                               target))
+                                                         (let [target-data (ffirst (get-title-with-uid target))
                                                                target-uid (:uid target-data)]
 
                                                            {:data
@@ -380,79 +456,32 @@
                                                                non-empty))
                                                            selected))))
                               extra-data   (concat suggestion-nodes suggestion-edges)]
-
-                          ;(println "Visualise button clicked")
-                          ;(println "Selected" (count @similar-nodes))
-                          (create-struct
-                            struct
-                            (first (get-block-parent-with-order block-uid))
-                            nil
-                            false
-                            #(js/setTimeout
-                               (fn [_]
-                                 (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" cyto-uid)))]
-                                   (println "rendering cytoscape")
-                                   (rd/render [cytoscape-component cyto-uid cy-el similar-nodes extra-data] el)))
-                               700))))}]]
-
-         #_[:div.action-area
-            [:> Button
-             {:minimal true
-              :small true
-              :style {:flex "1 1 1"}
-              :on-click (fn [_]
-                          (let [new-nodes (get-cyto-format-data-for-node {:nodes ["[[EVD]] - hPSCs were found to exert strong inward-directed mechanical forces on the ECM at specific locations coinciding with ventral stress fibers at the colony edge.  - [[@narva2017strong]]"]})]
-                            (println "new node")
-                            (doseq [node new-nodes]
-                              (.add @cy-el (clj->js node))
-                              (reset! lout (.layout @cy-el (clj->js{:name "cose-bilkent"
-                                                                    :animate true
-                                                                    :animationDuration 1000
-                                                                    :idealEdgeLength 100
-                                                                    :edgeElasticity 0.95
-                                                                    :gravity 1.0
-                                                                    :nodeDimensionsIncludeLabels true
-                                                                    :gravityRange 0.8
-                                                                    :padding 10}))))))}
-             "Add new nodes"]
-            [:> Button
-             {:minimal true
-              :small true
-              :style {:flex "1 1 1"}
-              :on-click (fn [_]
-                          (.run @lout))}
-             "RUN"]
-            #_[:> Button
-               {:minimal true
-                :small true
-                :style {:flex "1 1 1"}
-                :on-click (fn [_]
-                            (let [cyto-uid (gen-new-uid)
-                                  similar-nodes (r/atom (into []
-                                                          (reduce
-                                                            (fn [acc {:keys [title]}]
-                                                             (conj acc title))
-                                                            []
-                                                            (into #{} (flatten (vals llm-suggestions-2))))))
-                                  #_#_#_#_s-nodes (keys llm-suggestions-2)
-                                          s-edges (suggested-edges llm-suggestions-2)]
-                              (println "create struct")
+                          (do
+                            ;(println "Visualise button clicked")
+                            ;(println "Selected" (count @similar-nodes))
+                            (if (some? @already-exist?)
+                              (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" @already-exist?)))]
+                                (println "rendering cytoscape")
+                                (rd/render [cytoscape-component @already-exist? cy-el similar-nodes extra-data] el))
                               (create-struct
-                                {:s "{{visualise-suggestions}}"
-                                 :u cyto-uid}
+                                struct
                                 (first (get-block-parent-with-order block-uid))
                                 nil
                                 false
                                 #(js/setTimeout
                                    (fn [_]
                                      (let [el (first (.getElementsByClassName js/document (str "cytoscape-main-" cyto-uid)))]
-                                       (println "rendering cytoscape")
-                                       (.log js/console el)
-                                       (rd/render [cytoscape-component cyto-uid cy-el similar-nodes []] el)))
-                                   700))))}
+                                       (do
+                                         (println "rendering cytoscape")
+                                         (rd/render [cytoscape-component cyto-uid cy-el similar-nodes extra-data] el)
+                                         (when @already-exist?
+                                           true))))
+                                   700)))
+                            (reset! running? true))))}
 
-
-               "RUN"]]
+           (if @already-exist?
+             "Connect"
+             "Visualise")]]
          [:div.buttons
           {:style {:display "flex"
                    :flex-direction "row"

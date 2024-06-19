@@ -210,7 +210,7 @@
 
 
 (defn watch-children [block-uid cb]
-  (let [pull-pattern "[:block/uid :block/order {:block/children ...}]"
+  (let [pull-pattern "[:block/uid :block/order :block/string {:block/children ...}]"
         entity-id (str [:block/uid block-uid])]
     (println "add pull watch :" entity-id)
     (add-pull-watch pull-pattern entity-id cb)))
@@ -270,6 +270,12 @@
             p3)))
 
 
+(defn get-title-with-uid [title]
+  (q '[:find (pull ?e [:node/title :block/uid])
+       :in $ ?n
+       :where [?e :node/title ?n]]
+    title))
+
 
 (defn get-parent-parent [uid]
   (ffirst (q '[:find  ?p
@@ -291,7 +297,7 @@
               [?e :block/order ?o]]
            block-uid)))
 
-(defn block-with-str-on-page? [page bstr]
+(defn block-has-child-with-str? [page bstr]
   (ffirst
     (q '[:find ?uid
          :in $ ?today ?bstr
@@ -305,8 +311,7 @@
 
 
 (defn ai-block-exists? [page]
-  (block-with-str-on-page? page "AI chats"))
-
+  (block-has-child-with-str? page "AI chats"))
 
 ;; --- Roam specific ---
 
