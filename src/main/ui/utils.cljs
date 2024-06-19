@@ -270,6 +270,12 @@
             p3)))
 
 
+(defn get-title-with-uid [title]
+  (q '[:find (pull ?e [:node/title :block/uid])
+       :in $ ?n
+       :where [?e :node/title ?n]]
+    title))
+
 
 (defn get-parent-parent [uid]
   (ffirst (q '[:find  ?p

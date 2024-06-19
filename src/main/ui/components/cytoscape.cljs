@@ -3,6 +3,7 @@
            [reagent.dom :as rd]
            [ui.utils :refer [q]]
            ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
+           [ui.utils :refer [get-title-with-uid]]
            [ui.extract-data.dg :refer [determine-node-type all-dg-nodes get-all-discourse-node-from-akamatsu-graph-for]]
    ["cytoscape" :as cytoscape]
    ["cytoscape-cose-bilkent" :as cose-bilkent]))
@@ -49,15 +50,11 @@
     data))
 
 (defn get-node-data [node-title]
-  (let [res       (first
-                    (q '[:find (pull ?e [:node/title :block/uid])
-                         :in $ ?n
-                         :where [?e :node/title ?n]]
-                      node-title))
-        node-data (first (map (fn [{:keys [uid title type]}]
+  (let [res       (first (get-title-with-uid node-title))
+        node-data (first (map (fn [{:keys [uid title]}]
                                 {:data {:id uid
                                         :label title
-                                        :color (node-colors (name (determine-node-type title)))
+                                        :color (node-colors (determine-node-type title))
                                         :bwidth "3px"
                                         :bstyle "solid"
                                         :bcolor "black"}})
@@ -328,7 +325,7 @@
   [:div
    {:class-name (str "cytoscape-main-" block-uid)}
    message
-   "Connect with node suggestions using + above"])
+   "Connect with node suggestions using `Connect` button above"])
 
 
 (defn cytoscape-main [block-uid dom-id]

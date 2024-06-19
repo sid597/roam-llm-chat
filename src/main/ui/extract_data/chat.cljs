@@ -517,7 +517,6 @@
                         (doseq [cstr (:body context-with-query-pages)]
                           (cond
                             (some? (is-a-page? cstr)) (do
-                                                        (p "---" cstr)
                                                         (let [page-data (data-for-nodes
                                                                                  {:nodes                [(is-a-page? cstr)]
                                                                                   :get-linked-refs?     get-linked-refs?
