@@ -5,7 +5,7 @@
             [ui.extract-data.chat :as ed :refer [extract-query-pages data-for-nodes get-all-images-for-node]]
             [ui.components.chat :refer [chat-context]]
             [ui.components.chin :refer [chin]]
-            [ui.utils :refer [button-popover model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-with-str-on-page? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [button-popover model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -26,7 +26,7 @@
 
 
 (defn button-with-settings [button-name]
-  (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+  (let [block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
                                            true
                                            false))
@@ -93,7 +93,7 @@
                                    (let [pre               "*Summarise this page* :"
                                          current-page-uid    (<p! (get-open-page-uid))
                                          title               (uid->title current-page-uid)
-                                         already-summarised? (block-with-str-on-page? current-page-uid "AI summary")
+                                         already-summarised? (block-has-child-with-str? current-page-uid "AI summary")
                                          parent-block-uid    (gen-new-uid)
                                          res-block-uid       (gen-new-uid)
                                          struct              (if (nil? already-summarised?)
@@ -190,7 +190,7 @@
 (defn text-to-image-button  []
   (let [total-images-count  (r/atom 1)
         loading?            (r/atom false)
-        block-uid           (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+        block-uid           (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
         img-block-uid       (:uid (get-child-with-str block-uid "Image prompt"))
         image-prompt        (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Image prompt" "Default prompt"))
         default-max-tokens  (r/atom (js/parseInt (get-child-of-child-with-str img-block-uid "Settings" "Max tokens")))
@@ -248,7 +248,7 @@
          (str "Generate description for: " @description-for)]]])))
 
 (defn discourse-graph-this-page-button []
-  (let [block-uid                (block-with-str-on-page? (title->uid "LLM chat settings") "Quick action buttons")
+  (let [block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
         discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
         default-model            (r/atom (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
@@ -311,7 +311,7 @@
                                         title              (uid->title open-page-uid)
                                         suggestion-uid     (gen-new-uid)
                                         node-uid           (gen-new-uid)
-                                        already-suggested? (block-with-str-on-page? open-page-uid  "AI Discourse node suggestions")
+                                        already-suggested? (block-has-child-with-str? open-page-uid  "AI Discourse node suggestions")
                                         struct             (if (nil? already-suggested?)
                                                              {:s "AI Discourse node suggestions"
                                                               :c [{:s (str "Model: " @default-model)
