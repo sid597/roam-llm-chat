@@ -227,7 +227,6 @@
                                                                     :padding 10}))
                                           (.run))
                                         (reset! added? false))))}])
-
         [:> Checkbox
          {:style     {:margin-bottom "0px"
                       :padding-left  "30px"}
@@ -236,7 +235,9 @@
                        (do
                          (if (contains? @selections child)
                            (swap! selections disj child)
-                           (swap! selections conj child))
+                           (do
+                             (swap! selections conj child)
+                             (reset! added? true)))
                          (swap! checked not @checked)))}]]])))
 
 (defn chat-history [m-uid m-children selections cy-el]
