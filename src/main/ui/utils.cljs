@@ -162,15 +162,19 @@
   (is-a-page? "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]"))
 
 
-(defn extract-from-code-block [s]
-  (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
-        pres? (re-find pattern s)
-        relaxed-pattern #"(?s)```\s*(.*?)\s*```"
-        rpres? (re-find relaxed-pattern s)]
-    (cond
-      pres?  (str (second pres?) " \n ")
-      rpres? (str (clojure.string/trim (second rpres?)) " \n ")
-      :else  (str s " \n "))))
+(defn extract-from-code-block
+  ([s]
+   (extract-from-code-block s false))
+  ([s v?]
+   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
+         pres? (re-find pattern s)
+         relaxed-pattern #"(?s)```\s*(.*?)\s*```"
+         rpres? (re-find relaxed-pattern s)]
+     (cond
+       pres?     (str (second pres?) " \n ")
+       (and v?
+         rpres?) (str (clojure.string/trim (second rpres?)) " \n ")
+       :else     (str s " \n ")))))
 
 (comment
   (def t "Here is some code:\n```\nprint('Hello, world!')\n```")

@@ -165,7 +165,7 @@
                                                             (suggested-nodes
                                                               [{:string source-str
                                                                 :uid    source-uid}]))
-                                          extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children child)))))
+                                          extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children child)))) true)
                                           split-trimmed (mapv str/trim (str/split-lines extracted))
                                           non-empty     (into [] (filter (complement str/blank?) split-trimmed))
                                           suggestion-edges (mapv
@@ -203,7 +203,9 @@
                       :fill       false
                       :small      true
                       :on-click   (fn [e]
-                                    (let [similar-nodes    (let [extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children child)))))
+                                    (let [similar-nodes    (let [extracted     (extract-from-code-block
+                                                                                 (clojure.string/trim (:string (first (:children child))))
+                                                                                 true)
                                                                   split-trimmed (mapv str/trim (str/split-lines extracted))
                                                                   non-empty     (into [] (filter (complement str/blank?) split-trimmed))]
                                                               (reduce
@@ -431,7 +433,9 @@
                                                  (fn [node]
                                                    (let [source-str    (:string node)
                                                          source-uid    (:uid node)
-                                                         extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children node)))))
+                                                         extracted     (extract-from-code-block
+                                                                         (clojure.string/trim (:string (first (:children node))))
+                                                                         true)
                                                          split-trimmed (mapv str/trim (str/split-lines extracted))
                                                          non-empty      (filter (complement str/blank?) split-trimmed)]
                                                      (map
@@ -451,7 +455,9 @@
                                                        (flatten
                                                          (mapv
                                                            (fn [x]
-                                                             (let [extracted     (extract-from-code-block (clojure.string/trim (:string (first (:children x)))))
+                                                             (let [extracted     (extract-from-code-block
+                                                                                   (clojure.string/trim (:string (first (:children x))))
+                                                                                   true)
                                                                    split-trimmed (mapv str/trim (str/split-lines extracted))
                                                                    non-empty      (filter (complement str/blank?) split-trimmed)]
                                                                non-empty))
