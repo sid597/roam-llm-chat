@@ -1,6 +1,6 @@
 (ns ui.utils
   (:require
-    ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
+    ["@blueprintjs/core" :as bp :refer [ControlGroup Position Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [cljs.reader :as reader]
@@ -722,11 +722,11 @@
   (let [model (model-type (:model settings))]
     (println "MODEL NAME" model)
     (case model
-      :gpt        (call-api   "http://localhost:3000/chat-complete" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+      :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
-      :claude     (call-api  "http://localhost:3000/chat-anthropic"  ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+      :claude     (call-api  "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
-     :gemini     (call-api "http://localhost:3000/chat-gemini"    ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
+     :gemini     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
                    messages settings callback)
       (p "Unknown model"))))
 
@@ -887,12 +887,16 @@
        {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
        render-comp]]]))
 
-(defn button-with-tooltip [tooltip-text button-comp]
-  (inject-style)
-  [:> Popover
-   {:position "bottom"}
-   [:> Tooltip
-    {:content tooltip-text
-     :openOnTargetFocus false
-     :hoverOpenDelay 500}
-    button-comp]])
+(defn button-with-tooltip
+  ([tooltip-text button-comp]
+   (button-with-tooltip tooltip-text button-comp "auto"))
+  ([tooltip-text button-comp position]
+   (inject-style)
+   [:> Popover
+    {:position "bottom"}
+    [:> Tooltip
+     {:content tooltip-text
+      :position position
+      :openOnTargetFocus false
+      :hoverOpenDelay 500}
+     button-comp]]))
