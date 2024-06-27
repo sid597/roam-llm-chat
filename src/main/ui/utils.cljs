@@ -825,7 +825,8 @@
 
 (defn inject-style []
   (let [style-element (.createElement js/document "style")
-        css-string ".sp svg { color: cadetblue; }"] ; Change 'blue' to your desired color
+        css-string ".sp svg { color: cadetblue; }
+        .bp3-tooltip {max-width: 200px;}"] ; Change 'blue' to your desired color
 
     (set! (.-type style-element) "text/css")
     (when (.-styleSheet style-element) ; For IE8 and below.
@@ -876,3 +877,13 @@
      [:div
        {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
        render-comp]]]))
+
+(defn button-with-tooltip [tooltip-text button-comp]
+  (inject-style)
+  [:> Popover
+   {:position "bottom"}
+   [:> Tooltip
+    {:content tooltip-text
+     :openOnTargetFocus false
+     :hoverOpenDelay 500}
+    button-comp]])

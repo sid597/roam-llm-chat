@@ -5,7 +5,7 @@
             [cljs-http.client :as http]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p button-with-tooltip all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -22,69 +22,75 @@
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
-      [:> Button {:minimal true
-                  :small true
-                  :style {:flex "1 1 1"}
-                  :on-click (fn [e]
-                              ;; UPDATE THIS CODE
-                              (p "*Chat with this page* :button clicked")
-                              (go
-                                (let [pre            "*Chat with this page* :"
-                                      chat-block-uid (gen-new-uid)
-                                      open-page-uid (<p! (get-open-page-uid))
-                                      page-title    (uid->title open-page-uid)
-                                      context       (if (nil? page-title)
-                                                      (str "((" open-page-uid "))")
-                                                      (str "[[" page-title "]]"))
-                                      context-struct [{:s context}
-                                                      {:s ""}]
-                                      ai-block? (ai-block-exists? open-page-uid)]
-                                  (p (str pre "block with `AI chats` exist? " ai-block?))
-                                  (p (str pre "context" context))
-                                  ;(println "open page uid" open-page-uid)
-                                  ;(println "page title" page-title)
-                                  ;(println "extract block" block-data)
-                                  (if (some? ai-block?)
+      [button-with-tooltip
+       "Using the content of the current page (including zoomed-in pages/blocks) as context, start a conversation with your selected LLM.
+        Control the LLM model, response length, and temperature in the interface that is created by this button."
+       [:> Button {:minimal true
+                   :small true
+                   :style {:flex "1 1 1"}
+                   :on-click (fn [e]
+                               ;; UPDATE THIS CODE
+                               (p "*Chat with this page* :button clicked")
+                               (go
+                                 (let [pre            "*Chat with this page* :"
+                                       chat-block-uid (gen-new-uid)
+                                       open-page-uid (<p! (get-open-page-uid))
+                                       page-title    (uid->title open-page-uid)
+                                       context       (if (nil? page-title)
+                                                       (str "((" open-page-uid "))")
+                                                       (str "[[" page-title "]]"))
+                                       context-struct [{:s context}
+                                                       {:s ""}]
+                                       ai-block? (ai-block-exists? open-page-uid)]
+                                   (p (str pre "block with `AI chats` exist? " ai-block?))
+                                   (p (str pre "context" context))
+                                   ;(println "open page uid" open-page-uid)
+                                   ;(println "page title" page-title)
+                                   ;(println "extract block" block-data)
+                                   (if (some? ai-block?)
+                                     (create-struct
+                                       (default-chat-struct chat-block-uid nil nil context-struct)
+                                       ai-block?
+                                       chat-block-uid
+                                       true
+                                       (p (str pre "Created a new chat block and opening in sidebar with context: " context)))
                                     (create-struct
-                                      (default-chat-struct chat-block-uid nil nil context-struct)
-                                      ai-block?
+                                      (chat-ui-with-context-struct chat-block-uid nil context-struct)
+                                      open-page-uid
                                       chat-block-uid
                                       true
-                                      (p (str pre "Created a new chat block and opening in sidebar with context: " context)))
-                                   (create-struct
-                                     (chat-ui-with-context-struct chat-block-uid nil context-struct)
-                                     open-page-uid
-                                     chat-block-uid
-                                     true
-                                     (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context)))))))}
+                                      (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context)))))))}
 
-       "Chat with this page"]]
+        "Chat with this page"]]]
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
-      [:> Button {:minimal true
-                  :small true
-                  :on-click (fn [e]
-                              (p "*Start chat in daily notes, show in sidebar* :button clicked")
-                              (let [pre            "*Start chat in daily notes, show in sidebar* :"
-                                    chat-block-uid (gen-new-uid)
-                                    ai-block?      (ai-block-exists? (get-todays-uid))]
-                                (p (str pre "block with `AI chats` exist? " ai-block?))
-                                (if (some? ai-block?)
-                                  (create-struct
-                                    (default-chat-struct chat-block-uid)
-                                    ai-block?
-                                    chat-block-uid
-                                    true
-                                    (p (str pre "Created a new chat block and opening in sidebar. With no context. ")))
-                                  (create-struct
-                                    (chat-ui-with-context-struct chat-block-uid)
-                                    (get-todays-uid)
-                                    chat-block-uid
-                                    true
-                                    (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
-       "Start chat in daily notes, show in sidebar"]]
-     [:> Divider]
+      [button-with-tooltip
+       "Begin a brand new empty chat from any page (including zoomed-in pages/blocks), no context is included. Think of this as a quick chat. The chat block will be added in your daily notes page and the chat window will appear in your right sidebar.
+        Choose your LLM and adjust its settings within the chat interface. ."
+       [:> Button {:minimal true
+                   :small true
+                   :on-click (fn [e]
+                               (p "*Start chat in daily notes, show in sidebar* :button clicked")
+                               (let [pre            "*Start chat in daily notes, show in sidebar* :"
+                                     chat-block-uid (gen-new-uid)
+                                     ai-block?      (ai-block-exists? (get-todays-uid))]
+                                 (p (str pre "block with `AI chats` exist? " ai-block?))
+                                 (if (some? ai-block?)
+                                   (create-struct
+                                     (default-chat-struct chat-block-uid)
+                                     ai-block?
+                                     chat-block-uid
+                                     true
+                                     (p (str pre "Created a new chat block and opening in sidebar. With no context. ")))
+                                   (create-struct
+                                     (chat-ui-with-context-struct chat-block-uid)
+                                     (get-todays-uid)
+                                     chat-block-uid
+                                     true
+                                     (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
+        "Start new chat"]]]
+     #_[:> Divider]
      #_[:div
         {:style {:flex "1 1 1"}}
         [:> Button
@@ -123,23 +129,25 @@
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
-      [:> Button {:minimal true
-                  :small true
-                  :style {:flex "1 1 1"}
-                  :on-click (fn [e]
-                              (p "*Start chat in focused block* :button clicked")
-                              (let [pre            "*Start chat in focused block* "
-                                    chat-block-uid (gen-new-uid)
-                                    [parent-uid
-                                     block-order]  (get-block-parent-with-order (get-focused-block))
-                                    chat-struct    (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
-                                (create-struct
-                                  chat-struct
-                                  parent-uid
-                                  chat-block-uid
-                                  false
-                                  (p (str pre "Created a new chat block under focused block and opening in sidebar. With no context.")))))}
-       "Start chat in focused block"]]
+      [button-with-tooltip
+       "Same as `Start new chat` button but starts the chat in the block you are focused on."
+       [:> Button {:minimal true
+                   :small true
+                   :style {:flex "1 1 1"}
+                   :on-click (fn [e]
+                               (p "*Start chat in focused block* :button clicked")
+                               (let [pre            "*Start chat in focused block* "
+                                     chat-block-uid (gen-new-uid)
+                                     [parent-uid
+                                      block-order]  (get-block-parent-with-order (get-focused-block))
+                                     chat-struct    (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
+                                 (create-struct
+                                   chat-struct
+                                   parent-uid
+                                   chat-block-uid
+                                   false
+                                   (p (str pre "Created a new chat block under focused block and opening in sidebar. With no context.")))))}
+        "Start new chat in focused block"]]]
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
