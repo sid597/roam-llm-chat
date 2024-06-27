@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [ui.utils :refer [gemini-safety-settings-struct get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
-            ["@blueprintjs/core" :as bp :refer [RadioGroup Radio ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
+            ["@blueprintjs/core" :as bp :refer [RadioGroup MenuDivider Radio ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn inject-style []
   (let [style-element (.createElement js/document "style")
@@ -111,71 +111,100 @@
         [button-popover
           (str "Model: " @default-model)
           [:div
-           [:span {:style {:margin-bottom "5px"}} "Select Model:"]
-           [:> Divider]
+           [:> MenuDivider {:title "With vision capabilities"}]
            [:> Menu.Item
-            {:text "gpt-4"
+                       {:text "GPT-4-vision"
+                        :labelElement "$5.00"
+                        :should-dismiss-popover dismiss-popover?
+                        :on-click (fn [e]
+                                    #_(js/console.log "clicked menu item" e)
+                                    (p "chose gpt-4-vision")
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4-vision")
+                                    (reset! default-model "gpt-4-vision"))}]
+           [:> MenuDivider {:title "Fast Free and 1M tokens"}]
+           [:> Menu.Item
+            {:text "Gemini 1.5 Flash"
              :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
-                         (p "chose gpt-4")
-                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4")
-                         (reset! default-model "gpt-4"))}]
-           [:> Divider]
+                         (p "chose gemini-1.5-flash")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-flash")
+                         (let [settings-exist? (get-child-of-child-with-str block-uid "Settings" "Safety settings")]
+                           (if (nil? settings-exist?)
+                              (create-struct
+                                  gemini-safety-settings-struct
+                                  (:uid (get-child-with-str block-uid "Settings"))
+                                  nil
+                                  nil
+                                  #(reset! default-model "gemini-1.5-flash"))
+                              (reset! default-model "gemini-1.5-flash"))))}]
+           [:> MenuDivider {:title "Top of the line"}]
            [:> Menu.Item
-            {:text "gpt-4-vision"
+                       {:text "GPT-4o"
+                        :labelElement "$5.00"
+                        :should-dismiss-popover dismiss-popover?
+                        :on-click (fn [e]
+                                    #_(js/console.log "clicked menu item" e)
+                                    (p "chose gpt-4o")
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o")
+                                    (reset! default-model "gpt-4o"))}]
+           [:> Menu.Item
+            {:text "Claude 3.5 Sonnet"
+             :labelElement "$3.00"
              :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
-                         (p "chose gpt-4-vision")
-                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4-vision")
-                         (reset! default-model "gpt-4-vision"))}]
-           [:> Divider]
+                         (p "chose claude-3.5-sonnet")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3.5-sonnet")
+                         (reset! default-model "claude-3.5-sonnet"))}]
            [:> Menu.Item
-            {:text "gpt-3.5"
+            {:text "Gemini 1.5 Pro"
+             :labelElement "$3.50"
+             :should-dismiss-popover dismiss-popover?
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+                         (p "chose gemini-1.5-pro")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-pro")
+                         (let [settings-exist? (get-child-of-child-with-str block-uid "Settings" "Safety settings")]
+                           (if (nil? settings-exist?)
+                             (create-struct
+                               gemini-safety-settings-struct
+                               (:uid (get-child-with-str block-uid "Settings"))
+                               nil
+                               nil
+                               #(reset! default-model "gemini-1.5-pro"))
+                             (reset! default-model "gemini-1.5-pro"))))}]
+           [:> Menu.Item
+                       {:text "Claude 3 Opus"
+                        :labelElement "$15.0"
+                        :should-dismiss-popover dismiss-popover?
+                        :on-click (fn [e]
+                                    #_(js/console.log "clicked menu item" e)
+                                    (p "chose claude-3-opus")
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
+                                    (reset! default-model "claude-3-opus"))}]
+           [:> MenuDivider {:title "Fast and cheap"}]
+           [:> Menu.Item
+                       {:text "Claude 3 Haiku"
+                        :labelElement "$0.25"
+                        :should-dismiss-popover dismiss-popover?
+                        :on-click (fn [e]
+                                    #_(js/console.log "clicked menu item" e)
+                                    (p "chose claude-3-haiku")
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-haiku")
+                                    (reset! default-model "claude-3-haiku"))}]
+           [:> Menu.Item
+            {:text "GPT-3.5 Turbo"
+             :labelElement "$0.50"
              :should-dismiss-popover dismiss-popover?
              :on-click (fn [e]
                          #_(js/console.log "clicked menu item" e)
                          (p "chose gpt-3.5")
                          (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-3.5")
-                         (reset! default-model "gpt-3.5"))}]
-           [:> Divider]
-           [:> Menu.Item
-            {:text "claude-3-opus"
-             :should-dismiss-popover dismiss-popover?
-             :on-click (fn [e]
-                         #_(js/console.log "clicked menu item" e)
-                         (p "chose claude-3-opus")
-                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
-                         (reset! default-model "claude-3-opus"))}]
-           [:> Divider]
-           [:> Menu.Item
-            {:text "claude-3-sonnet"
-             :should-dismiss-popover dismiss-popover?
-             :on-click (fn [e]
-                         #_(js/console.log "clicked menu item" e)
-                         (p "chose claude-3-sonnet")
-                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-sonnet")
-                         (reset! default-model "claude-3-sonnet"))}]
-           [:> Divider]
-           [:> Menu.Item
-            {:text "gemini"
-             :should-dismiss-popover dismiss-popover?
-             :on-click (fn [e]
-                         #_(js/console.log "clicked menu item" e)
-                         (p "chose gemini")
-                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini")
-                         (let [settings-exist? (get-child-of-child-with-str block-uid "Settings" "Safety settings")]
-                          (if (nil? settings-exist?)
-                           (create-struct
-                             gemini-safety-settings-struct
-                             (:uid (get-child-with-str block-uid "Settings"))
-                             nil
-                             nil
-                             #(reset! default-model "gemini"))
-                           (reset! default-model "gemini"))))}]]])]
+                         (reset! default-model "gpt-3.5"))}]]])]
+
      (when (and (some? default-model)
-                (= "gemini" @default-model))
+             (contains? #{"gemini-1.5-flash" "gemini-1.5-pro"} @default-model))
        [gemini-safety-component block-uid])
      (when (some? default-max-tokens)
        [:> Divider]
@@ -187,10 +216,10 @@
             {:class-name "bp3-popover-dismiss"})
           [:span {:style {:margin-bottom "5px"}} "Max output length:"]
           [:> Slider {:min 0
-                      :max 2048
+                      :max 4096
                       :label-renderer @default-max-tokens
                       :value @default-max-tokens
-                      :label-values [0 2048]
+                      :label-values [0 4096]
                       :on-change (fn [e]
                                    (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
                                    (reset! default-max-tokens e))

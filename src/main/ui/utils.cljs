@@ -662,12 +662,15 @@
 ;; ---- ai specific ----
 
 (def model-mappings
-  {"gpt-4"            "gpt-4o"
-   "gpt-4-vision"     "gpt-4o"
-   "gpt-3.5"          "gpt-3.5-turbo-0125"
-   "claude-3-sonnet"  "claude-3-sonnet-20240229"
-   "claude-3-opus"    "claude-3-opus-20240229"
-   "gemini"           "gemini"})
+  {"gpt-4o"            "gpt-4o-2024-05-13"
+   "gpt-4-vision"      "gpt-4o-2024-05-13"
+   "gpt-3.5"           "gpt-3.5-turbo-0125"
+   "claude-3.5-sonnet" "claude-3-5-sonnet-20240620"
+   "claude-3-opus"     "claude-3-opus-20240229"
+   "claude-3-haiku"    "claude-3-haiku-20240307"
+   "gemini-1.5-flash"  "gemini-1.5-flash"
+   "gemini-1.5-pro"    "gemini-1.5-pro"})
+
 
 (defn model-type [model-name]
   (cond
@@ -715,13 +718,15 @@
     (take! res-ch callback)))
 
 (defn call-llm-api [{:keys [messages settings callback]}]
+  (println "SETTINGS" settings)
   (let [model (model-type (:model settings))]
+    (println "MODEL NAME" model)
     (case model
-      :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+      :gpt        (call-api   "http://localhost:3000/chat-complete" ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
-      :claude     (call-api  "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+      :claude     (call-api  "http://localhost:3000/chat-anthropic"  ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
-     :gemini     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
+     :gemini     (call-api "http://localhost:3000/chat-gemini"    ;"https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
                    messages settings callback)
       (p "Unknown model"))))
 
@@ -863,7 +868,7 @@
                 :small true}
      button-text]
     [:> Menu
-     {:style {:padding "20px"}}
+     ;{:style {:padding "20px"}}
      render-comp]]))
 
 (defn settings-button-popover

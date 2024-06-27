@@ -174,12 +174,21 @@
 
 (defn chat-gemini [request]
   (println "chat gemini")
-  (let [{:keys [settings
+  (let [{:keys [model
+                settings
                 temperature
                 max-tokens
                 messages]} (extract-request request)
+        _ (println model)
+        mod     (if (= "gemini" model)
+                  "gemini-1.5-flash"
+                  model)
         api-key  gemini-key
-        url      (str "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=" api-key)
+        url      (str
+                   "https://generativelanguage.googleapis.com/v1/models/"
+                   mod
+                   ":generateContent?key="
+                   api-key)
         headers  {"Content-Type" "application/json"}
         body     (json/generate-string
                    {:contents         (gemini-flavoured-messages messages)
