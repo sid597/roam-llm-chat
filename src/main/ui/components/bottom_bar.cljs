@@ -5,7 +5,7 @@
             [cljs-http.client :as http]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p button-with-tooltip all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [p call-llm-api button-with-tooltip count-tokens-api all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -91,41 +91,73 @@
                                      (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
         "Start new chat"]]]
      #_[:> Divider]
-     #_[:div
-        {:style {:flex "1 1 1"}}
-        [:> Button
-         {:minimal true
-          :small true
-          :on-click (fn [e]
-                      (let [url         "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
-                            upsert-data  (clj->js {:input (subvec (all-dg-nodes) 1600)})
-                            multiple-query-data   (clj->js {:input ["Myosin plays a critical role in assisting endocytosis under conditions of high membrane tension"
-                                                                    #_"Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization"]
-                                                            :top-k "8"})
-                            single-query-data (clj->js {:input ["Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization
+     [:div
+      {:style {:flex "1 1 1"}}
+      [:> Button
+       {:minimal true
+        :small true
+        :on-click  (fn [e]
+                     (let [initial-data (take 20 (all-dg-nodes)) ;; 40k tokens
+                           new-title    "[[QUE]] - How does Arp2/3 complex affect actin filament growth?"
+                           prompt       (str "Initial data:\n"
+                                          (clojure.string/join "\n" (map #(str (:uid %) ": " (:title %)) initial-data))
+                                          "\n\nNew title: " new-title
+                                          "\n\nFind titles similar to the new title from the initial data list. Respond with matching titles as a JSON array.")
+                           tools    [{:name "find_similar_titles"
+                                      :description "Find titles similar to the new title from the initial data list. This tool analyzes the provided text containing initial data and a new title, then returns an array of objects representing matching titles. Each object contains the title, UID, and a description of the relationship to the new title."
+                                      :input_schema
+                                      {:type "object"
+                                       :properties
+                                       {:input_text
+                                        {:type "string"
+                                         :description "The full text containing initial data, new title, and instructions"}}
+                                       :required ["input_text"]}}]]
+                       (println "prompt" prompt)
+                       (call-llm-api
+                         {:messages [{:role "user"
+                                      :content prompt}]
+                          :settings {:model "claude-3-5-sonnet-20240620" #_"claude-3-haiku-20240307"
+                                     :temperature 0.9
+                                     :max-tokens 500
+                                     :tools tools
+                                     :tool_choice {:type "tool"
+                                                   :name "find_similar_titles"}}
+                          :callback (fn [response]
+                                      (println "----- Got response from llm -----")
+                                      (cljs.pprint/pprint (-> response :body))
+                                      (println "---------- END ---------------"))})))
+
+
+        #_(fn [e]
+            (let [url         "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                  upsert-data  (clj->js {:input (subvec (all-dg-nodes) 1600)})
+                  multiple-query-data   (clj->js {:input ["Myosin plays a critical role in assisting endocytosis under conditions of high membrane tension"
+                                                          #_"Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization"]
+                                                  :top-k "8"})
+                  single-query-data (clj->js {:input ["Increasing membrane tension from 2 pN/nm to 2000 pN/nm in simulations showed a broader assistance by myosin in internalization
                              Resistance to internalization increased as myosin unbinding rate decreased at higher membrane tension in simulations
                              At 20 pN/nm membrane tension, areas with low myosin unbinding rates had decreased internalization resistance
                             Investigate the relationship between myosin catch bonding parameters and internalization efficiency in live cell experiments
                             Myosin assists more broadly in membrane internalization under higher tension conditions
                             High membrane tension facilitates myosin’s role in overcoming resistance to internalization  "]
-                                                        :top-k "3"})
+                                              :top-k "3"})
 
 
 
-                            headers      {"Content-Type" "application/json"}
-                            res-ch       (http/post url {:with-credentials? false
-                                                         :headers headers
-                                                         :json-params multiple-query-data})]
-                        #_(println "SENDING EMBEDDINGS REQUEST" (count (all-dg-nodes))) ""
-                        #_(println "DATA : " (take 2 upsert-data))
-                        (println "query data" single-query-data)
-                        (take! res-ch (fn [res]
-                                        (let [embeddings (->> (js->clj (-> res :body ) :keywordize-keys true)
-                                                           (map
-                                                             (fn [x]
-                                                               (str (-> x :metadata :title) "- Score: " (:score x)))))]
-                                          #_(println "GOT EMBEDDINGS :" "--" embeddings))))))}
-         "Create embeddings"]]
+                  headers      {"Content-Type" "application/json"}
+                  res-ch       (http/post url {:with-credentials? false
+                                               :headers headers
+                                               :json-params multiple-query-data})]
+              #_(println "SENDING EMBEDDINGS REQUEST" (count (all-dg-nodes))) ""
+              #_(println "DATA : " (take 2 upsert-data))
+              (println "query data" single-query-data)
+              (take! res-ch (fn [res]
+                              (let [embeddings (->> (js->clj (-> res :body ) :keywordize-keys true)
+                                                 (map
+                                                   (fn [x]
+                                                     (str (-> x :metadata :title) "- Score: " (:score x)))))]
+                                #_(println "GOT EMBEDDINGS :" "--" embeddings))))))}
+       "Create embeddings"]]
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
@@ -159,4 +191,7 @@
      [:div
       {:style {:flex "1 1 1"}}
       [text-to-image-button]]]))
+
+
+
 

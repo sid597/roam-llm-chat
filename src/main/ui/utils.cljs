@@ -724,7 +724,7 @@
     (case model
       :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
-      :claude     (call-api  "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+      :claude     (call-api "http://localhost:3000/chat-anthropic"  ; "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
      :gemini     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
                    messages settings callback)
@@ -900,3 +900,5 @@
       :openOnTargetFocus false
       :hoverOpenDelay 500}
      button-comp]]))
+
+

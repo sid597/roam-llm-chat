@@ -58,10 +58,14 @@
                      :settings)
         {:keys [model
                 max-tokens
-                temperature]} settings]
+                temperature
+                tools
+                tool_choice]} settings]
 
     {:model model
      :messages messages
+     :tools tools
+     :tool_choice tool_choice
      :passphrase passphrase
      :temperature temperature
      :max-tokens max-tokens
@@ -124,21 +128,28 @@
 
 
 (defn chat-anthropic [request]
+  (println "chat anthropic")
   (let [{:keys
          [model
           messages
           temperature
-          max-tokens]} (extract-request request)
+          max-tokens
+          tools
+          tool_choice]} (extract-request request)
         api-key        anthropic-key
         url            "https://api.anthropic.com/v1/messages"
         headers        {"x-api-key"         api-key
                         "anthropic-version" "2023-06-01"
                         "Content-Type"      "application/json"}
-        body           (json/generate-string
-                         {:model      model
-                          :max_tokens max-tokens
-                          :messages   messages
-                          :temperature temperature})
+        body      (json/generate-string{:model      model
+                                        :max_tokens max-tokens
+                                        :messages   messages
+                                        :tools tools
+                                        :tool_choice tool_choice
+                                        :temperature temperature})
+
+        _ (println "body" {:tools (json/generate-string tools)
+                           #_#_:tool_choice (json/generate-string tool_choice)})
         response       (client/post url
                          {:headers headers
                           :body    body
@@ -146,6 +157,7 @@
                           :as :json
                           :throw-exceptions false})
         res-body       (-> response :body)
+        _ (println "response" res-body)
         tokens         (-> res-body
                          :usage)
         input-token    (:input_tokens tokens)
@@ -167,7 +179,7 @@
                                                          :content
                                                          first
                                                          :text))]
-    {:status 200
+    {:status (:status response)
      :headers {"Content-Type" "text/plain"}
      :body   reply-body}))
 
@@ -492,4 +504,4 @@
 
 (defn -main [& args]
   (println "Starting server")
-  (jetty/run-jetty app {:port 8080}))
+  (jetty/run-jetty app {:port 3000}))
