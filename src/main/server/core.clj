@@ -157,9 +157,11 @@
                           :as :json
                           :throw-exceptions false})
         res-body       (-> response :body)
-        _ (println "response" res-body)
+        _ (println "response")
+        _ (clojure.pprint/pprint res-body)
         tokens         (-> res-body
                          :usage)
+        _ (println tokens)
         input-token    (:input_tokens tokens)
         output-token   (:output_tokens tokens)
         total-token    (+ input-token output-token)
@@ -177,11 +179,12 @@
                                (:stop_reason res-body))    (str "ERROR:  MAX TOKENS REACHED")
                          :else                         (-> res-body
                                                          :content
-                                                         first
-                                                         :text))]
+                                                         first))]
+
+    (println "\nREturning response" reply-body)
     {:status (:status response)
-     :headers {"Content-Type" "text/plain"}
-     :body   reply-body}))
+     :headers {"Content-Type" "application/json"}
+     :body    (json/generate-string reply-body)}))
 
 
 (defn chat-gemini [request]

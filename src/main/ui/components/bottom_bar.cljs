@@ -97,31 +97,166 @@
        {:minimal true
         :small true
         :on-click  (fn [e]
-                     (let [initial-data (take 20 (all-dg-nodes)) ;; 40k tokens
-                           new-title    "[[QUE]] - How does Arp2/3 complex affect actin filament growth?"
-                           prompt       (str "Initial data:\n"
-                                          (clojure.string/join "\n" (map #(str (:uid %) ": " (:title %)) initial-data))
-                                          "\n\nNew title: " new-title
-                                          "\n\nFind titles similar to the new title from the initial data list. Respond with matching titles as a JSON array.")
-                           tools    [{:name "find_similar_titles"
-                                      :description "Find titles similar to the new title from the initial data list. This tool analyzes the provided text containing initial data and a new title, then returns an array of objects representing matching titles. Each object contains the title, UID, and a description of the relationship to the new title."
-                                      :input_schema
-                                      {:type "object"
-                                       :properties
-                                       {:input_text
-                                        {:type "string"
-                                         :description "The full text containing initial data, new title, and instructions"}}
-                                       :required ["input_text"]}}]]
+                     (let [initial-data (take 695 (all-dg-nodes)) ;; 40k tokens
+                           new-title    "[[QUE]] - What is the branching angle of arp23 complex?"
+                           prompt       (str
+                                          "<system_context>
+                                          You are an AI assistant trained to analyze discourse relationships in scientific research data, specifically in the field of cellular biology focusing on the actin cytoskeleton and endocytosis.
+                                          </system_context>
+
+                                          <lab_context>
+                                          Our lab uses Roam Research for knowledge organization with the following structure:
+                                          <node_types>
+                                          - Question (QUE)
+                                          - Claim (CLM)
+                                          - Evidence (EVD)
+                                          </node_types>
+                                          <edge_types>
+                                          - Informs
+                                          - Supports
+                                          - Opposes
+                                          </edge_types>
+                                          <discourse_relationships>
+                                          - (Evidence, Informs, Question)
+                                          - (Question, InformedBy, Evidence)
+                                          - (Evidence, Supports, Claim)
+                                          - (Claim, SupportedBy, Evidence)
+                                          - (Evidence, Opposes, Claim)
+                                          - (Claim, OpposedBy, Evidence)
+                                          </discourse_relationships>
+                                          </lab_context>
+
+                                          <task>
+                                          Analyze the provided <initial_data> to find discourse relationships relevant to the given <new_title>. Use your expertise to identify meaningful connections.
+                                          </task>
+                                          <input_format>
+                                          <initial_data_format>
+                                          A list of maps, each containing:
+                                          - uid: Unique identifier of the node
+                                          - title: Title of the node
+                                          </initial_data_format>
+                                          <initial-data>"
+                                          initial-data
+                                          "</initial-data>
+                                          <new_title>"
+                                          new-title
+                                          "</new_title>
+                                          </input_format>
+                                          <output_format>
+                                          Return a list of maps, each containing:
+                                          - uid: Unique identifier of the related node
+                                          - title: Title of the related node
+                                          - relationship: Type of discourse relationship (Informs, Supports, or Opposes)
+                                          </output_format>
+
+                                          <instructions>
+                                          1. Examine the <new_title> and understand its implications within the context of actin cytoskeleton and endocytosis research.
+                                          2. Review the <initial_data> and identify nodes that could form valid discourse relationships with the <new_title>.
+                                          3. For each relevant node, determine the appropriate relationship type based on the content and research context.
+                                          4. Only include relationships that strictly adhere to the defined <discourse_relationships>.
+                                          5. If no valid relationships are found, return an empty list rather than forcing irrelevant connections.
+                                          </instructions>
+
+                                           <quality_guideline>
+                                           Prioritize accuracy and relevance over quantity. It's better to return fewer, highly relevant relationships than many tenuous connections. Ensure all relationships logically fit within the context of actin cytoskeleton and endocytosis research.
+                                           </quality_guideline>")
+
+
+
+                           #_(str
+                               "<Context>
+                                          Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.
+                                          We capture questions (QUE), claim (CLM), evidence (EVD), source (represented as `@whatever-the-source`)
+                                          on separate pages in Roam. Each page has a title summarizing the key insight. We call these discourse nodes.
+                                          <node-type> QUE, CLM, EVD </node-type>
+                                          These discourse nodes also have edges between themselves, <edge-type> Informs, Supports, Opposes </edge-type>
+                                          The triple of directed branch(source-node, relation, target-node) is called discourse-relationships.
+                                          <discourse-relationships>
+                                          (Evidence, Informs, Question)
+                                          (Evidence, Supports, Claim)
+                                          (Evidence, Opposes, Claim)
+                                          </discourse-relationships>
+                                          Each of the tuple above represents a discourse relationship.
+                                          </Context>
+
+                                          <Your-personality>
+                                          You are a researcher at my bio lab where We combine mathematical modeling, human stem cell genome-editing, and fluorescence microscopy to study how the actin cytoskeleton produces force to function in cellular membrane bending and trafficking processes. Our research focuses on the mechanical relationship between the actin cytoskeleton and mammalian endocytosis. We aim to identify mechanisms by which emergent architectures of cytoskeletal networks arise based on the initial positions and geometries of endocytic actin-binding proteins. We also study the mechanisms by which the cytoskeleton actively adapts to changing loads to ensure the timely completion of endocytosis.
+                                          </Your-personality>
+                                          <Your-job>
+                                            Given the Initial-data, Response-format and new-title below. For the new-title you have, use your high level reasoning ability
+                                            like my lab researcher to find if there are nodes in the Initial-data that might form a discourse relationships. If there are none, please don't return any just for the sake of it.
+                                            Respond with matching titles as the Response-format says.
+                                          </Your-job>
+
+                                          <NOTE> 1. No other type of discourse relationship is possible than the ones provided above.
+                                                 2. If you don't find any sensible discourse-relationships that STRICTLY follow the type of discourse-relationship mentioned above then please don't include them. </NOTE>\\n\n
+                                          <Initial-data-format>
+                                          Its a list of maps, each map is of the format:
+                                          {:uid  uid-of-some-node
+                                           :title title-of-the-node}
+                                          </Initial-data-format>
+                                          <Initial-data>\n"
+                               initial-data
+                               "</Initial-data>
+                                          <Response-format>
+                                          The data should be in this format:
+                                          [{:uid \"\" :title \"\" :relationship \"\"}
+                                           {:uid \"\" :title \"\" :relationship \"\"}
+                                           ...]
+                                           </Response-format>
+                                          <New-title> "
+                               new-title
+                               " </New-title> \n")
+
+                           tools  [{:name "return_similar_titles"
+                                    :description "Return an array of titles similar to the one provided in the prompt. Reply with uid, title, and relationship fields"
+                                    :input_schema
+                                    {:type "object"
+                                     :properties
+                                     {:items
+                                      {:type "array"
+                                       :items
+                                       {:type "object"
+                                        :properties
+                                        {:uid {:type "string"
+                                               :description "This is unique id for the discourse-node"}
+                                         :title {:type "string"
+                                                 :description "This is the title of the discourse-node"}
+                                         :relationship {:type "string"
+                                                        :enum ["Supports" "Informs" "Opposes"]
+                                                        :description "Type of discourse relationship with the discourse-node"}}
+                                        :required ["uid" "title" "relationship"]}}}
+                                     :required ["items"]}}]
+                           #_[{:name "analyze_discourse_relationships"
+                               :description "Analyze the Initial-data to find discourse relationships that match the new-title. Return relevant nodes with their relationships."
+                               :input_schema
+                               {:type "object"
+                                :properties
+                                {:items
+                                 {:type "array"
+                                  :items
+                                  {:type "object"
+                                   :properties
+                                   {:uid {:type "string"
+                                          :description "Unique id for the discourse node"}
+                                    :title {:type "string"
+                                            :description "Title of the discourse node"}
+                                    :relationship {:type "string"
+                                                   :enum ["Supports" "Informs" "Opposes"]
+                                                   :description "Type of discourse relationship with the new title"}}
+                                   :required ["uid" "title" "relationship"]}}}
+                                :required ["items"]}}]]
                        (println "prompt" prompt)
                        (call-llm-api
                          {:messages [{:role "user"
                                       :content prompt}]
-                          :settings {:model "claude-3-5-sonnet-20240620" #_"claude-3-haiku-20240307"
-                                     :temperature 0.9
+                          :settings {:model #_"claude-3-5-sonnet-20240620"
+                                     "claude-3-haiku-20240307"
+                                     :temperature 0.1
                                      :max-tokens 500
                                      :tools tools
                                      :tool_choice {:type "tool"
-                                                   :name "find_similar_titles"}}
+                                                   :name "return_similar_titles"}}
                           :callback (fn [response]
                                       (println "----- Got response from llm -----")
                                       (cljs.pprint/pprint (-> response :body))
@@ -191,7 +326,5 @@
      [:div
       {:style {:flex "1 1 1"}}
       [text-to-image-button]]]))
-
-
 
 
