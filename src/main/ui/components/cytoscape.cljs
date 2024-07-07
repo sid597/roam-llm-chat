@@ -3,7 +3,7 @@
            [reagent.dom :as rd]
            [ui.utils :refer [q]]
            ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
-           [ui.utils :refer [get-title-with-uid]]
+           [ui.utils :refer [get-title-with-uid title->uid]]
            [ui.extract-data.dg :refer [determine-node-type all-dg-nodes get-all-discourse-node-from-akamatsu-graph-for]]
    ["cytoscape" :as cytoscape]
    ["cytoscape-cose-bilkent" :as cose-bilkent]))
@@ -252,14 +252,15 @@
 
 (defn suggested-edges [data]
   (mapcat (fn [[source targets]]
-            (map (fn [{:keys [uid title label]}]
-                   {:data
-                    {:id     uid
-                     :source source
-                     :target  title
-                     :relation label
-                     :color    (edge-colors label)}})
-              targets))
+            (let [tuid (title->uid source)]
+              (map (fn [{:keys [uid title label]}]
+                     {:data
+                      {:id     (str  uid "--" tuid)
+                       :source uid
+                       :target  tuid
+                       :label label
+                       :color    (edge-colors label)}})
+                targets)))
     data))
 
 

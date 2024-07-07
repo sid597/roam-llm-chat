@@ -34,7 +34,7 @@
                          [(re-find ?.*?$-regex ?node-Title)]]))))
 
 
-(def all-dg-nodes
+(defn all-dg-nodes []
   (let [cnt (atom [])
         nodes ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "CON"]]
     (doseq [node nodes]
@@ -43,9 +43,6 @@
     (into [] (concat (into [] @cnt) (extract-all-sources)))))
 
 
-(comment
-  all-dg-nodes
-  (count all-dg-nodes))
 
 (comment
   (extract-all-discourse-for "CLM")
@@ -498,5 +495,4 @@
  (def n3 "[[QUE]] - Does actin polymerization adjacent to CLICs help to form CLIC tubules or scission of CLICs?")
  (get-all-discourse-node-from-akamatsu-graph-for n3)
  (concat [] (get-all-discourse-node-from-akamatsu-graph-for n2)
-  (get-all-discourse-node-from-akamatsu-graph-for n3))
- #_(cljs.pprint/pprint (convert-to-cytoscape-edges (get-all-discourse-node-from-akamatsu-graph-for n3))))
+  (get-all-discourse-node-from-akamatsu-graph-for n3)))

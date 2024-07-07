@@ -6,6 +6,8 @@
             [ui.extract-data.dg :refer [determine-node-type all-dg-nodes get-all-discourse-node-from-akamatsu-graph-for]]
             ["@blueprintjs/core" :as bp :refer [Checkbox Position Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.utils :refer [q
+                              call-llm-api
+                              title->uid
                               p
                               button-with-tooltip
                               get-block-parent-with-order
@@ -32,7 +34,7 @@
                               move-block
                               create-new-block]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
-            [ui.components.cytoscape :refer [llm-suggestions-2 get-node-data suggested-nodes random-uid get-cyto-format-data-for-node cytoscape-component]]
+            [ui.components.cytoscape :refer [llm-suggestions-2 node-colors get-node-data suggested-nodes suggested-edges random-uid get-cyto-format-data-for-node cytoscape-component]]
             [clojure.string :as str]
             [reagent.dom :as rd]))
 
@@ -288,6 +290,99 @@
         [actions child m-uid selections cy-el]))]])
 
 
+(defn get-similar-suggestion-nodes [selected]
+  (vals
+    (suggested-nodes
+      (mapv
+        (fn [node]
+          (println "node" node)
+          {:string (:string node)
+           :uid    (:uid    node)})
+        selected))))
+
+
+(defn read-similar-suggestion-code-block-data [node]
+  (let [extracted     (extract-from-code-block
+                        (clojure.string/trim (:string (first (:children node))))
+                        true)
+        split-trimmed (mapv str/trim (str/split-lines extracted))
+        non-empty      (filter (complement str/blank?) split-trimmed)]
+    non-empty))
+
+
+(defn get-similar-suggestion-edges [selected]
+  (mapcat
+    (fn [node]
+      (let [source-str    (:string node)
+            source-uid    (:uid node)
+            non-empty      (read-similar-suggestion-code-block-data node)]
+        (map
+          (fn [target]
+            (let [target-data (ffirst (get-title-with-uid target))
+                  target-uid (:uid target-data)]
+
+              {:data
+               {:id     (str source-uid "-" target-uid)
+                :source source-uid
+                :target  target-uid
+                :relation "Similar to"
+                :color    "lightgrey"}}))
+          non-empty)))
+    selected))
+
+(defn get-similar-nodes [selected]
+  (r/atom (into []
+            (flatten
+              (mapv
+                (fn [x]
+                  (read-similar-suggestion-code-block-data x))
+                selected)))))
+
+(defn parse-data-string [node]
+  (cljs.reader/read-string
+    (extract-from-code-block
+      (clojure.string/trim (:string (first (:children node))))
+      true)))
+
+
+(defn get-suggested-discourse-graph-nodes [k  v]
+  (let [res (atom {})]
+    (do
+     (doseq [n v]
+       (let [title (:title n)
+             uid (:uid n)
+             node-data {:data {:id uid
+                               :label title
+                               :color (node-colors (determine-node-type title))
+                               :bwidth "3px"
+                               :bstyle "solid"
+                               :bcolor "black"}}]
+         (swap! res assoc title node-data)))
+     (swap! res assoc k {:data {:id    (title->uid k)
+                                :label k
+                                :color "white"
+                                :bwidth "2px"
+                                :bstyle "dashed"
+                                :bcolor "black"}})
+     (println "*********8" @res)
+     (vals @res))))
+
+
+(defn get-suggested-discourse-graph-cyto-data [selected]
+  (let [all-nodes (atom [])
+        all-edges (atom [])]
+    (println "1. --" (count selected))
+    (doseq [node selected]
+      (when (some? (:children node))
+        (let [parsed-node-data (parse-data-string node)
+              cyto-nodes (get-suggested-discourse-graph-nodes (:string node)  parsed-node-data)
+              cyto-edges (suggested-edges {(:string node) parsed-node-data})]
+          (swap! all-nodes concat cyto-nodes)
+          (swap! all-edges concat cyto-edges))))
+   {:nodes @all-nodes
+    :edges @all-edges}))
+
+
 (defn discourse-node-suggestions-ui [block-uid]
  #_(println "block uid for chat" block-uid)
  (let [suggestions-data (get-child-with-str block-uid "Suggestions")
@@ -302,6 +397,7 @@
        as-group-loading?(r/atom false)
        cy-el            (atom nil)
        running? (r/atom false)
+       dg? (r/atom false)
        [parent-uid _] (get-block-parent-with-order block-uid)
        already-exist? (r/atom (block-has-child-with-str? parent-uid "{{visualise-suggestions}}"))]
    (watch-children
@@ -345,7 +441,7 @@
            {:style {:align-self "center"
                     :margin-left "5px"}}
            [button-with-tooltip
-            "For each of the selected suggestions, extract similar sounding discourse nodes from the graph"
+            "For each of the selected suggestions, extract similar discourse nodes from the graph"
             [:> Button
              {:minimal true
               :fill false
@@ -366,13 +462,13 @@
                              (take! res-ch (fn [res]
                                              (reset! selections #{})
                                              (doseq [i (range (count uid-data))]
-                                               (let  [u (nth uid-data i)
-                                                      r (nth (:body res) i)
-                                                      matches (str "``` \n "
-                                                                (clojure.string/join
-                                                                  " \n "
-                                                                  (map #(-> % :metadata :title) r))
-                                                                "\n ```")
+                                               (let  [u         (nth uid-data i)
+                                                      r         (nth (:body res) i)
+                                                      matches   (str "``` \n "
+                                                                  (clojure.string/join
+                                                                    " \n "
+                                                                    (map #(-> % :metadata :title) r))
+                                                                  "\n ```")
                                                       node-data (merge (ffirst (q '[:find (pull ?u [{:block/children ...} :block/string :block/uid])
                                                                                     :in $ ?nuid
                                                                                     :where [?u :block/uid ?nuid]]
@@ -387,7 +483,7 @@
            {:style {:align-self "center"
                     :margin-left "5px"}}
            [button-with-tooltip
-            "Consider all the selected nodes as a single group and then find similar sounding discourse nodes in the graph."
+            "Consider all the selected nodes as a single group and then find similar discourse nodes in the graph."
             [:> Button
              {:minimal true
               :fill false
@@ -430,6 +526,7 @@
              :fill false
              :small true
              :on-click (fn []
+                         (let [selected (into [] @selections)])
                          (let [cyto-uid       (gen-new-uid)
                                struct         {:s "{{visualise-suggestions}}"
                                                :u cyto-uid}
@@ -452,47 +549,10 @@
                                                                                          "[[ISS]] - Perform a literature review on the role of myosin catch bonding in cellular processes, focusing on its impact on endocytosis under varying tension conditions",
                                                                                          :uid "r5EQJeiTb"}]
                                _ (println "before suggestions")
-                               suggestion-nodes (vals
-                                                  (suggested-nodes
-                                                    (mapv
-                                                      (fn [node]
-                                                        (println "node" node)
-                                                        {:string (:string node)
-                                                         :uid    (:uid    node)})
-                                                      selected)))
-                               suggestion-edges (mapcat
-                                                  (fn [node]
-                                                    (let [source-str    (:string node)
-                                                          source-uid    (:uid node)
-                                                          extracted     (extract-from-code-block
-                                                                          (clojure.string/trim (:string (first (:children node))))
-                                                                          true)
-                                                          split-trimmed (mapv str/trim (str/split-lines extracted))
-                                                          non-empty      (filter (complement str/blank?) split-trimmed)]
-                                                      (map
-                                                        (fn [target]
-                                                          (let [target-data (ffirst (get-title-with-uid target))
-                                                                target-uid (:uid target-data)]
-
-                                                            {:data
-                                                             {:id     (str source-uid "-" target-uid)
-                                                              :source source-uid
-                                                              :target  target-uid
-                                                              :relation "Similar to"
-                                                              :color    "lightgrey"}}))
-                                                        non-empty)))
-                                                  selected)
-                               similar-nodes  (r/atom (into []
-                                                        (flatten
-                                                          (mapv
-                                                            (fn [x]
-                                                              (let [extracted     (extract-from-code-block
-                                                                                    (clojure.string/trim (:string (first (:children x))))
-                                                                                    true)
-                                                                    split-trimmed (mapv str/trim (str/split-lines extracted))
-                                                                    non-empty      (filter (complement str/blank?) split-trimmed)]
-                                                                non-empty))
-                                                            selected))))
+                               {:keys [nodes edges]} (if @dg? (get-suggested-discourse-graph-cyto-data selected) {})
+                               suggestion-nodes      (if (some? nodes) nodes (get-similar-suggestion-nodes selected))
+                               suggestion-edges      (if (some? edges) edges (get-similar-suggestion-edges selected))
+                               similar-nodes         (if (some? nodes) (atom [])  (get-similar-nodes selected))
                                extra-data   (concat suggestion-nodes suggestion-edges)]
                            (do
                              ;(println "Visualise button clicked")
@@ -520,6 +580,151 @@
             (if @already-exist?
               "Connect"
               "Visualise")]]]
+         [:div.chk
+          {:style {:align-self "center"
+                   :margin-left "5px"}}
+          [button-with-tooltip
+           "Consider all the selected nodes as a single group and then find similar discourse nodes in the graph."
+           [:> Button
+            {:minimal true
+             :small true
+             :on-click  (fn [e]
+                          (let [initial-data (take 695 (all-dg-nodes)) ;; 40k tokens
+                                new-titles    (mapv :string @selections)
+                                title->block-uid (reduce
+                                                   (fn [acc x]
+                                                     (assoc acc (keyword (:string x)) (:uid x)))
+                                                   {}
+                                                   @selections)
+                                prompt       (str
+                                               "<system_context>
+                                               You are an AI assistant trained to analyze discourse relationships in scientific research data, specifically in the field of cellular biology focusing on the actin cytoskeleton and endocytosis.
+                                               </system_context>
+
+                                               <lab_context>
+                                               Our lab uses Roam Research for knowledge organization with the following structure:
+                                               <node_types>
+                                               - Question (QUE)
+                                               - Claim (CLM)
+                                               - Evidence (EVD)
+                                               </node_types>
+                                               <edge_types>
+                                               - Informs
+                                               - Supports
+                                               - Opposes
+                                               </edge_types>
+                                               <discourse_relationships>
+                                               - (Evidence, Informs, Question)
+                                               - (Question, InformedBy, Evidence)
+                                               - (Evidence, Supports, Claim)
+                                               - (Claim, SupportedBy, Evidence)
+                                               - (Evidence, Opposes, Claim)
+                                               - (Claim, OpposedBy, Evidence)
+                                               </discourse_relationships>
+                                               </lab_context>
+
+                                               <task>
+                                               Analyze the provided <initial_data> to find discourse relationships relevant to each of the given <new_titles>. Use your expertise to identify meaningful connections for each title.
+                                               </task>
+                                               <input_format>
+                                               <initial_data_format>
+                                               A list of maps, each containing:
+                                               - uid: Unique identifier of the node
+                                               - title: Title of the node
+                                               </initial_data_format>
+                                               <initial-data>"
+                                               initial-data
+                                               "</initial-data>
+                                               <new_titles>"
+                                               new-titles
+                                               "</new_titles>
+                                               </input_format>
+                                               <output_format>
+                                               Return a map where each key is one of the new titles, and the corresponding value is a list of maps containing:
+                                               - uid: Unique identifier of the related node
+                                               - title: Title of the related node
+                                               - label: Type of discourse relationship (Informs, Supports, or Opposes)
+                                               </output_format>
+
+                                               <instructions>
+                                               1. Examine each title in <new_titles> and understand its implications within the context of actin cytoskeleton and endocytosis research.
+                                               2. Review the <initial_data> and identify nodes that could form valid discourse relationships with the <new_title>.
+                                               3. For each relevant node, determine the appropriate relationship type based on the content and research context.
+                                               4. Only include relationships that strictly adhere to the defined <discourse_relationships>.
+                                               5. If no valid relationships are found, return an empty list rather than forcing irrelevant connections.
+                                               </instructions>
+
+                                                <quality_guideline>
+                                                Prioritize accuracy and relevance over quantity. It's better to return fewer, highly relevant relationships than many tenuous connections. Ensure all relationships logically fit within the context of actin cytoskeleton and endocytosis research.
+                                                </quality_guideline>")
+                                tools[{:name "analyze_discourse_relationships"
+                                       :description "Analyze discourse relationships for multiple scientific titles. For each input title, identify relevant nodes from the initial data and determine their relationship types."
+                                       :input_schema
+                                       {:type "object"
+                                        :properties
+                                        {:results
+                                         {:type "object"
+                                          :additionalProperties
+                                          {:type "array"
+                                           :items
+                                           {:type "object"
+                                            :properties
+                                            {:uid {:type "string"
+                                                   :description "Unique identifier of the related node"}
+                                             :title {:type "string"
+                                                     :description "Title of the related node"}
+                                             :label {:type "string"
+                                                     :enum ["Supports" "Informs" "Opposes" "SupportedBy" "InformedBy" "OpposedBy"]
+                                                     :description "Type of discourse relationship with the input title"}}
+                                            :required ["uid" "title" "label"]}}}}
+                                        :required ["results"]}}]]
+                            #_(println "prompt" prompt)
+                            (call-llm-api
+                              {:messages [{:role "user"
+                                           :content prompt}]
+                               :settings {:model #_"claude-3-5-sonnet-20240620"
+                                          "claude-3-haiku-20240307"
+                                          :temperature 1.0
+                                          :max-tokens 1000
+                                          :tools tools
+                                          :tool_choice {:type "tool"
+                                                        :name "analyze_discourse_relationships"}}
+                               :callback (fn [response]
+                                           (let [res (-> response :body)
+                                                 content (-> res :input :results)]
+
+                                             (println "----- Got response from llm -----")
+                                             (println "title->blockuid" title->block-uid)
+                                             (println "---------- END ---------------")
+                                             (doseq [[k v] content]
+                                               (println "k" k)
+                                               (let [u               (k title->block-uid)
+                                                     _               (println "u" u)
+                                                     matches         (str "```\n"
+                                                                       (clojure.string/trim
+                                                                         (with-out-str
+                                                                           (cljs.pprint/pprint v)))
+                                                                       "\n```")]
+                                                 (do
+                                                   (println "u" u "--matches--" matches)
+                                                   (create-new-block u "last" matches #()))))))})))}
+
+            "Suggest discourse graph"]]]
+         [:div.chk
+          {:style {:align-self "center"
+                   :margin-left "5px"}}
+          [button-with-tooltip
+           "Visualise only the discourse graph?"
+           [:> Checkbox
+            {:style {:margin-bottom "0px"}
+             :checked @dg?
+             :on-change (fn [x]
+                          (reset! dg? (not @dg?)))}
+            [:span.bp3-button-text
+             {:style {:font-size "14px"
+                      :font-family "initial"
+                      :font-weight "initial"}} "dg?"]]]]
+
          [:div.buttons
           {:style {:display "flex"
                    :flex-direction "row"
