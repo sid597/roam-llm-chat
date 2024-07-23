@@ -9,8 +9,6 @@
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
-
-
 (defn extract-context-children-data-as-str [context]
   (let [res (r/atom "")
         children (sort-by :order (:children @context))]

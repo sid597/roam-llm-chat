@@ -305,7 +305,7 @@
        (when get-linked-refs?
          (when-let [refs (get-all-refs-for {:title  title
                                             :block? (or block? false)})]
-           {:refs refs})))))
+           {:linked-refs refs})))))
 
 
 (defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
@@ -461,8 +461,8 @@
                    (:body message-map)
                    (str "{:title " (:title message-map) "\n :body \n"))
         ref-map   (extract-for-message-array
-                    (:refs message-map)
-                    (str ":refs \n "))
+                    (:linked-refs message-map)
+                    (str ":linked-refs \n "))
 
         res       (vec (concat body-map ref-map))]
    res))
@@ -473,7 +473,7 @@
         current-message (atom (str "{: title " title " \n  :body \n "))
         ref-map         (extract-for-message-array
                           refs
-                          (str ":refs \n ")
+                          (str ":linked-refs \n ")
                           "}")]
     (doseq [message messages]
       (let [current-image? (when (string? message) (extract-markdown-image message))]
@@ -532,21 +532,21 @@
                           (swap! res concat (generate-messages-by-role
                                               @new-res
                                               (:title context-with-query-pages)
-                                              (:refs context-with-query-pages)))
+                                              (:linked-refs context-with-query-pages)))
                           (swap! res conj (with-out-str
                                             (print "\n")
                                             (print (merge
                                                      (when (some? (:title context-with-query-pages))
                                                        {:title (:title context-with-query-pages)})
                                                      {:body @new-res}
-                                                     (when (some? (:refs context-with-query-pages))
-                                                        {:refs (:refs context-with-query-pages)})))
+                                                     (when (some? (:linked-refs context-with-query-pages))
+                                                        {:linked-refs (:linked-refs context-with-query-pages)})))
                                             (print "\n")))))
           vision?      (do
                          (swap! res concat (generate-messages-by-role
                                              (:body (first context-with-query-pages))
                                              (:title context-with-query-pages)
-                                             (:refs context-with-query-pages))))
+                                             (:linked-refs context-with-query-pages))))
           :else        (swap! res conj (first context-with-query-pages)))))
     (p "extracted the query pages")
     (if vision?
@@ -631,6 +631,15 @@
      :get-linked-refs?     true
      :extract-query-pages? true
      :only-pages?          true
+     :vision?              false})
+
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string
+                                        "[[[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]]]"
+                                        , :uid "gYvoYlSJi"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          false
      :vision?              false})
 
   (extract-query-pages
