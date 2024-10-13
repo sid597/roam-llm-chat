@@ -397,7 +397,7 @@
                                                                   :text @current-message})
                                              (reset! current-message "")
                                              (swap! new-map conj {:type      "image_url"
-                                                                  :image_url (:url current-image?)}))
+                                                                  :image_url {:url (:url current-image?)}}))
            :else                           (swap! current-message str "\n" message))))
      (p "current message" @current-message)
      (when (not= "" @current-message)
