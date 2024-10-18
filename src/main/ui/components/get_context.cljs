@@ -113,3 +113,156 @@
                                      "Get context")) "Prompt" "Pre-prompt")
 
 
+
+(defn get-suggestions-button [parent-id]
+  (let  [get-context-uid          (:uid (get-child-with-str
+                                          (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                          "Get suggestions"))
+         muid                     (:uid (get-child-with-str parent-id "Messages"))
+         default-model            (r/atom (get-child-of-child-with-str get-context-uid "Settings" "Model"))
+         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str get-context-uid "Settings" "Temperature")))
+         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Get linked refs"))
+                                            true
+                                            false))
+         extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages"))
+                                            true
+                                            false))
+         extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages ref?"))
+                                            true
+                                            false))
+         pre-prompt                (get-child-of-child-with-str get-context-uid "Prompt" "Pre-prompt")
+         remaining-prompt         (get-child-of-child-with-str get-context-uid "Prompt" "Further instructions")
+         active?                  (r/atom false)]
+    (fn []
+      [:div {:style {:flex "1 1 1 1"}}
+       [button-with-tooltip
+        "Get suggestions"
+        [:> Button
+         {:minimal true
+          :fill false
+          :loading @active?
+          :on-click (fn [e]
+                      (when (not @active?)
+                        (reset! active? true))
+                      (go
+                        (let [current-page-uid    (<p! (get-open-page-uid))
+                              title               (uid->title current-page-uid)
+                              tref                (if (nil? title)
+                                                    (str "((" current-page-uid "))")
+                                                    (str "[[" title "]]"))
+                              nodes               {:children [{:string tref}]}
+                              page-context-data   (extract-query-pages
+                                                    {:context              nodes
+                                                     :get-linked-refs?     @get-linked-refs?
+                                                     :extract-query-pages? @extract-query-pages?
+                                                     :only-pages?          @extract-query-pages-ref?
+                                                     :vision?              false})
+                              prompt              (str pre-prompt
+                                                    "\n"
+                                                    "<discourse-node-page-content> \n" page-context-data "\n </discourse-node-page-content> \n"
+                                                    remaining-prompt)
+                              llm-context         [{:role "user"
+                                                    :content prompt}]
+                              settings           {:model       @default-model
+                                                  :temperature @default-temp
+                                                  :max-tokens  2000}]
+
+                          (do
+                           (<p! (create-new-block
+                                  muid
+                                  "last"
+                                  (str "**User:** ^^get suggestion on:^^ " tref)
+                                  #()))
+                           (<p! (js/Promise.
+                                  (fn [_]
+                                    (call-llm-api
+                                      {:messages llm-context
+                                       :settings settings
+                                       :callback (fn [response]
+                                                   (let [res-str (-> response :body)]
+                                                     (create-new-block
+                                                       muid
+                                                       "last"
+                                                       (str "**Assistant:** " res-str)
+                                                       (js/setTimeout
+                                                         (fn [] (reset! active? false))
+                                                         500))))}))))))))}
+         "Get Suggestions"]]])))
+
+
+
+(defn make-discourse-graph-button [parent-id]
+  (let  [get-context-uid          (:uid (get-child-with-str
+                                          (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                          "Make discourse graph"))
+         muid                     (:uid (get-child-with-str parent-id "Messages"))
+         default-model            (r/atom (get-child-of-child-with-str get-context-uid "Settings" "Model"))
+         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str get-context-uid "Settings" "Temperature")))
+         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Get linked refs"))
+                                            true
+                                            false))
+         extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages"))
+                                            true
+                                            false))
+         extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages ref?"))
+                                            true
+                                            false))
+         pre-prompt                (get-child-of-child-with-str get-context-uid "Prompt" "Pre-prompt")
+         remaining-prompt         (get-child-of-child-with-str get-context-uid "Prompt" "Further instructions")
+         active?                  (r/atom false)]
+    (fn []
+      [:div {:style {:flex "1 1 1 1"}}
+       [button-with-tooltip
+        "Make discourse graph"
+        [:> Button
+         {:minimal true
+          :fill false
+          :loading @active?
+          :on-click (fn [e]
+                      (when (not @active?)
+                        (reset! active? true))
+                      (go
+                        (let [current-page-uid    (<p! (get-open-page-uid))
+                              title               (uid->title current-page-uid)
+                              tref                (if (nil? title)
+                                                    (str "((" current-page-uid "))")
+                                                    (str "[[" title "]]"))
+                              nodes               {:children [{:string tref}]}
+                              page-context-data   (extract-query-pages
+                                                    {:context              nodes
+                                                     :get-linked-refs?     @get-linked-refs?
+                                                     :extract-query-pages? @extract-query-pages?
+                                                     :only-pages?          @extract-query-pages-ref?
+                                                     :vision?              false})
+                              prompt              (str pre-prompt
+                                                    "\n"
+                                                    "<discourse-node-page-content> \n" page-context-data "\n </discourse-node-page-content> \n"
+                                                    remaining-prompt)
+                              llm-context         [{:role "user"
+                                                    :content prompt}]
+                              settings           {:model       @default-model
+                                                  :temperature @default-temp
+                                                  :max-tokens  1200}]
+
+                          (do
+                             (<p! (create-new-block
+                                      muid
+                                      "last"
+                                      (str "**User:** ^^get suggestion on:^^ " tref)
+                                      #()))
+                             (<p! (js/Promise.
+                                      (fn [_]
+                                        (call-llm-api
+                                          {:messages llm-context
+                                           :settings settings
+                                           :callback (fn [response]
+                                                       (let [res-str (-> response :body)]
+                                                         (create-new-block
+                                                           muid
+                                                           "last"
+                                                           (str "**Assistant:** " res-str)
+                                                           (js/setTimeout
+                                                             (fn [] (reset! active? false))
+                                                             500))))}))))))))}
+         "Make discourse graph"]]])))
+
