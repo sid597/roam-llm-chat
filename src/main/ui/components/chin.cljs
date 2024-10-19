@@ -107,7 +107,10 @@
     [:> ButtonGroup
 
      [get-context-button block-uid]
-     [get-suggestions-button block-uid]]]))
+     [get-suggestions-button block-uid]
+     [send-message-component
+      active?
+      callback]]]))
 
 
 

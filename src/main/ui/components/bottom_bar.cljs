@@ -3,6 +3,8 @@
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [ui.components.quick-buttons :refer [button-with-settings text-to-image-button discourse-graph-this-page-button]]
             [cljs-http.client :as http]
+            [ui.components.get-context :refer [get-context-button get-suggestions-button make-discourse-graph-button]]
+            [ui.components.search-pinecone :refer [search-pinecone]]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
             [ui.utils :refer [p button-with-tooltip all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
@@ -15,10 +17,27 @@
   (p "Creating bottom bar buttons")
   (fn []
     (p "Render bottom bar buttons")
-    [:> ButtonGroup
+    [:> ButtonGroup 
+     {:style {:display         "flex"
+              :justify-content "center"
+              :align-items     "center"
+              :width           "100%"}
+      :fill true}
+     [make-discourse-graph-button]
      [:> Divider]
-     [:div {:style {:flex "1 1 1"}}
-      [button-with-settings "Summarise this page"]]
+     [get-context-button]
+     [:> Divider]
+     [:div.search-pinecone
+      {:style {:flex "0 0 50%"}}
+      [button-with-tooltip
+       "Do semantic search over existing Discourse graph nodes. Type your query and press the send button.
+        We get top 3 results, select any one to go to that query result page. "
+       [search-pinecone]]]
+     [:> Divider]
+     [get-suggestions-button]
+
+     #_[:div {:style {:flex "1 1 1"}}
+        [button-with-settings "Summarise this page"]]
      [:> Divider]
      [:div
       {:style {:flex "1 1 1"}}
@@ -62,34 +81,34 @@
                                       (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context)))))))}
 
         "Chat with this page"]]]
-     [:> Divider]
-     [:div
-      {:style {:flex "1 1 1"}}
-      [button-with-tooltip
-       "Begin a brand new empty chat from any page (including zoomed-in pages/blocks), no context is included. Think of this as a quick chat. The chat block will be added in your daily notes page and the chat window will appear in your right sidebar.
+     #_[:> Divider]
+     #_[:div
+        {:style {:flex "1 1 1"}}
+        [button-with-tooltip
+         "Begin a brand new empty chat from any page (including zoomed-in pages/blocks), no context is included. Think of this as a quick chat. The chat block will be added in your daily notes page and the chat window will appear in your right sidebar.
         Choose your LLM and adjust its settings within the chat interface. ."
-       [:> Button {:minimal true
-                   :small true
-                   :on-click (fn [e]
-                               (p "*Start chat in daily notes, show in sidebar* :button clicked")
-                               (let [pre            "*Start chat in daily notes, show in sidebar* :"
-                                     chat-block-uid (gen-new-uid)
-                                     ai-block?      (ai-block-exists? (get-todays-uid))]
-                                 (p (str pre "block with `AI chats` exist? " ai-block?))
-                                 (if (some? ai-block?)
-                                   (create-struct
-                                     (default-chat-struct chat-block-uid)
-                                     ai-block?
-                                     chat-block-uid
-                                     true
-                                     (p (str pre "Created a new chat block and opening in sidebar. With no context. ")))
-                                   (create-struct
-                                     (chat-ui-with-context-struct chat-block-uid)
-                                     (get-todays-uid)
-                                     chat-block-uid
-                                     true
-                                     (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
-        "Start new chat"]]]
+         [:> Button {:minimal true
+                     :small true
+                     :on-click (fn [e]
+                                 (p "*Start chat in daily notes, show in sidebar* :button clicked")
+                                 (let [pre            "*Start chat in daily notes, show in sidebar* :"
+                                       chat-block-uid (gen-new-uid)
+                                       ai-block?      (ai-block-exists? (get-todays-uid))]
+                                   (p (str pre "block with `AI chats` exist? " ai-block?))
+                                   (if (some? ai-block?)
+                                     (create-struct
+                                       (default-chat-struct chat-block-uid)
+                                       ai-block?
+                                       chat-block-uid
+                                       true
+                                       (p (str pre "Created a new chat block and opening in sidebar. With no context. ")))
+                                     (create-struct
+                                       (chat-ui-with-context-struct chat-block-uid)
+                                       (get-todays-uid)
+                                       chat-block-uid
+                                       true
+                                       (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar. With no context."))))))}
+          "Start new chat"]]]
      #_[:> Divider]
      #_[:div
         {:style {:flex "1 1 1"}}
@@ -126,37 +145,37 @@
                                                                (str (-> x :metadata :title) "- Score: " (:score x)))))]
                                           #_(println "GOT EMBEDDINGS :" "--" embeddings))))))}
          "Create embeddings"]]
-     [:> Divider]
-     [:div
-      {:style {:flex "1 1 1"}}
-      [button-with-tooltip
-       "Same as `Start new chat` button but starts the chat in the block you are focused on."
-       [:> Button {:minimal true
-                   :small true
-                   :style {:flex "1 1 1"}
-                   :on-click (fn [e]
-                               (p "*Start chat in focused block* :button clicked")
-                               (let [pre            "*Start chat in focused block* "
-                                     chat-block-uid (gen-new-uid)
-                                     [parent-uid
-                                      block-order]  (get-block-parent-with-order (get-focused-block))
-                                     chat-struct    (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
-                                 (create-struct
-                                   chat-struct
-                                   parent-uid
-                                   chat-block-uid
-                                   false
-                                   (p (str pre "Created a new chat block under focused block and opening in sidebar. With no context.")))))}
-        "Start new chat in focused block"]]]
-     [:> Divider]
-     [:div
-      {:style {:flex "1 1 1"}}
-      [discourse-graph-this-page-button]]
-     [:> Divider]
-     [:div {:style {:flex "1 1 1"}}
-      [filtered-pages-button]]
-     [:> Divider]
-     [:div
-      {:style {:flex "1 1 1"}}
-      [text-to-image-button]]]))
+     #_[:> Divider]
+     #_[:div
+        {:style {:flex "1 1 1"}}
+        [button-with-tooltip
+         "Same as `Start new chat` button but starts the chat in the block you are focused on."
+         [:> Button {:minimal true
+                     :small true
+                     :style {:flex "1 1 1"}
+                     :on-click (fn [e]
+                                 (p "*Start chat in focused block* :button clicked")
+                                 (let [pre            "*Start chat in focused block* "
+                                       chat-block-uid (gen-new-uid)
+                                       [parent-uid
+                                        block-order]  (get-block-parent-with-order (get-focused-block))
+                                       chat-struct    (chat-ui-with-context-struct chat-block-uid nil nil block-order)]
+                                   (create-struct
+                                     chat-struct
+                                     parent-uid
+                                     chat-block-uid
+                                     false
+                                     (p (str pre "Created a new chat block under focused block and opening in sidebar. With no context.")))))}
+          "Start new chat in focused block"]]]
+     #_[:> Divider]
+     #_[:div
+        {:style {:flex "1 1 1"}}
+        [discourse-graph-this-page-button]]
+     #_[:> Divider]
+     #_[:div {:style {:flex "1 1 1"}}
+        [filtered-pages-button]]
+     #_[:> Divider]
+     #_[:div
+        {:style {:flex "1 1 1"}}
+        [text-to-image-button]]]))
 
