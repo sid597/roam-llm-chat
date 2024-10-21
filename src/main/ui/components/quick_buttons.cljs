@@ -255,17 +255,17 @@
 (defn discourse-graph-this-page-button []
   (let [block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
         discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
-        default-model            (r/atom (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
-        default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
-        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
-                                           true
-                                           false))
-        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
-                                           true
-                                           false))
-        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
-                                           true
-                                           false))
+        default-model            (r/atom "gpt-4o") ;(get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
+        default-temp             (r/atom 0.2)  ;(js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
+        get-linked-refs?         (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
+                                                   true
+                                                   false))
+        extract-query-pages?     (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
+                                                   true
+                                                   false))
+        extract-query-pages-ref? (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
+                                                   true
+                                                   false))
         active?                  (r/atom false)
         context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))]
     (fn [_]
@@ -279,30 +279,30 @@
                 :align-items "center"
                 :flex "1 1 1"}
         :minimal true}
-       [:div {:style {:flex "1 1 1"}}
-        [settings-button-popover
-         [:> Card {:elevation 3
-                   :style {:flex "1"
-                           :margin "0"
-                           :display "flex"
-                           :flex-direction "column"
-                           :border "2px solid rgba(0, 0, 0, 0.2)"
-                           :border-radius "8px"
-                           :max-width "950px"}}
-          [:div.summary-component
-           {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
-           [:div.chat-input-container
-            {:style {:display "flex"
-                     :flex-direction "row"
-                     :background-color "#f6cbfe3d"
-                     :border "1px"}}
-            [chat-context context #()]]
-           [chin {:default-model        default-model
-                  :default-temp         default-temp
-                  :get-linked-refs?     get-linked-refs?
-                  :block-uid            discourse-graph-page-uid
-                  :extract-query-pages? extract-query-pages?
-                  :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
+       #_[:div {:style {:flex "1 1 1"}}
+          [settings-button-popover
+           [:> Card {:elevation 3
+                     :style {:flex "1"
+                             :margin "0"
+                             :display "flex"
+                             :flex-direction "column"
+                             :border "2px solid rgba(0, 0, 0, 0.2)"
+                             :border-radius "8px"
+                             :max-width "950px"}}
+            [:div.summary-component
+             {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
+             [:div.chat-input-container
+              {:style {:display "flex"
+                       :flex-direction "row"
+                       :background-color "#f6cbfe3d"
+                       :border "1px"}}
+              [chat-context context #()]]
+             [chin {:default-model        default-model
+                    :default-temp         default-temp
+                    :get-linked-refs?     get-linked-refs?
+                    :block-uid            discourse-graph-page-uid
+                    :extract-query-pages? extract-query-pages?
+                    :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
        [:div {:style {:flex "1 1 1"}}
         [button-with-tooltip
          "LLM proposes candidate discourse nodes based on the context of the current page (including zoomed-in pages). "
@@ -320,7 +320,7 @@
                                          node-uid           (gen-new-uid)
                                          already-suggested? (block-has-child-with-str? open-page-uid  "AI Discourse node suggestions")
                                          struct             (if (nil? already-suggested?)
-                                                              {:s "AI Discourse node suggestions"
+                                                              {:s "AI: Discourse node suggestions"
                                                                :c [{:s (str "Model: " @default-model)
                                                                     :c [{:s "{{llm-dg-suggestions}}"
                                                                          :op false

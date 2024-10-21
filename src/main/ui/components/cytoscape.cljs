@@ -325,7 +325,7 @@
   [:div
    {:class-name (str "cytoscape-main-" block-uid)}
    message
-   "Connect with node suggestions using `Connect` button above"])
+   "Please select the suggestions you want to visualise and then click **Connect to existing visualisation** button above"])
 
 
 (defn cytoscape-main [block-uid dom-id]

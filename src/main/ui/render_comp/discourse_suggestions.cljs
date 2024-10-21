@@ -382,40 +382,40 @@
                                                    (create-new-block u "last" matches #())
                                                    (swap! selections conj node-data))))
                                             (reset! as-indi-loading? false))))))}
-             "As individuals"]]]
-          [:div.chk
-           {:style {:align-self "center"
-                    :margin-left "5px"}}
-           [button-with-tooltip
-            "Consider all the selected nodes as a single group and then find similar sounding discourse nodes in the graph."
-            [:> Button
-             {:minimal true
-              :fill false
-              :loading @as-group-loading?
-              ;:style {:background-color "whitesmoke"}
-              :on-click (fn [x]
-                          (do
-                           (reset! as-group-loading? true)
-                           (let [selected (into [] @selections)
-                                 str-data (clj->js [(clojure.string/join " \n " (mapv :string selected))])
-                                 uid-data (mapv  :uid    selected)
-                                 url     "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
-                                 headers  {"Content-Type" "application/json"}
-                                 res-ch (http/post url {:with-credentials? false
-                                                        :headers           headers
-                                                        :json-params       (clj->js {:input str-data
-                                                                                     :top-k 3})})]
-                             (take! res-ch (fn [res]
-                                             (let  [res     (-> res :body first)
-                                                    _       (println "GOT RESPONSE" res)
-                                                    matches (str "``` \n "
-                                                               (clojure.string/join
-                                                                " \n "
-                                                                (map #(-> % :metadata :title) res))
-                                                               "\n ```")]
-                                               (create-new-block uid "last" matches #()))
-                                             (reset! as-group-loading? false))))))}
-             "As group"]]]]
+             "Semantic search for selected suggestions"]]]
+          #_[:div.chk
+             {:style {:align-self "center"
+                      :margin-left "5px"}}
+             [button-with-tooltip
+              "Consider all the selected nodes as a single group and then find similar sounding discourse nodes in the graph."
+              [:> Button
+               {:minimal true
+                :fill false
+                :loading @as-group-loading?
+                ;:style {:background-color "whitesmoke"}
+                :on-click (fn [x]
+                            (do
+                             (reset! as-group-loading? true)
+                             (let [selected (into [] @selections)
+                                   str-data (clj->js [(clojure.string/join " \n " (mapv :string selected))])
+                                   uid-data (mapv  :uid    selected)
+                                   url     "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                                   headers  {"Content-Type" "application/json"}
+                                   res-ch (http/post url {:with-credentials? false
+                                                          :headers           headers
+                                                          :json-params       (clj->js {:input str-data
+                                                                                       :top-k 3})})]
+                               (take! res-ch (fn [res]
+                                               (let  [res     (-> res :body first)
+                                                      _       (println "GOT RESPONSE" res)
+                                                      matches (str "``` \n "
+                                                                 (clojure.string/join
+                                                                  " \n "
+                                                                  (map #(-> % :metadata :title) res))
+                                                                 "\n ```")]
+                                                 (create-new-block uid "last" matches #()))
+                                               (reset! as-group-loading? false))))))}
+               "As group"]]]]
          [:div.chk
           {:style {:align-self "center"
                    :margin-left "5px"}}
@@ -518,8 +518,8 @@
                              (reset! running? true))))}
 
             (if @already-exist?
-              "Connect"
-              "Visualise")]]]
+              "Connect to existing visualisation"
+              "Visualise suggestions")]]]
          [:div.buttons
           {:style {:display "flex"
                    :flex-direction "row"
@@ -539,19 +539,19 @@
                                          (when (template-data-for-node block-string)
                                            (p "Suggestion node created, updating block string")
                                            (update-block-string block-uid (str "^^ {{[[DONE]]}}" block-string "^^")))))))}
-            "Create selected"]]
+            "Create selected suggestions "]]
 
-          [button-with-tooltip
-           "For each selected suggestion create new discourse node, this is like bulk creation. "
-           [:> Button {:class-name (str "discard-node-button")
-                       :minimal true
-                       #_#_:style {:background-color "whitesmoke"
-                                   :margin "10px"}
-                       :fill false
-                       :on-click (fn [_]
-                                   (doseq [node @selections]
-                                     (delete-block (:uid node))))}
-            "Discard selected"]]]]]]])))
+          #_[button-with-tooltip
+             "For each selected suggestion create new discourse node, this is like bulk creation. "
+             [:> Button {:class-name (str "discard-node-button")
+                         :minimal true
+                         #_#_:style {:background-color "whitesmoke"
+                                     :margin "10px"}
+                         :fill false
+                         :on-click (fn [_]
+                                     (doseq [node @selections]
+                                       (delete-block (:uid node))))}
+              "Discard selected"]]]]]]])))
 
 
 

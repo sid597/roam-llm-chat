@@ -23,7 +23,7 @@
               :align-items     "center"
               :width           "100%"}
       :fill true}
-     [make-discourse-graph-button]
+     [discourse-graph-this-page-button]
      [:> Divider]
      [get-context-button]
      [:> Divider]
