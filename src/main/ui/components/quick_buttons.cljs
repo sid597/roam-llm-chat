@@ -252,73 +252,15 @@
           "Generate image descriptions"
           #_(str "Generate description for: " @description-for)]]]])))
 
-(defn discourse-graph-this-page-button []
-  (let [block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-        discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
-        default-model            (r/atom  (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
-        default-temp             (r/atom   (js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
-        default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Max tokens")))
-        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
-                                           true
-                                           false))
-        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
-                                           true
-                                           false))
-        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
-                                           true
-                                           false))
-        active?                  (r/atom false)
-        context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))]
-
-
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Max tokens" false)
-      (fn [_ aft]
-        (p "max tokens changed" aft)
-        (reset! default-max-tokens (js/parseInt (:string aft)))))
-
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature" false)
-      (fn [_ aft]
-        (p "temperature changed" aft)
-        (reset! default-temp (js/parseFloat (:string aft)))))
-
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model" false)
-      (fn [_ aft]
-        (p "model name changed" aft)
-        (reset! default-model (:string aft))))
-
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs" false)
-      (fn [_ aft]
-        (p "get linked refs changed" aft)
-        (reset! get-linked-refs? (if (= "true" (:string aft))
-                                   true
-                                   false))))
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages" false)
-      (fn [_ aft]
-        (p "extract query results changed" aft)
-        (reset! extract-query-pages? (if (= "true" (:string aft))
-                                       true
-                                       false))))
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?" false)
-      (fn [_ aft]
-        (p "extract query result's ref changed" aft)
-        (reset! extract-query-pages-ref? (if (= "true" (:string aft))
-                                           true
-                                           false))))
-
-    (watch-string
-      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Active?" false)
-      (fn [_ aft]
-        (p "Active button changed" aft)
-        (reset! active? (if (= "true" (:string aft))
-                          true
-                          false))))
-
+(defn discourse-graph-this-page-button [block-uid
+                                        default-model
+                                        default-temp
+                                        default-max-tokens
+                                        get-linked-refs?
+                                        extract-query-pages?
+                                        extract-query-pages-ref?
+                                        active?
+                                        context]
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
@@ -343,24 +285,6 @@
                                    (let [pre                "*Discourse graph this page* "
                                          open-page-uid      (<p! (get-open-page-uid))
                                          title              (uid->title open-page-uid)
-                                         suggestion-uid     (gen-new-uid)
-                                         node-uid           (gen-new-uid)
-                                         already-suggested? (block-has-child-with-str? open-page-uid  "AI Discourse node suggestions")
-                                         struct             (if (nil? already-suggested?)
-                                                              {:s "AI: Discourse node suggestions"
-                                                               :c [{:s (str "Model: " @default-model)
-                                                                    :c [{:s "{{llm-dg-suggestions}}"
-                                                                         :op false
-                                                                         :c [{:s "Suggestions"
-                                                                              :u suggestion-uid}]}]}]}
-                                                              {:s (str "Model: " @default-model)
-                                                               :c [{:s "{{llm-dg-suggestions}}"
-                                                                    :op false
-                                                                    :c [{:s "Suggestions"
-                                                                         :u suggestion-uid}]}]})
-                                         top-parent         (if (nil? already-suggested?)
-                                                              open-page-uid
-                                                              already-suggested?)
                                          nodes              (if (nil? title)
                                                               {:children [{:string (str "((" open-page-uid "))")}]}
                                                               {:children [{:string (str "[[" title "]]" "\n")}]})
@@ -389,7 +313,25 @@
                                                                :temperature @default-temp
                                                                :max-tokens  @default-max-tokens}
                                                               (when (= "gemini" @default-model)
-                                                                {:safety-settings (get-safety-settings block-uid)}))]
+                                                                {:safety-settings (get-safety-settings block-uid)}))
+                                         suggestion-uid     (gen-new-uid)
+                                         node-uid           (gen-new-uid)
+                                         already-suggested? (block-has-child-with-str? open-page-uid  "AI Discourse node suggestions")
+                                         struct             (if (nil? already-suggested?)
+                                                              {:s "AI: Discourse node suggestions"
+                                                               :c [{:s (str "Model: " @default-model)
+                                                                    :c [{:s "{{llm-dg-suggestions}}"
+                                                                         :op false
+                                                                         :c [{:s "Suggestions"
+                                                                              :u suggestion-uid}]}]}]}
+                                                              {:s (str "Model: " @default-model)
+                                                               :c [{:s "{{llm-dg-suggestions}}"
+                                                                    :op false
+                                                                    :c [{:s "Suggestions"
+                                                                         :u suggestion-uid}]}]})
+                                         top-parent         (if (nil? already-suggested?)
+                                                              open-page-uid
+                                                              already-suggested?)]
                                      (do
                                        (create-struct
                                          struct
@@ -426,4 +368,4 @@
                                                                          (p (str pre "Updated block " suggestion-uid " with suggestions from openai api"))
                                                                          (reset! active? false))
                                                                        500)))))}))))))))}
-          "Discourse graph this page"]]]])))
+          "Discourse graph this page"]]]]))

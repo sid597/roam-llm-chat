@@ -547,7 +547,7 @@
                    :c [{:s "Token count"
                         :c [{:s "0"}]}
                        {:s "Model"
-                        :c [{:s "gpt-3.5"}]}
+                        :c [{:s "gpt-4o-mini"}]}
                        {:s "Max tokens"
                         :c [{:s "400"}]}
                        {:s "Temperature"
@@ -576,7 +576,7 @@
                         :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nBased on the data provided from the page(s), propose some new discourse nodes.\n\nNote: \n\n 1. follow the following format, this is format of the following lines `node type - format to follow if the node is of this type`\n\n```javascript\n [[CON]] - {content}\n [[RES]] - {content} - {Source}\n [[HYP]] - {content}\n[[ISS]] - {content}\n@{content}\n[[EVD]] - {content} - {Source}\n [[QUE]] - {content}\n[[CLM]] - {content}```\n\n2. following the format does not mean degrading your answer quality. We want both follow the format and high quality suggestions. \n3. Please only reply with discourse node suggestions, not explanations, keep them high quality. \n\nData from page: "}]}
                        {:s "Settings"
                         :c [{:s "Model"
-                             :c [{:s "gpt-3.5"}]}
+                             :c [{:s "gpt-4o-mini"}]}
                             {:s "Temperature"
                              :c [{:s "0.9"}]}
                             {:s "Get linked refs"
@@ -598,7 +598,7 @@
    :c [{:s "Token count"
         :c [{:s "0"}]}
        {:s "Model"
-        :c [{:s "gpt-3.5"}]}
+        :c [{:s "gpt-4o-mini"}]}
        {:s "Max tokens"
         :c [{:s "400"}]}
        {:s "Temperature"
@@ -906,30 +906,18 @@
 
 
 
-(defn buttons-settings
-  ([button]
-   (buttons-settings button
-     (:uid (get-child-with-str
-             (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-             button))))
-  ([button get-context-uid]
-   (let [block-uid                get-context-uid
-         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str get-context-uid "Settings" "Temperature")))
-         default-model            (r/atom (get-child-of-child-with-str get-context-uid "Settings" "Model"))
-         default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str get-context-uid "Settings" "Max tokens")))
-         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Get linked refs"))
-                                            true
-                                            false))
-         extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages"))
-                                            true
-                                            false))
-         extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages ref?"))
-                                            true
-                                            false))
-         dismiss-popover? false]
+(defn buttons-settings [button-name
+                        block-uid
+                        default-temp
+                        default-model
+                        default-max-tokens
+                        get-linked-refs?
+                        extract-query-pages?
+                        extract-query-pages-ref?]
+  (let [dismiss-popover? false]
      (fn [_]
        [:<>
-        [:> MenuDivider {:title button}]
+        [:> MenuDivider {:title button-name}]
         [:> MenuItem
          {:text  "Model"
           :label (str @default-model)}
@@ -1122,4 +1110,4 @@
                :checked @extract-query-pages-ref?
                :on-change (fn [x]
                             (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages ref?" (str (not @extract-query-pages-ref?)))
-                            (reset! extract-query-pages-ref? (not @extract-query-pages-ref?)))}]])}]]))))
+                            (reset! extract-query-pages-ref? (not @extract-query-pages-ref?)))}]])}]])))

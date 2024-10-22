@@ -14,82 +14,19 @@
 ;; if under <800 tokens include linked refs
 
 (defn get-context-button
-  ([]
-   (get-context-button get-open-page-uid false))
-  ([parent-id]
-   (get-context-button parent-id true))
-  ([parent-id chat-block]
-   (let [get-context-uid          (:uid (get-child-with-str
-                                          (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-                                          "Get context"))
-         block-uid                get-context-uid
-         muid                     (when chat-block (:uid (get-child-with-str parent-id "Messages")))
-         default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str get-context-uid "Settings" "Temperature")))
-         default-model            (r/atom (get-child-of-child-with-str get-context-uid "Settings" "Model"))
-         default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str get-context-uid "Settings" "Max tokens")))
-         get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Get linked refs"))
-                                             true
-                                             false))
-         extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages"))
-                                            true
-                                            false))
-         extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages ref?"))
-                                            true
-                                            false))
-         pre-prompt                (get-child-of-child-with-str get-context-uid "Prompt" "Pre-prompt")
-         remaining-prompt         (get-child-of-child-with-str get-context-uid "Prompt" "Further instructions")
-         active?                  (r/atom false)]
+  [messages-uid
+   default-model
+   default-temp
+   default-max-tokens
+   get-linked-refs?
+   extract-query-pages?
+   extract-query-pages-ref?
+   active?
+   pre-prompt
+   remaining-prompt]
 
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Max tokens" false)
-       (fn [_ aft]
-         (p "max tokens changed" aft)
-         (reset! default-max-tokens (js/parseInt (:string aft)))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Temperature" false)
-       (fn [_ aft]
-         (p "temperature changed" aft)
-         (reset! default-temp (js/parseFloat (:string aft)))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Model" false)
-       (fn [_ aft]
-         (p "model name changed" aft)
-         (reset! default-model (:string aft))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Get linked refs" false)
-       (fn [_ aft]
-         (p "get linked refs changed" aft)
-         (reset! get-linked-refs? (if (= "true" (:string aft))
-                                    true
-                                    false))))
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
-       (fn [_ aft]
-         (p "extract query results changed" aft)
-         (reset! extract-query-pages? (if (= "true" (:string aft))
-                                        true
-                                        false))))
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?" false)
-       (fn [_ aft]
-         (p "extract query result's ref changed" aft)
-         (reset! extract-query-pages-ref? (if (= "true" (:string aft))
-                                            true
-                                            false))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Active?" false)
-       (fn [_ aft]
-         (p "Active button changed" aft)
-         (reset! active? (if (= "true" (:string aft))
-                           true
-                           false))))
-     (fn []
-       (do
-        (println "chatblock? " chat-block)
+  (fn []
+    (do
         [:div {:style {:flex "1 1 1 1"}}
          [button-with-tooltip
           "Summarize based on what is in the context window, also includes the linked discourse node references as context and
@@ -142,14 +79,11 @@
                                                     :u parent-block-uid
                                                     :c [{:s ""
                                                          :u res-block-uid}]}]
-                            (println "context???" already-context? current-page-uid parent-id
-                              struct top-parent res-block-uid)
-
 
                             (do
-                              (if chat-block
+                              (if (some? messages-uid)
                                 (<p! (create-new-block
-                                       muid
+                                       messages-uid
                                        "last"
                                        (str "**User:** ^^get context on:^^ " tref)
                                        #()))
@@ -162,9 +96,9 @@
                                          :settings settings
                                          :callback (fn [response]
                                                      (let [res-str (-> response :body)]
-                                                       (if chat-block
+                                                       (if (some? messages-uid)
                                                          (create-new-block
-                                                           muid
+                                                           messages-uid
                                                            "last"
                                                            (str "**Assistant:** " res-str)
                                                            (js/setTimeout
@@ -176,7 +110,7 @@
                                                            (js/setTimeout
                                                              (fn [] (reset! active? false))
                                                              500)))))}))))))))}
-           "Get context"]]])))))
+           "Get context"]]])))
 
 
 (defn extract-context-children-data-as-str [context]
@@ -205,162 +139,98 @@
 
 
 
-(defn get-suggestions-button
-  ([]
-   (get-suggestions-button get-open-page-uid false))
-  ([parent-id]
-   (get-suggestions-button parent-id true))
-  ([parent-id chat-block]
-   (let  [get-context-uid          (:uid (get-child-with-str
-                                            (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-                                            "Get suggestions"))
-           block-uid get-context-uid
-           muid                     (when chat-block (:uid (get-child-with-str parent-id "Messages")))
-           default-model            (r/atom (get-child-of-child-with-str get-context-uid "Settings" "Model"))
-           default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str get-context-uid "Settings" "Temperature")))
-
-          default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str get-context-uid "Settings" "Max tokens")))
-           get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Get linked refs"))
-                                              true
-                                              false))
-           extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages"))
-                                              true
-                                              false))
-           extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str get-context-uid "Settings" "Extract query pages ref?"))
-                                              true
-                                              false))
-           pre-prompt                (get-child-of-child-with-str get-context-uid "Prompt" "Pre-prompt")
-           remaining-prompt         (get-child-of-child-with-str get-context-uid "Prompt" "Further instructions")
-           active?                  (r/atom false)]
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Max tokens" false)
-       (fn [_ aft]
-         (p "max tokens changed" aft)
-         (reset! default-max-tokens (js/parseInt (:string aft)))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Temperature" false)
-       (fn [_ aft]
-         (p "temperature changed" aft)
-         (reset! default-temp (js/parseFloat (:string aft)))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Model" false)
-       (fn [_ aft]
-         (p "model name changed" aft)
-         (reset! default-model (:string aft))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Get linked refs" false)
-       (fn [_ aft]
-         (p "get linked refs changed" aft)
-         (reset! get-linked-refs? (if (= "true" (:string aft))
-                                    true
-                                    false))))
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
-       (fn [_ aft]
-         (p "extract query results changed" aft)
-         (reset! extract-query-pages? (if (= "true" (:string aft))
-                                        true
-                                        false))))
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?" false)
-       (fn [_ aft]
-         (p "extract query result's ref changed" aft)
-         (reset! extract-query-pages-ref? (if (= "true" (:string aft))
-                                            true
-                                            false))))
-
-     (watch-string
-       (get-child-of-child-with-str block-uid "Settings" "Active?" false)
-       (fn [_ aft]
-         (p "Active button changed" aft)
-         (reset! active? (if (= "true" (:string aft))
-                           true
-                           false))))
-     (fn []
-        [:div {:style {:flex "1 1 1 1"}}
-         [button-with-tooltip
-          "The LLM acts as a creative partner, providing ideas for next steps. It tries to follow our
+(defn get-suggestions-button [messages-uid
+                              default-model
+                              default-temp
+                              default-max-tokens
+                              get-linked-refs?
+                              extract-query-pages?
+                              extract-query-pages-ref?
+                              active?
+                              pre-prompt
+                              remaining-prompt]
+   (fn []
+      [:div {:style {:flex "1 1 1 1"}}
+       [button-with-tooltip
+        "The LLM acts as a creative partner, providing ideas for next steps. It tries to follow our
            discourse graph workflow: ie if the context includes an experiment,
             try to identify observations (results) within the experiment page. if the context includes a result, try to
             tie it to a claim. if you have a claim, propose next possible experiments (issues) "
-          [:> Button
-           {:minimal true
-            :fill false
-            :loading @active?
-            :on-click (fn [e]
-                        (when (not @active?)
-                          (reset! active? true))
-                        (go
-                          (let [current-page-uid    (<p! (get-open-page-uid))
-                                title               (uid->title current-page-uid)
-                                tref                (if (nil? title)
-                                                      (str "((" current-page-uid "))")
-                                                      (str "[[" title "]]"))
-                                nodes               {:children [{:string tref}]}
-                                vision?            (= "gpt-4-vision" @default-model)
-                                page-context-data   (extract-query-pages
-                                                      {:context              nodes
-                                                       :get-linked-refs?     @get-linked-refs?
-                                                       :extract-query-pages? @extract-query-pages?
-                                                       :only-pages?          @extract-query-pages-ref?
-                                                       :vision?              vision?})
-                                prompt              (str pre-prompt
-                                                      "\n"
-                                                      "<discourse-node-page-content> \n" page-context-data "\n </discourse-node-page-content> \n"
-                                                      remaining-prompt)
-                                context             (if vision?
-                                                       (vec
-                                                         (concat
-                                                           [{:type "text"
-                                                             :text (str pre-prompt "\n" remaining-prompt)}]
-                                                           page-context-data))
-                                                       prompt)
-                                llm-context         [{:role "user"
-                                                      :content context}]
-                                settings           {:model       (get model-mappings @default-model)
-                                                    :temperature @default-temp
-                                                    :max-tokens  @default-max-tokens}
-                                parent-block-uid   (gen-new-uid)
-                                res-block-uid      (gen-new-uid)
-                                already-context?    (block-has-child-with-str? current-page-uid "AI: Get suggestions for next step ")
-                                top-parent          (if (nil? already-context?)
-                                                       current-page-uid
-                                                       already-context?)
-                                struct             {:s "AI: Get suggestions for next steps"
-                                                    :u parent-block-uid
-                                                    :c [{:s ""
-                                                         :u res-block-uid}]}]
-                            (do
-                              (if chat-block
-                                (<p! (create-new-block
-                                       muid
-                                       "last"
-                                       (str "**User:** ^^get suggestion on:^^ " tref)
-                                       #()))
-                                (create-struct struct top-parent res-block-uid false
-                                  (p "Got new suggestion")))
-                             (<p! (js/Promise.
-                                    (fn [_]
-                                      (call-llm-api
-                                        {:messages llm-context
-                                         :settings settings
-                                         :callback (fn [response]
-                                                     (let [res-str (-> response :body)]
-                                                       (if chat-block
-                                                         (create-new-block
-                                                           muid
-                                                           "last"
-                                                           (str "**Assistant:** " res-str)
-                                                           (js/setTimeout
-                                                             (fn [] (reset! active? false))
-                                                             500))
-                                                         (update-block-string
-                                                           res-block-uid
-                                                           (str res-str)
-                                                           (js/setTimeout
-                                                             (fn [] (reset! active? false))
-                                                             500)))))}))))))))}
-           "Get Suggestions"]]]))))
+        [:> Button
+         {:minimal true
+          :fill false
+          :loading @active?
+          :on-click (fn [e]
+                      (when (not @active?)
+                        (reset! active? true))
+                      (go
+                        (let [current-page-uid    (<p! (get-open-page-uid))
+                              title               (uid->title current-page-uid)
+                              tref                (if (nil? title)
+                                                    (str "((" current-page-uid "))")
+                                                    (str "[[" title "]]"))
+                              nodes               {:children [{:string tref}]}
+                              vision?            (= "gpt-4-vision" @default-model)
+                              page-context-data   (extract-query-pages
+                                                    {:context              nodes
+                                                     :get-linked-refs?     @get-linked-refs?
+                                                     :extract-query-pages? @extract-query-pages?
+                                                     :only-pages?          @extract-query-pages-ref?
+                                                     :vision?              vision?})
+                              prompt              (str pre-prompt
+                                                    "\n"
+                                                    "<discourse-node-page-content> \n" page-context-data "\n </discourse-node-page-content> \n"
+                                                    remaining-prompt)
+                              context             (if vision?
+                                                     (vec
+                                                       (concat
+                                                         [{:type "text"
+                                                           :text (str pre-prompt "\n" remaining-prompt)}]
+                                                         page-context-data))
+                                                     prompt)
+                              llm-context         [{:role "user"
+                                                    :content context}]
+                              settings           {:model       (get model-mappings @default-model)
+                                                  :temperature @default-temp
+                                                  :max-tokens  @default-max-tokens}
+                              parent-block-uid   (gen-new-uid)
+                              res-block-uid      (gen-new-uid)
+                              already-context?    (block-has-child-with-str? current-page-uid "AI: Get suggestions for next step ")
+                              top-parent          (if (nil? already-context?)
+                                                     current-page-uid
+                                                     already-context?)
+                              struct             {:s "AI: Get suggestions for next steps"
+                                                  :u parent-block-uid
+                                                  :c [{:s ""
+                                                       :u res-block-uid}]}]
+                          (do
+                            (if (some? messages-uid)
+                              (<p! (create-new-block
+                                     messages-uid
+                                     "last"
+                                     (str "**User:** ^^get suggestion on:^^ " tref)
+                                     #()))
+                              (create-struct struct top-parent res-block-uid false
+                                (p "Got new suggestion")))
+                           (<p! (js/Promise.
+                                  (fn [_]
+                                    (call-llm-api
+                                      {:messages llm-context
+                                       :settings settings
+                                       :callback (fn [response]
+                                                   (let [res-str (-> response :body)]
+                                                     (if (some? messages-uid)
+                                                       (create-new-block
+                                                         messages-uid
+                                                         "last"
+                                                         (str "**Assistant:** " res-str)
+                                                         (js/setTimeout
+                                                           (fn [] (reset! active? false))
+                                                           500))
+                                                       (update-block-string
+                                                         res-block-uid
+                                                         (str res-str)
+                                                         (js/setTimeout
+                                                           (fn [] (reset! active? false))
+                                                           500)))))}))))))))}
+         "Get Suggestions"]]]))

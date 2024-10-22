@@ -14,7 +14,6 @@
 (defn extract-gpt-version [s]
   (let [pattern (re-pattern "(gpt-3\\.5-turbo|gpt-4)")]
     (first (re-find pattern s))))
-(extract-gpt-version "\"gpt-3.5\"")
 
 
 
