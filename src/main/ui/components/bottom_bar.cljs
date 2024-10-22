@@ -1,15 +1,42 @@
 (ns ui.components.bottom-bar
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
+            [reagent.core :as r :refer [atom]]
             [ui.components.quick-buttons :refer [button-with-settings text-to-image-button discourse-graph-this-page-button]]
             [cljs-http.client :as http]
-            [ui.components.get-context :refer [get-context-button get-suggestions-button make-discourse-graph-button]]
+            [ui.components.get-context :refer [get-context-button get-suggestions-button]]
             [ui.components.search-pinecone :refer [search-pinecone]]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [p button-with-tooltip all-dg-nodes image-to-text-for ai-block-exists? chat-ui-with-context-struct uid->title log get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [buttons-settings chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
+
+
+(defn bottom-bar-gear []
+  [:> ButtonGroup
+   {:class-name "button-with-settings"
+    :style {:overflow "hidden"
+            :display "flex"
+            :flex-direction "row"
+            :justify-content "space-between"
+            :align-items "center"
+            :flex "1 1 1"}
+    :minimal true}
+   [:div {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"
+          :style {:flex "1 1 1"}}
+    [:> Popover
+      [:> Button {:icon "cog"
+                      :minimal true
+                      :small true
+                      :style {:background-color "#eeebeb"}}]
+     [:> Menu
+      {:style {:padding "20px"}
+       :class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
+      (doall
+        (for [button ["Discourse graph this page" "Get context" "Get suggestions"]]
+           ^{:key button}
+           [buttons-settings button]))]]]])
 
 
 
@@ -23,6 +50,7 @@
               :align-items     "center"
               :width           "100%"}
       :fill true}
+     [bottom-bar-gear]
      [discourse-graph-this-page-button]
      [:> Divider]
      [get-context-button]

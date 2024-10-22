@@ -5,7 +5,7 @@
             [ui.extract-data.chat :as ed :refer [extract-query-pages data-for-nodes get-all-images-for-node]]
             [ui.components.chat :refer [chat-context]]
             [ui.components.chin :refer [chin]]
-            [ui.utils :refer [button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [button-popover button-with-tooltip watch-string model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -255,19 +255,70 @@
 (defn discourse-graph-this-page-button []
   (let [block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
         discourse-graph-page-uid (:uid (get-child-with-str block-uid "Discourse graph this page"))
-        default-model            (r/atom "gpt-4o") ;(get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
-        default-temp             (r/atom 0.2)  ;(js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
-        get-linked-refs?         (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
-                                                   true
-                                                   false))
-        extract-query-pages?     (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
-                                                   true
-                                                   false))
-        extract-query-pages-ref? (r/atom false #_(if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
-                                                   true
-                                                   false))
+        default-model            (r/atom  (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model"))
+        default-temp             (r/atom   (js/parseFloat (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature")))
+        default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Max tokens")))
+        get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs"))
+                                           true
+                                           false))
+        extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages"))
+                                           true
+                                           false))
+        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?"))
+                                           true
+                                           false))
         active?                  (r/atom false)
         context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))]
+
+
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Max tokens" false)
+      (fn [_ aft]
+        (p "max tokens changed" aft)
+        (reset! default-max-tokens (js/parseInt (:string aft)))))
+
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Temperature" false)
+      (fn [_ aft]
+        (p "temperature changed" aft)
+        (reset! default-temp (js/parseFloat (:string aft)))))
+
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Model" false)
+      (fn [_ aft]
+        (p "model name changed" aft)
+        (reset! default-model (:string aft))))
+
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Get linked refs" false)
+      (fn [_ aft]
+        (p "get linked refs changed" aft)
+        (reset! get-linked-refs? (if (= "true" (:string aft))
+                                   true
+                                   false))))
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages" false)
+      (fn [_ aft]
+        (p "extract query results changed" aft)
+        (reset! extract-query-pages? (if (= "true" (:string aft))
+                                       true
+                                       false))))
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Extract query pages ref?" false)
+      (fn [_ aft]
+        (p "extract query result's ref changed" aft)
+        (reset! extract-query-pages-ref? (if (= "true" (:string aft))
+                                           true
+                                           false))))
+
+    (watch-string
+      (get-child-of-child-with-str discourse-graph-page-uid "Settings" "Active?" false)
+      (fn [_ aft]
+        (p "Active button changed" aft)
+        (reset! active? (if (= "true" (:string aft))
+                          true
+                          false))))
+
     (fn [_]
       #_(println "--" (get-child-of-child-with-str-on-page "llm chat" "Quick action buttons" button-name "Context"))
       [:> ButtonGroup
@@ -279,30 +330,6 @@
                 :align-items "center"
                 :flex "1 1 1"}
         :minimal true}
-       #_[:div {:style {:flex "1 1 1"}}
-          [settings-button-popover
-           [:> Card {:elevation 3
-                     :style {:flex "1"
-                             :margin "0"
-                             :display "flex"
-                             :flex-direction "column"
-                             :border "2px solid rgba(0, 0, 0, 0.2)"
-                             :border-radius "8px"
-                             :max-width "950px"}}
-            [:div.summary-component
-             {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
-             [:div.chat-input-container
-              {:style {:display "flex"
-                       :flex-direction "row"
-                       :background-color "#f6cbfe3d"
-                       :border "1px"}}
-              [chat-context context #()]]
-             [chin {:default-model        default-model
-                    :default-temp         default-temp
-                    :get-linked-refs?     get-linked-refs?
-                    :block-uid            discourse-graph-page-uid
-                    :extract-query-pages? extract-query-pages?
-                    :extract-query-pages-ref? extract-query-pages-ref?}]]]]]
        [:div {:style {:flex "1 1 1"}}
         [button-with-tooltip
          "LLM proposes candidate discourse nodes based on the context of the current page (including zoomed-in pages). "
@@ -360,7 +387,7 @@
                                          settings           (merge
                                                               {:model       (get model-mappings @default-model)
                                                                :temperature @default-temp
-                                                               :max-tokens  500}
+                                                               :max-tokens  @default-max-tokens}
                                                               (when (= "gemini" @default-model)
                                                                 {:safety-settings (get-safety-settings block-uid)}))]
                                      (do

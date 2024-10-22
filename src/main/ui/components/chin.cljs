@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [ui.components.get-context :refer [get-context-button get-suggestions-button]]
-            [ui.utils :refer [gemini-safety-settings-struct button-with-tooltip get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
+            [ui.utils :refer [settings-button-popover buttons-settings gemini-safety-settings-struct button-with-tooltip get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [RadioGroup MenuDivider Position Radio ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn inject-style []
@@ -105,12 +105,19 @@
              :align-items "center"
              :border "1px"}}
     [:> ButtonGroup
-
      [get-context-button block-uid]
-     [get-suggestions-button block-uid]
+     [get-suggestions-button block-uid]]
+    [:> ButtonGroup
+     [settings-button-popover
+      [buttons-settings "Chat settings" block-uid]
+      "#fdf3ff"]
      [send-message-component
       active?
       callback]]]))
+
+
+
+
 
 
 
