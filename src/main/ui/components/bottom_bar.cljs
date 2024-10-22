@@ -187,7 +187,6 @@
 
 
        [get-suggestions-button
-        false
         nil
         sug-default-model
         sug-default-temp
