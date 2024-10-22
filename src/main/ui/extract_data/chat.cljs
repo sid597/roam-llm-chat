@@ -8,7 +8,10 @@
 (def skip-blocks-with-string #{"{{ chat-llm }}"
                                "AI chats"
                                "AI summary"
+                               "AI: Get context"
+                               "AI: Get suggestions for next steps"
                                "AI Discourse node suggestions"
+                               "AI: Discourse node suggestions"
                                "{{llm-dg-suggestions}}"})
 
 (comment
