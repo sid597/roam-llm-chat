@@ -64,9 +64,11 @@
 
 (defn extract-lab-updates [user]
   (let [page-uid (title->uid "Group Meetings")
-        latest-meeting-uid (:uid (first (sort-by :order (:children (get-child-with-str
-                                                                     page-uid
-                                                                     "{{Create Today's Meeting:SmartBlock:Group Meeting Template:RemoveButton=false}}")))))
+        latest-meeting (first (sort-by :order (:children (get-child-with-str
+                                                           page-uid
+                                                           "{{Create Today's Meeting:SmartBlock:Group Meeting Template:RemoveButton=false}}"))))
+        latest-meeting-uid (:uid latest-meeting)
+        latest-meeting-string (:string latest-meeting)
         lab-updates    (:uid (get-child-with-str
                                latest-meeting-uid
                                "Lab Updates"))
@@ -79,7 +81,9 @@
                          round-table)]
     (println "lab updates" lab-updates "round table" round-table)
     {:user-notes user-notes
-     :lab-updates lab-updates}))
+     :lab-updates lab-updates
+     :latest-meeting-uid latest-meeting-uid
+     :latest-meeting-string latest-meeting-string}))
 
 
 
@@ -134,7 +138,9 @@
                                    (let [current-user       (get-current-user)
                                          {:keys
                                           [user-notes
-                                           lab-updates]}    (extract-lab-updates current-user)
+                                           lab-updates
+                                           latest-meeting-uid
+                                           latest-meeting-string]} (extract-lab-updates (get db->template-username current-user))
                                          vision?            (= "gpt-4-vision" @default-model)
                                          nodes              {:children [{:string
                                                                          (str "((" lab-updates "))")}]}
@@ -161,14 +167,27 @@
                                                              :max-tokens  @default-max-tokens}
                                          parent-block-uid   (gen-new-uid)
                                          res-block-uid      (gen-new-uid)
-                                         already-context?    (block-has-child-with-str? current-page-uid "AI: Get suggestions for next step ")
-                                         top-parent          (if (nil? already-context?)
-                                                               current-page-uid
-                                                               already-context?)
-                                         struct             {:s "AI: Get suggestions for next steps"
-                                                             :u parent-block-uid
-                                                             :c [{:s ""
-                                                                  :u res-block-uid}]}]
+
+                                         user-daily-notes-page (title->uid (str current-user "\/Home"))
+                                         create-dnp-block-uid   (block-has-child-with-str?
+                                                                  user-daily-notes-page
+                                                                  "\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
+                                         latest-dnp-uid          (block-has-child-with-str?
+                                                                   create-dnp-block-uid
+                                                                   latest-meeting-string)
+                                         top-parent          (if (nil? latest-dnp-uid)
+                                                               create-dnp-block-uid
+                                                               latest-dnp-uid)
+
+                                         struct             (if (nil? latest-dnp-uid)
+                                                               {:s latest-meeting-string
+                                                                :u parent-block-uid
+                                                                :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))")
+                                                                     :u res-block-uid}]}
+                                                              {:s "AI: Get suggestions for next steps"
+                                                               :u parent-block-uid
+                                                               :c [{:s ""
+                                                                    :u res-block-uid}]})]
                                      (do
                                        (if (some? messages-uid)
                                          (<p! (create-new-block
