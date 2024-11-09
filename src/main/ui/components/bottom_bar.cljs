@@ -168,7 +168,7 @@
                                          parent-block-uid   (gen-new-uid)
                                          res-block-uid      (gen-new-uid)
 
-                                         user-daily-notes-page (title->uid (str current-user "\/Home"))
+                                         user-daily-notes-page (title->uid (str current-user "/Home"))
                                          create-dnp-block-uid   (block-has-child-with-str?
                                                                   user-daily-notes-page
                                                                   "\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
@@ -178,25 +178,23 @@
                                          top-parent          (if (nil? latest-dnp-uid)
                                                                create-dnp-block-uid
                                                                latest-dnp-uid)
-
                                          struct             (if (nil? latest-dnp-uid)
                                                                {:s latest-meeting-string
                                                                 :u parent-block-uid
                                                                 :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))")
-                                                                     :u res-block-uid}]}
-                                                              {:s "AI: Get suggestions for next steps"
+                                                                     :c [{:s ""
+                                                                          :u res-block-uid}]}]}
+                                                              {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))")
                                                                :u parent-block-uid
                                                                :c [{:s ""
                                                                     :u res-block-uid}]})]
                                      (do
-                                       (if (some? messages-uid)
-                                         (<p! (create-new-block
-                                                messages-uid
-                                                "last"
-                                                (str "**User:** ^^get suggestion on:^^ " tref)
-                                                #()))
-                                         (create-struct struct top-parent res-block-uid false
-                                           (p "Got new suggestion")))
+                                       (create-struct
+                                        struct
+                                        top-parent
+                                        res-block-uid
+                                        false
+                                        (p "Ref relevant notes"))
                                        (<p! (js/Promise.
                                               (fn [_]
                                                 (call-llm-api
@@ -204,20 +202,13 @@
                                                    :settings settings
                                                    :callback (fn [response]
                                                                (let [res-str (-> response :body)]
-                                                                 (if (some? messages-uid)
-                                                                   (create-new-block
-                                                                     messages-uid
-                                                                     "last"
-                                                                     (str "**Assistant:** " res-str)
-                                                                     (js/setTimeout
-                                                                       (fn [] (reset! active? false))
-                                                                       500))
-                                                                   (update-block-string
+                                                                 (println "ref relevant notes :::: " res-str)
+                                                                 #_(update-block-string
                                                                      res-block-uid
                                                                      (str res-str)
                                                                      (js/setTimeout
                                                                        (fn [] (reset! active? false))
-                                                                       500)))))}))))))))}
+                                                                       500))))}))))))))}
           "Reference relevant notes"]]))))
 
 (defn bottom-bar-buttons []
