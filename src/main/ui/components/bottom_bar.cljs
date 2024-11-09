@@ -8,7 +8,9 @@
             [ui.components.search-pinecone :refer [search-pinecone]]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.utils :refer [buttons-settings chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.extract-data.chat :refer [extract-query-pages]]
+            [applied-science.js-interop :as j]
+            [ui.utils :refer [buttons-settings get-current-user chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -38,7 +40,166 @@
            ^{:key button}
            [buttons-settings button]))]]]])
 
+(def db->template-username
+  { "Matt Akamatsu"       "Matt"
+   "Valerie Bentivegna"   "Valerie"
+   "Maggie Fuqua"         "Maggie"
+   "Hanna Bekele"         "Hanna"
+   "Atsushi Matsuda"      "Atsushi"
+   "Emma Koves"           "Emma"
+   "Aadarsh Raghunathan"  "Aadarsh"
+   "Benjamin Brown"       "Benjamin"
+   "Abhishek Raghunathan" "Abhi"})
 
+
+(defn extract-blocks-by-user [user block-uid]
+  (q '[:find (pull ?bc [{:block/children ...} :block/string])
+       :in $ ?user ?buid
+       :where
+       [?be :block/uid ?buid]
+       [?be :block/children ?bc]
+       [?bc :block/string ?user]]
+    user
+    block-uid))
+
+(defn extract-lab-updates [user]
+  (let [page-uid (title->uid "Group Meetings")
+        latest-meeting-uid (:uid (first (sort-by :order (:children (get-child-with-str
+                                                                     page-uid
+                                                                     "{{Create Today's Meeting:SmartBlock:Group Meeting Template:RemoveButton=false}}")))))
+        lab-updates    (:uid (get-child-with-str
+                               latest-meeting-uid
+                               "Lab Updates"))
+        round-table (:uid (get-child-with-str
+                            latest-meeting-uid
+                            "Round Table: \"Can't let it go\" and Weekly Recap"))
+        template-name  (get db->template-username user)
+        user-notes     (extract-blocks-by-user
+                         template-name
+                         round-table)]
+    (println "lab updates" lab-updates "round table" round-table)
+    {:user-notes user-notes
+     :lab-updates lab-updates}))
+
+
+
+(extract-blocks-by-user "Valerie" "B6HTSfziK")
+
+(extract-lab-updates "Valerie Bentivegna")
+
+(get db->template-username
+  "Valerie Bentivegna")
+
+
+(defn filtered-pages-button1 [default-model
+                              default-temp
+                              default-max-tokens
+                              get-linked-refs?
+                              extract-query-pages?
+                              extract-query-pages-ref?
+                              step-1-prompt
+                              step-2-prompt
+                              active?][]
+  (let [disabled? (r/atom true)]
+    (fn []
+      (let [mutation-callback (fn mutation-callback [mutations observer]
+                                (doseq [mutation mutations]
+                                  (when (= (.-type mutation) "childList")
+                                    (let [ 
+                                           title-element (.querySelector js/document "h1.rm-title-display span")
+                                           page-title (when title-element (.-textContent title-element))]
+                                       (if (and (some? page-title)
+                                                (= page-title "Group Meetings"))
+                                         (reset! disabled? false)
+                                         (reset! disabled? true))
+                                         
+                                       (println "FILTERED MUTATION" page-title 
+                                                (some? page-title)
+                                                (= page-title "Group Meetings")
+                                                @disabled?)))))
+                                         
+            star-observing    (let [observer (js/MutationObserver. mutation-callback)]
+                                (.observe observer js/document #js {:childList true
+                                                                    :subtree true}))])
+      (when (not @disabled?)
+        [button-with-tooltip
+         "The llm extracts the relevant notes from the lab updates and references them in your daily notes page."
+         [:> Button {:class-name "chat-with-filtered-pages"
+                     :minimal true
+                     :small true
+                     :on-click (fn [e]
+                                 (when (not @active?)
+                                   (reset! active? true))
+                                 (go
+                                   (let [current-user       (get-current-user)
+                                         {:keys
+                                          [user-notes
+                                           lab-updates]}    (extract-lab-updates current-user)
+                                         vision?            (= "gpt-4-vision" @default-model)
+                                         nodes              {:children [{:string
+                                                                         (str "((" lab-updates "))")}]}
+                                         page-context-data   (extract-query-pages
+                                                               {:context              nodes
+                                                                :get-linked-refs?     @get-linked-refs?
+                                                                :extract-query-pages? @extract-query-pages?
+                                                                :only-pages?          @extract-query-pages-ref?
+                                                                :vision?              vision?})
+                                         prompt              (str step-1-prompt
+                                                               "\n"
+                                                               page-context-data)
+                                         context             (if vision?
+                                                               (vec
+                                                                 (concat
+                                                                   [{:type "text"
+                                                                     :text (str step-1-prompt)}]
+                                                                   page-context-data))
+                                                               prompt)
+                                         llm-context         [{:role "user"
+                                                               :content context}]
+                                         settings           {:model       (get model-mappings @default-model)
+                                                             :temperature @default-temp
+                                                             :max-tokens  @default-max-tokens}
+                                         parent-block-uid   (gen-new-uid)
+                                         res-block-uid      (gen-new-uid)
+                                         already-context?    (block-has-child-with-str? current-page-uid "AI: Get suggestions for next step ")
+                                         top-parent          (if (nil? already-context?)
+                                                               current-page-uid
+                                                               already-context?)
+                                         struct             {:s "AI: Get suggestions for next steps"
+                                                             :u parent-block-uid
+                                                             :c [{:s ""
+                                                                  :u res-block-uid}]}]
+                                     (do
+                                       (if (some? messages-uid)
+                                         (<p! (create-new-block
+                                                messages-uid
+                                                "last"
+                                                (str "**User:** ^^get suggestion on:^^ " tref)
+                                                #()))
+                                         (create-struct struct top-parent res-block-uid false
+                                           (p "Got new suggestion")))
+                                       (<p! (js/Promise.
+                                              (fn [_]
+                                                (call-llm-api
+                                                  {:messages llm-context
+                                                   :settings settings
+                                                   :callback (fn [response]
+                                                               (let [res-str (-> response :body)]
+                                                                 (if (some? messages-uid)
+                                                                   (create-new-block
+                                                                     messages-uid
+                                                                     "last"
+                                                                     (str "**Assistant:** " res-str)
+                                                                     (js/setTimeout
+                                                                       (fn [] (reset! active? false))
+                                                                       500))
+                                                                   (update-block-string
+                                                                     res-block-uid
+                                                                     (str res-str)
+                                                                     (js/setTimeout
+                                                                       (fn [] (reset! active? false))
+                                                                       500)))))}))))))))}
+          "Reference relevant notes"]]))))
 
 (defn bottom-bar-buttons []
   (let [dgp-block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
@@ -93,8 +254,28 @@
                                                false))
         sug-pre-prompt                (get-child-of-child-with-str sug-get-context-uid "Prompt" "Pre-prompt")
         sug-remaining-prompt         (get-child-of-child-with-str sug-get-context-uid "Prompt" "Further instructions")
-        sug-active?                  (r/atom false)]
-    (fn []
+        sug-active?                  (r/atom false)
+        ref-get-context-uid          (:uid (get-child-with-str
+                                             (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                             "Ref relevant notes"))
+        ref-default-model            (r/atom (get-child-of-child-with-str ref-get-context-uid "Settings" "Model"))
+        ref-default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str ref-get-context-uid "Settings" "Temperature")))
+        ref-default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str ref-get-context-uid "Settings" "Max tokens")))
+        ref-get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str ref-get-context-uid "Settings" "Get linked refs"))
+                                               true
+                                               false))
+        ref-extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str ref-get-context-uid "Settings" "Extract query pages"))
+                                               true
+                                               false))
+        ref-extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str ref-get-context-uid "Settings" "Extract query pages ref?"))
+                                               true
+                                               false))
+        ref-step-1-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-1")
+        ref-step-2-prompt            (get-child-of-child-with-str sug-get-context-uid "Prompt" "Step-2")
+        ref-active?                  (r/atom false)]
+
+
+   (fn []
       (p "Render bottom bar buttons")
       [:> ButtonGroup
        {:style {:display         "flex"
@@ -243,7 +424,17 @@
                                         (p (str pre "Created a new chat block under `AI chats` block and opening in sidebar with context: " context)))))))}
 
           "Chat with this page"]]]
-       #_[:> Divider]
+       [:> Divider]
+       [filtered-pages-button1
+        ref-default-model
+        ref-default-temp
+        ref-default-max-tokens
+        ref-get-linked-refs?
+        ref-extract-query-pages?
+        ref-extract-query-pages-ref?
+        ref-step-1-prompt
+        ref-step-2-prompt
+        ref-active?]
        #_[:div
           {:style {:flex "1 1 1"}}
           [button-with-tooltip

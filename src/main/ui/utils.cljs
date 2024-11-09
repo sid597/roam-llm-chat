@@ -114,10 +114,41 @@
  (count (q '[:find ?t
              :where [?e :node/title]])))
 
+(defn get-uid-from-localstorage []
+  (let [user-data (loop [remaining  (reader/read-string
+                                      (.getItem (.-localStorage js/window) "globalAppState"))
+                         prev       nil]
+                    (if (= "~:user" prev)
+                      (first remaining)
+                      (recur (rest remaining) (first remaining))))]
+    (loop [remaining user-data
+           prev nil]
+      (when (seq remaining)
+        (if (= "~:uid" prev)
+          (first remaining)
+          (recur (rest remaining) (first remaining)))))))
+
+(defn get-current-user []
+  (let [user-uid (get-uid-from-localstorage)
+        username (first (flatten (q '[:find (pull ?duid [*])
+                                      :in $ ?user-uid
+                                      :where
+                                      [?eid :user/uid ?user-uid]
+                                      [?eid :user/display-page ?duid]
+                                      [?duid :node/title ?username]]
+                                   user-uid)))]
+    username))
 
 
-(comment
-  (flatten extract-all-sources))
+(defn get-all-users []
+  (q '[:find (pull ?user [*])
+       :where
+       [?eid :create/user ?uid]
+       [?duid :user/display-page ?user]]))
+
+(get-all-users)
+
+
 
 (defn uid-to-block [uid]
   (q '[:find (pull ?e [*])
