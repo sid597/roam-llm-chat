@@ -7,10 +7,11 @@
             [ui.components.get-context :refer [get-context-button get-suggestions-button]]
             [ui.components.search-pinecone :refer [search-pinecone]]
             [ui.extract-data.chat :refer [data-for-nodes get-all-images-for-node]]
+            [clojure.string :as str]
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
-            [ui.extract-data.chat :refer [extract-query-pages]]
+            [ui.extract-data.chat :refer [extract-query-pages get-all-images-for-node]]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [buttons-settings get-current-user chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [buttons-settings extract-from-code-block create-new-block uid->eid get-current-user chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -180,6 +181,7 @@
                               extract-query-pages-ref?
                               step-1-prompt
                               step-2-prompt
+                              image-prompt
                               active?][]
   (let [disabled? (r/atom true)]
     (fn []
@@ -236,28 +238,30 @@
                                                                       :extract-query-pages? @extract-query-pages?
                                                                       :only-pages?          @extract-query-pages-ref?
                                                                       :vision?              vision?})
-                                         prompt                    (str step-1-prompt
+                                         stage-1-prompt            (str step-1-prompt
                                                                      "\n"
                                                                      lab-update-notes
                                                                      "\n"
                                                                      "Individual notes from member: "
                                                                      user-plain-notes)
-                                         context                   (if vision?
-                                                                     (vec
-                                                                       (concat
-                                                                         [{:type "text"
-                                                                           :text (str step-1-prompt)}]
-                                                                         lab-update-notes
-                                                                         ["Individual notes from member: "]
-                                                                         user-plain-notes))
-                                                                     prompt)
+                                         stage-1-context          (if vision?
+                                                                    (vec
+                                                                      (concat
+                                                                        [{:type "text"
+                                                                          :text (str step-1-prompt)}]
+                                                                        lab-update-notes
+                                                                        ["Individual notes from member: "]
+                                                                        user-plain-notes))
+                                                                    stage-1-prompt)
                                          llm-context               [{:role "user"
-                                                                     :content context}]
+                                                                     :content stage-1-context}]
                                          settings                  {:model       (get model-mappings @default-model)
                                                                     :temperature @default-temp
                                                                     :max-tokens  @default-max-tokens}
                                          parent-block-uid          (gen-new-uid)
-                                         res-block-uid             (gen-new-uid)
+                                         ref-block-uid             (gen-new-uid)
+                                         stage-1-block-uid         (gen-new-uid)
+                                         stage-2-block-uid         (gen-new-uid)
                                          user-daily-notes-page     (title->uid (str current-user-name "/Home"))
                                          create-dnp-block-uid      (block-has-child-with-str?
                                                                      user-daily-notes-page
@@ -272,34 +276,92 @@
                                                                       {:s latest-meeting-string
                                                                        :u parent-block-uid
                                                                        :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
-                                                                            :c [{:s ""
-                                                                                 :u res-block-uid}]}]}
+                                                                            :c [{:s "Summary"
+                                                                                 :c [{:s ""
+                                                                                      :u stage-1-block-uid}]}
+                                                                                {:s "References"
+                                                                                 :u ref-block-uid
+                                                                                 :c [{:s ""
+                                                                                      :u stage-2-block-uid}]}]}]}
                                                                      {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
                                                                       :u parent-block-uid
-                                                                      :c [{:s ""
-                                                                           :u res-block-uid}]})]
+                                                                      :c [{:s "Summary"
+                                                                           :c [{:s ""
+                                                                                :u stage-1-block-uid}]}
+                                                                          {:s "References"
+                                                                           :u ref-block-uid
+                                                                           :c [{:s ""
+                                                                                :u stage-2-block-uid}]}]})
+                                         all-images-in-latest-meeting (get-all-images-for-node
+                                                                        latest-meeting-uid
+                                                                        true)
+                                         image-count                  (count all-images-in-latest-meeting)]
                                      (do
                                        (create-struct
                                         struct
                                         top-parent
-                                        res-block-uid
-                                        false
+                                        parent-block-uid
+                                        true
                                         (p "Ref relevant notes"))
-                                       (<p! (js/Promise.
-                                              (fn [_]
-                                                (call-llm-api
-                                                  {:messages llm-context
-                                                   :settings settings
-                                                   :callback (fn [response]
-                                                               (let [res-str (-> response :body)]
-                                                                 (println "ref relevant notes :::: " res-str)
-                                                                 (update-block-string
-                                                                   res-block-uid
-                                                                   (str res-str)
-                                                                   (js/setTimeout
-                                                                     (fn [] (reset! active? false))
-                                                                     500))))}))))))))}
+                                       (<p! (-> (js/Promise.
+                                                  (fn [resolve _]
+                                                    (call-llm-api
+                                                      {:messages llm-context
+                                                       :settings settings
+                                                       :callback (fn [response]
+                                                                   (let [res-str (-> response :body)]
+                                                                     (println "Stage 1 :::: " res-str)
+                                                                     (update-block-string
+                                                                       stage-1-block-uid
+                                                                       (str res-str))
+                                                                     (resolve (str res-str))))})))
+                                                (.then (fn [stage-1-res]
+                                                         (-> (image-to-text-for
+                                                                 all-images-in-latest-meeting
+                                                                 (atom image-count)
+                                                                 (atom true)
+                                                                 image-prompt
+                                                                 (atom  400))
+                                                           (.then (fn [_] stage-1-res)))))
+                                                (.then (fn [stage-1-res]
+                                                         (let [raw-lab-update-notes (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
+                                                                                                 :in $ ?eid]
+                                                                                              (uid->eid lab-updates-uid)))
+                                                               stage-2-prompt        (str step-2-prompt
+                                                                                       "\n"
+                                                                                       "Raw data: "
+                                                                                       raw-lab-update-notes
+                                                                                       "\n"
+                                                                                       "Summary: "
+                                                                                       stage-1-res)
+                                                               llm-context           [{:role "user"
+                                                                                       :content stage-2-prompt}]]
+                                                            (println stage-2-prompt)
+                                                            (call-llm-api
+                                                              {:messages llm-context
+                                                               :settings settings
+                                                               :callback (fn [response]
+                                                                           (let [suggestions (js->clj (js/JSON.parse (-> response
+                                                                                                                       :body
+                                                                                                                       (str/replace #"```json\s*" "") ; Remove ```json
+                                                                                                                       (str/replace #"```\s*$" "")    ; Remove trailing ```
+                                                                                                                       str/trim
+                                                                                                                       extract-from-code-block))
+                                                                                               :keywordize-keys true)]
+                                                                             (println "Stage 2 :::: " suggestions ref-block-uid)
+                                                                             (doseq [sug suggestions]
+                                                                               (create-new-block
+                                                                                 ref-block-uid
+                                                                                 "last"
+                                                                                 (str "((" (:uid sug) "))")
+                                                                                 #()))
+                                                                             (js/setTimeout
+                                                                               (fn [] (reset! active? false))
+                                                                               500)))}))))))))))}
+
+
           "Reference relevant notes"]]))))
+
 
 (defn bottom-bar-buttons []
   (let [dgp-block-uid                (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
@@ -371,7 +433,8 @@
                                                true
                                                false))
         ref-step-1-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-1")
-        ref-step-2-prompt            (get-child-of-child-with-str sug-get-context-uid "Prompt" "Step-2")
+        ref-step-2-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-2")
+        ref-image-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Image-prompt")
         ref-active?                  (r/atom false)]
 
 
@@ -534,6 +597,7 @@
         ref-extract-query-pages-ref?
         ref-step-1-prompt
         ref-step-2-prompt
+        ref-image-prompt
         ref-active?]
        #_[:div
           {:style {:flex "1 1 1"}}

@@ -76,6 +76,7 @@
   (get-all-images-for-node "Test: Image to text" false true)
   (get-all-images-for-node "testing 3" false)
   (get-all-images-for-node "YNWR7PAne" true)
+  (get-all-images-for-node "Qr3-5Zogr" #_"YNWR7PAne" true)
   (get-all-images-for-node "[[EVD]] - Cryo electron tomography of actin branches in SKMEL2 cells showed a branching angle of 68 ± 15 degrees - @serwas2022mechanistic" false)
   (get-all-images-for-node "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]" false)
   (get-all-images-for-node "[[QUE]] - What is the rate at which cofilin binds actin filaments?" false))
@@ -525,7 +526,9 @@
         current-message (atom (str "{: title " title " \n  :body \n "))
         ref-map         (extract-for-message-array
                           refs
-                          (str ":linked-refs \n ")
+                          (if (some? refs)
+                            (str ":linked-refs \n ")
+                            (str ":linked-refs NONE \n "))
                           "}")]
     (doseq [message messages]
       (let [current-image? (when (string? message) (extract-markdown-image message))]
