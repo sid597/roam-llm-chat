@@ -49,11 +49,12 @@
    "Emma Koves"           "Emma"
    "Aadarsh Raghunathan"  "Aadarsh"
    "Benjamin Brown"       "Benjamin"
-   "Abhishek Raghunathan" "Abhi"})
+   "Abhishek Raghunathan" "Abhi"
+   "sid" "Sid"})
 
 
 (defn extract-blocks-by-user [user block-uid]
-  (q '[:find (pull ?bc [{:block/children ...} :block/string])
+  (q '[:find (pull ?bc [{:block/children ...} :block/string :block/uid])
        :in $ ?user ?buid
        :where
        [?be :block/uid ?buid]
@@ -76,23 +77,99 @@
                             latest-meeting-uid
                             "Round Table: \"Can't let it go\" and Weekly Recap"))
         template-name  (get db->template-username user)
-        user-notes     (extract-blocks-by-user
-                         template-name
-                         round-table)]
+        user-notes     (ffirst (extract-blocks-by-user
+                                 template-name
+                                 round-table))]
     (println "lab updates" lab-updates "round table" round-table)
-    {:user-notes user-notes
-     :lab-updates lab-updates
-     :latest-meeting-uid latest-meeting-uid
+    {:user-notes            user-notes
+     :user-notes-uid        (:uid user-notes)
+     :lab-updates-uid       lab-updates
+     :latest-meeting-uid    latest-meeting-uid
      :latest-meeting-string latest-meeting-string}))
 
 
+(comment
+  (extract-blocks-by-user "Valerie" "B6HTSfziK")
+  (extract-lab-updates "Valerie Bentivegna")
 
-(extract-blocks-by-user "Valerie" "B6HTSfziK")
+  (let [username                  (:title (get-current-user))
+        {:keys
+         [user-notes
+          user-notes-uid
+          lab-updates-uid
+          latest-meeting-uid
+          latest-meeting-string]} (extract-lab-updates username)
+        nodes                     {:children [{:string
+                                               (str "((" lab-updates-uid "))")}]}
+        user-nodes                {:children [{:string
+                                               (str "((" user-notes-uid "))")}]}
+        vision?                   true
+        lab-update-notes          (extract-query-pages
+                                    {:context              nodes
+                                     :get-linked-refs?     true
+                                     :extract-query-pages? false
+                                     :only-pages?          false
+                                     :vision?              vision?})
+        user-plain-notes         (extract-query-pages
+                                   {:context              user-nodes
+                                    :get-linked-refs?     true
+                                    :extract-query-pages? false
+                                    :only-pages?          false
+                                    :vision?              vision?})
+        ref-get-context-uid       (:uid (get-child-with-str
+                                          (block-has-child-with-str?
+                                            (title->uid "LLM chat settings")
+                                            "Quick action buttons")
+                                          "Ref relevant notes"))
+        step-1-prompt              (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-1")
+        prompt                     (str step-1-prompt
+                                     "\n"
+                                     lab-update-notes
+                                     "\n"
+                                     "Individual notes from member: "
+                                     user-plain-notes)
+        context                    (if vision?
+                                     (vec
+                                       (concat
+                                         [{:type "text"
+                                           :text (str step-1-prompt)}]
+                                         lab-update-notes
+                                         ["Individual notes from member: "]
+                                         user-plain-notes))
+                                     prompt)
+        user-daily-notes-page     (title->uid (str username "/Home"))
+        create-dnp-block-uid      (block-has-child-with-str?
+                                    user-daily-notes-page
+                                    "\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
+        same-latest-dnp-uid?      (block-has-child-with-str?
+                                    create-dnp-block-uid
+                                    latest-meeting-string)
+        top-parent                (if (nil? same-latest-dnp-uid?)
+                                    create-dnp-block-uid
+                                    same-latest-dnp-uid?)
+        parent-block-uid          (gen-new-uid)
+        res-block-uid             (gen-new-uid)
+        struct                    (if (nil? same-latest-dnp-uid?)
+                                    {:s latest-meeting-string
+                                     :o "first"
+                                     :u parent-block-uid
+                                     :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))  group meeting")
+                                          :c [{:s ""
+                                               :u res-block-uid}]}]}
+                                    {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
+                                     :u parent-block-uid
+                                     :c [{:s ""
+                                          :u res-block-uid}]})]
+    (println "latest meeting string")
+    (create-struct
+      struct
+      top-parent
+      res-block-uid
+      false
+      (p "Ref relevant notes"))))
 
-(extract-lab-updates "Valerie Bentivegna")
 
-(get db->template-username
-  "Valerie Bentivegna")
+
 
 
 (defn filtered-pages-button1 [default-model
@@ -115,12 +192,9 @@
                                        (if (and (some? page-title)
                                                 (= page-title "Group Meetings"))
                                          (reset! disabled? false)
-                                         (reset! disabled? true))
+                                         (reset! disabled? true))))))
                                          
-                                       (println "FILTERED MUTATION" page-title 
-                                                (some? page-title)
-                                                (= page-title "Group Meetings")
-                                                @disabled?)))))
+
                                          
             star-observing    (let [observer (js/MutationObserver. mutation-callback)]
                                 (.observe observer js/document #js {:childList true
@@ -131,63 +205,79 @@
          [:> Button {:class-name "chat-with-filtered-pages"
                      :minimal true
                      :small true
+                     :loading @active?
                      :on-click (fn [e]
                                  (when (not @active?)
                                    (reset! active? true))
                                  (go
-                                   (let [current-user       (get-current-user)
+                                   (let [current-user              (get-current-user)
+                                         current-user-name         (:title (get-current-user))
+                                         current-user-id           (:id (get-current-user))
                                          {:keys
                                           [user-notes
-                                           lab-updates
+                                           user-notes-uid
+                                           lab-updates-uid
                                            latest-meeting-uid
-                                           latest-meeting-string]} (extract-lab-updates (get db->template-username current-user))
-                                         vision?            (= "gpt-4-vision" @default-model)
-                                         nodes              {:children [{:string
-                                                                         (str "((" lab-updates "))")}]}
-                                         page-context-data   (extract-query-pages
-                                                               {:context              nodes
-                                                                :get-linked-refs?     @get-linked-refs?
-                                                                :extract-query-pages? @extract-query-pages?
-                                                                :only-pages?          @extract-query-pages-ref?
-                                                                :vision?              vision?})
-                                         prompt              (str step-1-prompt
-                                                               "\n"
-                                                               page-context-data)
-                                         context             (if vision?
-                                                               (vec
-                                                                 (concat
-                                                                   [{:type "text"
-                                                                     :text (str step-1-prompt)}]
-                                                                   page-context-data))
-                                                               prompt)
-                                         llm-context         [{:role "user"
-                                                               :content context}]
-                                         settings           {:model       (get model-mappings @default-model)
-                                                             :temperature @default-temp
-                                                             :max-tokens  @default-max-tokens}
-                                         parent-block-uid   (gen-new-uid)
-                                         res-block-uid      (gen-new-uid)
-
-                                         user-daily-notes-page (title->uid (str current-user "/Home"))
-                                         create-dnp-block-uid   (block-has-child-with-str?
-                                                                  user-daily-notes-page
-                                                                  "\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
-                                         latest-dnp-uid          (block-has-child-with-str?
-                                                                   create-dnp-block-uid
-                                                                   latest-meeting-string)
-                                         top-parent          (if (nil? latest-dnp-uid)
-                                                               create-dnp-block-uid
-                                                               latest-dnp-uid)
-                                         struct             (if (nil? latest-dnp-uid)
-                                                               {:s latest-meeting-string
-                                                                :u parent-block-uid
-                                                                :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))")
-                                                                     :c [{:s ""
-                                                                          :u res-block-uid}]}]}
-                                                              {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid "))")
-                                                               :u parent-block-uid
-                                                               :c [{:s ""
-                                                                    :u res-block-uid}]})]
+                                           latest-meeting-string]} (extract-lab-updates current-user-name)
+                                         vision?                   (= "gpt-4-vision" @default-model)
+                                         lab-update-nodes          {:children [{:string
+                                                                                (str "((" lab-updates-uid "))")}]}
+                                         user-nodes                {:children [{:string
+                                                                                (str "((" user-notes-uid "))")}]}
+                                         lab-update-notes          (extract-query-pages
+                                                                     {:context              lab-update-nodes
+                                                                      :get-linked-refs?     @get-linked-refs?
+                                                                      :extract-query-pages? @extract-query-pages?
+                                                                      :only-pages?          @extract-query-pages-ref?
+                                                                      :vision?              vision?})
+                                         user-plain-notes          (extract-query-pages
+                                                                     {:context              user-nodes
+                                                                      :get-linked-refs?     @get-linked-refs?
+                                                                      :extract-query-pages? @extract-query-pages?
+                                                                      :only-pages?          @extract-query-pages-ref?
+                                                                      :vision?              vision?})
+                                         prompt                    (str step-1-prompt
+                                                                     "\n"
+                                                                     lab-update-notes
+                                                                     "\n"
+                                                                     "Individual notes from member: "
+                                                                     user-plain-notes)
+                                         context                   (if vision?
+                                                                     (vec
+                                                                       (concat
+                                                                         [{:type "text"
+                                                                           :text (str step-1-prompt)}]
+                                                                         lab-update-notes
+                                                                         ["Individual notes from member: "]
+                                                                         user-plain-notes))
+                                                                     prompt)
+                                         llm-context               [{:role "user"
+                                                                     :content context}]
+                                         settings                  {:model       (get model-mappings @default-model)
+                                                                    :temperature @default-temp
+                                                                    :max-tokens  @default-max-tokens}
+                                         parent-block-uid          (gen-new-uid)
+                                         res-block-uid             (gen-new-uid)
+                                         user-daily-notes-page     (title->uid (str current-user-name "/Home"))
+                                         create-dnp-block-uid      (block-has-child-with-str?
+                                                                     user-daily-notes-page
+                                                                     "\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
+                                         same-latest-dnp-uid?      (block-has-child-with-str?
+                                                                     create-dnp-block-uid
+                                                                     latest-meeting-string)
+                                         top-parent                (if (nil? same-latest-dnp-uid?)
+                                                                     create-dnp-block-uid
+                                                                     same-latest-dnp-uid?)
+                                         struct                    (if (nil? same-latest-dnp-uid?)
+                                                                      {:s latest-meeting-string
+                                                                       :u parent-block-uid
+                                                                       :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
+                                                                            :c [{:s ""
+                                                                                 :u res-block-uid}]}]}
+                                                                     {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
+                                                                      :u parent-block-uid
+                                                                      :c [{:s ""
+                                                                           :u res-block-uid}]})]
                                      (do
                                        (create-struct
                                         struct
@@ -203,12 +293,12 @@
                                                    :callback (fn [response]
                                                                (let [res-str (-> response :body)]
                                                                  (println "ref relevant notes :::: " res-str)
-                                                                 #_(update-block-string
-                                                                     res-block-uid
-                                                                     (str res-str)
-                                                                     (js/setTimeout
-                                                                       (fn [] (reset! active? false))
-                                                                       500))))}))))))))}
+                                                                 (update-block-string
+                                                                   res-block-uid
+                                                                   (str res-str)
+                                                                   (js/setTimeout
+                                                                     (fn [] (reset! active? false))
+                                                                     500))))}))))))))}
           "Reference relevant notes"]]))))
 
 (defn bottom-bar-buttons []
