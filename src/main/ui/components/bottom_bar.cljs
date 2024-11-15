@@ -42,7 +42,7 @@
            [buttons-settings button]))]]]])
 
 (def db->template-username
-  { "Matt Akamatsu"       "Matt"
+  {"Matt Akamatsu"       "Matt"
    "Valerie Bentivegna"   "Valerie"
    "Maggie Fuqua"         "Maggie"
    "Hanna Bekele"         "Hanna"
@@ -51,7 +51,19 @@
    "Aadarsh Raghunathan"  "Aadarsh"
    "Benjamin Brown"       "Benjamin"
    "Abhishek Raghunathan" "Abhi"
-   "sid" "Sid"})
+   "sid"                  "Sid"})
+
+(def db->meetings-username
+  {"Matt Akamatsu"       "Matt"
+   "Valerie Bentivegna"   "Valerie"
+   "Maggie Fuqua"         "Maggie"
+   "Hanna Bekele"         "Hanna Bekele"
+   "Atsushi Matsuda"      "Atsushi"
+   "Emma Koves"           "Emma"
+   "Aadarsh Raghunathan"  "Aadarsh"
+   "Benjamin Brown"       "Ben"
+   "Abhishek Raghunathan" "Abhishek"
+   "sid"                  "Sid"})
 
 
 (defn extract-blocks-by-user [user block-uid]
@@ -87,6 +99,19 @@
      :lab-updates-uid       lab-updates
      :latest-meeting-uid    latest-meeting-uid
      :latest-meeting-string latest-meeting-string}))
+
+(defn extract-latest-one-on-one-meeting-notes [username]
+  (let [page-uid              (title->uid (str "Meetings Sid and Matt"))
+        latest-meeting        (first
+                                (sort-by
+                                  :order
+                                  (:children (get-child-with-str
+                                               page-uid
+                                               "{{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}"))))
+        latest-meeting-uid    (:uid latest-meeting)
+        latest-meeting-string (:string latest-meeting)]
+     {:latest-meeting-uid    latest-meeting-uid
+      :latest-meeting-string latest-meeting-string}))
 
 
 (comment
@@ -168,10 +193,119 @@
       res-block-uid
       false
       (p "Ref relevant notes"))))
+(extract-latest-one-on-one-meeting-notes "sid")
 
-
-
-
+(defn ooo-meetings-button [default-model
+                              default-temp
+                              default-max-tokens
+                              get-linked-refs?
+                              extract-query-pages?
+                              extract-query-pages-ref?
+                              step-1-prompt
+                              step-2-prompt
+                              active?][]
+  (let [disabled? (r/atom true)]
+    (fn []
+      (let [mutation-callback (fn mutation-callback [mutations observer]
+                                (doseq [mutation mutations]
+                                  (when (= (.-type mutation) "childList")
+                                    (let [current-user  (:title (get-current-user))
+                                          name-in-meetings-page (db->meetings-username current-user)
+                                          title-element (.querySelector js/document "h1.rm-title-display span")
+                                          page-title    (when title-element (.-textContent title-element))]
+                                      (println "Mutation page" page-title "::" name-in-meetings-page)
+                                      (if (and (some? page-title)
+                                            (or
+                                             (= page-title (str current-user "/Home"))
+                                             (= page-title (str "Meetings " name-in-meetings-page " and Matt"))))
+                                        (reset! disabled? false)
+                                        (reset! disabled? true))))))
+            star-observing    (let [observer (js/MutationObserver. mutation-callback)]
+                                (.observe observer js/document #js {:childList true
+                                                                    :subtree true}))])
+      (when (not @disabled?)
+        [button-with-tooltip
+         "The llm summarises your last one-on-one meeting with Matt. It extracts the action items, blockers and discourse nodes you are working on. "
+         [:> Button {:class-name "one on one meetings"
+                     :minimal    true
+                     :small      true
+                     :loading    @active?
+                     :on-click (fn [e]
+                                 (when (not @active?)
+                                   (reset! active? true))
+                                 (go
+                                   (let [current-user-name          (:title (get-current-user))
+                                         {:keys
+                                           [latest-meeting-uid
+                                            latest-meeting-string]} (extract-latest-one-on-one-meeting-notes current-user-name)
+                                         vision?                    (= "gpt-4-vision" @default-model)
+                                         latest-meeting-nodes       {:children [{:string
+                                                                                 (str "((" latest-meeting-uid "))")}]}
+                                         latest-meeting-notes       (extract-query-pages
+                                                                      {:context              latest-meeting-nodes
+                                                                       :get-linked-refs?     @get-linked-refs?
+                                                                       :extract-query-pages? @extract-query-pages?
+                                                                       :only-pages?          @extract-query-pages-ref?
+                                                                       :vision?              vision?})
+                                         stage-1-prompt             (str step-1-prompt
+                                                                      "\n"
+                                                                      latest-meeting-notes)
+                                         stage-1-context           (if vision?
+                                                                     (vec
+                                                                       (concat
+                                                                         [{:type "text"
+                                                                           :text (str step-1-prompt)}]
+                                                                         latest-meeting-notes))
+                                                                     stage-1-prompt)
+                                         llm-context               [{:role "user"
+                                                                     :content stage-1-context}]
+                                         settings                  {:model       (get model-mappings @default-model)
+                                                                    :temperature @default-temp
+                                                                    :max-tokens  @default-max-tokens}
+                                         parent-block-uid          (gen-new-uid)
+                                         stage-1-block-uid         (gen-new-uid)
+                                         user-daily-notes-page     (title->uid (str current-user-name "/Home"))
+                                         create-dnp-block-uid      (block-has-child-with-str?
+                                                                     user-daily-notes-page
+                                                                     "Summary of last 1:1 meeting with Matt"
+                                                                     #_"\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
+                                         same-latest-dnp-uid?      (block-has-child-with-str?
+                                                                     create-dnp-block-uid
+                                                                     latest-meeting-string)
+                                         top-parent                (if (nil? same-latest-dnp-uid?)
+                                                                     create-dnp-block-uid
+                                                                     same-latest-dnp-uid?)
+                                         struct                    (if (nil? same-latest-dnp-uid?)
+                                                                     {:s latest-meeting-string
+                                                                      :u parent-block-uid
+                                                                      :c [{:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
+                                                                           :c [{:s ""
+                                                                                :u stage-1-block-uid}]}]}
+                                                                     {:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
+                                                                      :u parent-block-uid
+                                                                      :c [{:s ""
+                                                                           :u stage-1-block-uid}]})]
+                                     (do
+                                       (create-struct
+                                         struct
+                                         top-parent
+                                         parent-block-uid
+                                         true
+                                         (p "Ref relevant notes"))
+                                       (<p! (-> (js/Promise.
+                                                  (fn [resolve _]
+                                                    (call-llm-api
+                                                      {:messages llm-context
+                                                       :settings settings
+                                                       :callback (fn [response]
+                                                                   (let [res-str (-> response :body)]
+                                                                     (println "ONE ON ONE MEeting :::: " res-str)
+                                                                     (update-block-string
+                                                                       stage-1-block-uid
+                                                                       (str res-str))
+                                                                     (resolve (str res-str))))})))
+                                              ))))))}
+          "Summarise last 1:1 meeting"]]))))
 
 (defn filtered-pages-button1 [default-model
                               default-temp
@@ -188,11 +322,13 @@
       (let [mutation-callback (fn mutation-callback [mutations observer]
                                 (doseq [mutation mutations]
                                   (when (= (.-type mutation) "childList")
-                                    (let [ 
-                                           title-element (.querySelector js/document "h1.rm-title-display span")
-                                           page-title (when title-element (.-textContent title-element))]
+                                    (let [current-user  (:title (get-current-user))
+                                          title-element (.querySelector js/document "h1.rm-title-display span")
+                                          page-title    (when title-element (.-textContent title-element))]
                                        (if (and (some? page-title)
-                                                (= page-title "Group Meetings"))
+                                             (or
+                                                (= page-title (str current-user "/Home"))
+                                                (= page-title "Group Meetings")))
                                          (reset! disabled? false)
                                          (reset! disabled? true))))))
                                          
@@ -276,19 +412,23 @@
                                                                       {:s latest-meeting-string
                                                                        :u parent-block-uid
                                                                        :c [{:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
-                                                                            :c [{:s "Summary"
+                                                                            :c [{:s "Your weekly recap"
+                                                                                 :c [{:s (str "{{[[embed]]: (("user-notes-uid "))}}")}]}
+                                                                                {:s "Meeting summary"
                                                                                  :c [{:s ""
                                                                                       :u stage-1-block-uid}]}
-                                                                                {:s "References"
+                                                                                {:s "Relevant references from meeting:"
                                                                                  :u ref-block-uid
                                                                                  :c [{:s ""
                                                                                       :u stage-2-block-uid}]}]}]}
                                                                      {:s (str "Reference Group meeting notes for: ((" latest-meeting-uid ")) group meeting")
                                                                       :u parent-block-uid
-                                                                      :c [{:s "Summary"
+                                                                      :c [{:s "Your weekly recap"
+                                                                           :c [{:s (str "{{[[embed]]: (("user-notes-uid "))}}")}]}
+                                                                          {:s "Meeting summary:"
                                                                            :c [{:s ""
                                                                                 :u stage-1-block-uid}]}
-                                                                          {:s "References"
+                                                                          {:s "Relevant references from meeting:"
                                                                            :u ref-block-uid
                                                                            :c [{:s ""
                                                                                 :u stage-2-block-uid}]}]})
@@ -380,6 +520,8 @@
                                               false))
         dgp-active?                  (r/atom false)
         dgp-context                  (r/atom (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Discourse graph this page" "Context"))
+
+
         co-get-context-uid          (:uid (get-child-with-str
                                             (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
                                             "Get context"))
@@ -398,6 +540,7 @@
         co-pre-prompt                (get-child-of-child-with-str co-get-context-uid "Prompt" "Pre-prompt")
         co-remaining-prompt         (get-child-of-child-with-str co-get-context-uid "Prompt" "Further instructions")
         co-active?                  (r/atom false)
+
         sug-get-context-uid          (:uid (get-child-with-str
                                              (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
                                              "Get suggestions"))
@@ -417,6 +560,7 @@
         sug-pre-prompt                (get-child-of-child-with-str sug-get-context-uid "Prompt" "Pre-prompt")
         sug-remaining-prompt         (get-child-of-child-with-str sug-get-context-uid "Prompt" "Further instructions")
         sug-active?                  (r/atom false)
+
         ref-get-context-uid          (:uid (get-child-with-str
                                              (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
                                              "Ref relevant notes"))
@@ -434,8 +578,31 @@
                                                false))
         ref-step-1-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-1")
         ref-step-2-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Step-2")
-        ref-image-prompt            (get-child-of-child-with-str ref-get-context-uid "Prompt" "Image-prompt")
-        ref-active?                  (r/atom false)]
+        ref-image-prompt             (get-child-of-child-with-str ref-get-context-uid "Prompt" "Image-prompt")
+        ref-active?                  (r/atom false)
+
+
+        ooo-get-context-uid          (:uid (get-child-with-str
+                                            (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                            "One on one meetings"))
+        ooo-default-model            (r/atom (get-child-of-child-with-str ooo-get-context-uid "Settings" "Model"))
+        ooo-default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str ooo-get-context-uid "Settings" "Temperature")))
+        ooo-default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str ooo-get-context-uid "Settings" "Max tokens")))
+        ooo-get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str ooo-get-context-uid "Settings" "Get linked refs"))
+                                               true
+                                               false))
+        ooo-extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str ooo-get-context-uid "Settings" "Extract query pages"))
+                                               true
+                                               false))
+        ooo-extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str ooo-get-context-uid "Settings" "Extract query pages ref?"))
+                                               true
+                                               false))
+        ooo-step-1-prompt            (get-child-of-child-with-str ooo-get-context-uid "Prompt" "Step-1")
+        ooo-step-2-prompt            (get-child-of-child-with-str ooo-get-context-uid "Prompt" "Step-2")
+        ooo-active?                  (r/atom false)]
+
+
+
 
 
    (fn []
@@ -599,6 +766,18 @@
         ref-step-2-prompt
         ref-image-prompt
         ref-active?]
+
+       [:> Divider]
+       [ooo-meetings-button
+        ooo-default-model
+        ooo-default-temp
+        ooo-default-max-tokens
+        ooo-get-linked-refs?
+        ooo-extract-query-pages?
+        ooo-extract-query-pages-ref?
+        ooo-step-1-prompt
+        ooo-step-2-prompt
+        ooo-active?]
        #_[:div
           {:style {:flex "1 1 1"}}
           [button-with-tooltip
