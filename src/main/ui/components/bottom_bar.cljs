@@ -289,7 +289,18 @@
                                                                           (println "Prior work EMBEDDINGS RES: " embeddings)
                                                                           (resolve embeddings)))))))
                                                 (.then (fn [embeddings]
-                                                         (let [
+                                                         (let [similar-nodes-titles (mapv 
+                                                                                      (fn [node]
+                                                                                        {:children 
+                                                                                         [{:string (-> node :metadata :title)}]})
+                                                                                      embeddings)
+                                                               all-embedding-notes   (extract-query-pages
+                                                                                      {:context              nodes
+                                                                                       :get-linked-refs?     @get-linked-refs?
+                                                                                       :extract-query-pages? @extract-query-pages?
+                                                                                       :only-pages?          @extract-query-pages-ref?
+                                                                                       :vision?              vision?})
+
                                                                stage-2-prompt        (str step-2-prompt
                                                                                        "\n")
                                                                llm-context           [{:role "user"
