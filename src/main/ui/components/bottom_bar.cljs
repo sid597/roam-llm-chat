@@ -237,81 +237,79 @@
                      :minimal    true
                      :small      true
                      :loading    @active?
-                     :on-click   #()#_(fn [e]
-                                        (when (not @active?)
-                                          (reset! active? true))
-                                        (go
-                                          (let [current-user-name          (:title (get-current-user))
-                                                {:keys
-                                                  [latest-meeting-uid
-                                                   latest-meeting-string]} (extract-latest-one-on-one-meeting-notes current-user-name)
-                                                vision?                    (= "gpt-4-vision" @default-model)
-                                                latest-meeting-nodes       {:children [{:string
-                                                                                        (str "((" latest-meeting-uid "))")}]}
-                                                latest-meeting-notes       (extract-query-pages
-                                                                             {:context              latest-meeting-nodes
-                                                                              :get-linked-refs?     @get-linked-refs?
-                                                                              :extract-query-pages? @extract-query-pages?
-                                                                              :only-pages?          @extract-query-pages-ref?
-                                                                              :vision?              vision?})
-                                                stage-1-prompt             (str step-1-prompt
-                                                                             "\n"
-                                                                             latest-meeting-notes)
-                                                stage-1-context           (if vision?
-                                                                            (vec
-                                                                              (concat
-                                                                                [{:type "text"
-                                                                                  :text (str step-1-prompt)}]
-                                                                                latest-meeting-notes))
-                                                                            stage-1-prompt)
-                                                llm-context               [{:role "user"
-                                                                            :content stage-1-context}]
-                                                settings                  {:model       (get model-mappings @default-model)
-                                                                           :temperature @default-temp
-                                                                           :max-tokens  @default-max-tokens}
-                                                parent-block-uid          (gen-new-uid)
-                                                stage-1-block-uid         (gen-new-uid)
-                                                user-daily-notes-page     (title->uid (str current-user-name "/Home"))
-                                                create-dnp-block-uid      (block-has-child-with-str?
-                                                                            user-daily-notes-page
-                                                                            "Summary of last 1:1 meeting with Matt"
-                                                                            #_"\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
-                                                same-latest-dnp-uid?      (block-has-child-with-str?
-                                                                            create-dnp-block-uid
-                                                                            latest-meeting-string)
-                                                top-parent                (if (nil? same-latest-dnp-uid?)
-                                                                            create-dnp-block-uid
-                                                                            same-latest-dnp-uid?)
-                                                struct                    (if (nil? same-latest-dnp-uid?)
-                                                                            {:s latest-meeting-string
-                                                                             :u parent-block-uid
-                                                                             :c [{:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
-                                                                                  :c [{:s ""
-                                                                                       :u stage-1-block-uid}]}]}
-                                                                            {:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
-                                                                             :u parent-block-uid
-                                                                             :c [{:s ""
-                                                                                  :u stage-1-block-uid}]})]
-                                            (do
-                                              (create-struct
+                     :on-click   (fn [e]
+                                    (when (not @active?)
+                                      (reset! active? true))
+                                    (go
+                                      (let [current-page-uid    (<p! (get-open-page-uid))
+                                            title               (str "[[" (uid->title current-page-uid) "]]")
+                                            nodes               {:children 
+                                                                 [{:string title}]}
+                                            vision?             (= "gpt-4-vision" @default-model)
+                                            context             (extract-query-pages
+                                                                  {:context              nodes
+                                                                   :get-linked-refs?     @get-linked-refs?
+                                                                   :extract-query-pages? @extract-query-pages?
+                                                                   :only-pages?          @extract-query-pages-ref?
+                                                                   :vision?              vision?})
+                                            settings             {:model       (get model-mappings @default-model)
+                                                                  :temperature @default-temp
+                                                                  :max-tokens  @default-max-tokens}
+                                            parent-block-uid     (gen-new-uid)
+                                            stage-1-block-uid    (gen-new-uid)
+                                            res-block-uid        (gen-new-uid)
+                                            already-context?    (block-has-child-with-str? current-page-uid "AI: Prior work")
+                                            top-parent          (if (nil? already-context?)
+                                                                   current-page-uid
+                                                                   already-context?)
+                                            struct              (if (nil? already-context?)
+                                                                  {:s "AI: Prior work"
+                                                                   :u parent-block-uid
+                                                                   :c [{:s ""
+                                                                        :u res-block-uid}]}
+                                                                  {:s ""
+                                                                   :u res-block-uid})]
+                                        (do
+                                          (<p! (create-struct
                                                 struct
                                                 top-parent
                                                 parent-block-uid
                                                 true
-                                                (p "Ref relevant notes"))
-                                              (<p! (-> (js/Promise.
-                                                         (fn [resolve _]
-                                                           (call-llm-api
-                                                             {:messages llm-context
-                                                              :settings settings
-                                                              :callback (fn [response]
-                                                                          (let [res-str (-> response :body)]
-                                                                            (println "ONE ON ONE MEeting :::: " res-str)
-                                                                            (update-block-string
-                                                                              stage-1-block-uid
-                                                                              (str res-str))
-                                                                            (resolve (str res-str))))})))))))))}
-
+                                                (p "Ref relevant notes")))
+                                          (<p! (-> (js/Promise.
+                                                    (fn [resolve _]
+                                                       (let [url      "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                                                             headers  {"Content-Type" "application/json"}
+                                                             res-ch   (http/post url {:with-credentials? false
+                                                                                      :headers headers
+                                                                                      :json-params {:input [title]
+                                                                                                    :top-k 3}})]
+                                                        (take! res-ch (fn [res]
+                                                                        (let [embeddings (first (js->clj (:body res) :keywordize-keys true))]
+                                                                          (println "Prior work EMBEDDINGS RES: " embeddings)
+                                                                          (resolve embeddings)))))))
+                                                (.then (fn [embeddings]
+                                                         (let [
+                                                               stage-2-prompt        (str step-2-prompt
+                                                                                       "\n")
+                                                               llm-context           [{:role "user"
+                                                                                       :content stage-2-prompt}]]
+                                                            (println stage-2-prompt)
+                                                            (call-llm-api
+                                                              {:messages llm-context
+                                                               :settings settings
+                                                               :callback   (fn [response]
+                                                                              (p (str "Prior work llm response received: " response))
+                                                                              (let [res-str (-> response
+                                                                                               :body)]
+                                                                                (update-block-string
+                                                                                  res-block-uid
+                                                                                  (str res-str)
+                                                                                  (js/setTimeout
+                                                                                    (fn []
+                                                                                      (p (str "Prior work Updated block " res-block-uid " with response from openai api"))
+                                                                                      (reset! active? false))
+                                                                                    500))))}))))))))))}
           "Summarise prior work"]]))))
 
 
