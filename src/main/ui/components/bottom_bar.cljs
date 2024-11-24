@@ -193,7 +193,126 @@
       res-block-uid
       false
       (p "Ref relevant notes"))))
-(extract-latest-one-on-one-meeting-notes "sid")
+
+(comment 
+  (extract-latest-one-on-one-meeting-notes "sid"))
+
+
+(defn prior-work-button 
+  [default-model
+   default-temp
+   default-max-tokens
+   get-linked-refs?
+   extract-query-pages?
+   extract-query-pages-ref?
+   step-1-prompt
+   step-2-prompt
+   active?]
+
+  (let [disabled? (r/atom true)]
+    (println "prior work" active? disabled?)
+    (fn []
+      (let [mutation-callback (fn mutation-callback [mutations observer]
+                                (doseq [mutation mutations]
+                                  (when (= (.-type mutation) "childList")
+                                    (let [current-user  (:title (get-current-user))
+                                          name-in-meetings-page (db->meetings-username current-user)
+                                          title-element (.querySelector js/document "h1.rm-title-display span")
+                                          page-title    (when title-element (.-textContent title-element))]
+                                      (println "Mutation page" page-title "::" name-in-meetings-page)
+                                      (if (and (some? page-title)
+                                            (or
+                                             (= page-title (str current-user "/Home"))
+                                             (= page-title (str "Meetings " name-in-meetings-page " and Matt"))))
+                                        (reset! disabled? false)
+                                        (reset! disabled? true))))))
+            star-observing    (let [observer (js/MutationObserver. mutation-callback)]
+                                (.observe observer js/document #js {:childList true
+                                                                    :subtree true}))])
+      (when (not @disabled?)
+        [button-with-tooltip
+         "The llm summarises your last one-on-one meeting with Matt. It extracts the action items, blockers and discourse nodes you are working on. "
+         [:> Button {:class-name "one on one meetings"
+                     :minimal    true
+                     :small      true
+                     :loading    @active?
+                     :on-click   #()#_(fn [e]
+                                        (when (not @active?)
+                                          (reset! active? true))
+                                        (go
+                                          (let [current-user-name          (:title (get-current-user))
+                                                {:keys
+                                                  [latest-meeting-uid
+                                                   latest-meeting-string]} (extract-latest-one-on-one-meeting-notes current-user-name)
+                                                vision?                    (= "gpt-4-vision" @default-model)
+                                                latest-meeting-nodes       {:children [{:string
+                                                                                        (str "((" latest-meeting-uid "))")}]}
+                                                latest-meeting-notes       (extract-query-pages
+                                                                             {:context              latest-meeting-nodes
+                                                                              :get-linked-refs?     @get-linked-refs?
+                                                                              :extract-query-pages? @extract-query-pages?
+                                                                              :only-pages?          @extract-query-pages-ref?
+                                                                              :vision?              vision?})
+                                                stage-1-prompt             (str step-1-prompt
+                                                                             "\n"
+                                                                             latest-meeting-notes)
+                                                stage-1-context           (if vision?
+                                                                            (vec
+                                                                              (concat
+                                                                                [{:type "text"
+                                                                                  :text (str step-1-prompt)}]
+                                                                                latest-meeting-notes))
+                                                                            stage-1-prompt)
+                                                llm-context               [{:role "user"
+                                                                            :content stage-1-context}]
+                                                settings                  {:model       (get model-mappings @default-model)
+                                                                           :temperature @default-temp
+                                                                           :max-tokens  @default-max-tokens}
+                                                parent-block-uid          (gen-new-uid)
+                                                stage-1-block-uid         (gen-new-uid)
+                                                user-daily-notes-page     (title->uid (str current-user-name "/Home"))
+                                                create-dnp-block-uid      (block-has-child-with-str?
+                                                                            user-daily-notes-page
+                                                                            "Summary of last 1:1 meeting with Matt"
+                                                                            #_"\uD83D\uDCDD Daily notes {{Create Today's Entry:SmartBlock:UserDNPToday:RemoveButton=false}} {{Pick A Day:SmartBlock:UserDNPDateSelect:RemoveButton=false}}")
+                                                same-latest-dnp-uid?      (block-has-child-with-str?
+                                                                            create-dnp-block-uid
+                                                                            latest-meeting-string)
+                                                top-parent                (if (nil? same-latest-dnp-uid?)
+                                                                            create-dnp-block-uid
+                                                                            same-latest-dnp-uid?)
+                                                struct                    (if (nil? same-latest-dnp-uid?)
+                                                                            {:s latest-meeting-string
+                                                                             :u parent-block-uid
+                                                                             :c [{:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
+                                                                                  :c [{:s ""
+                                                                                       :u stage-1-block-uid}]}]}
+                                                                            {:s (str "Summary of last meeting with Matt on: ((" latest-meeting-uid "))")
+                                                                             :u parent-block-uid
+                                                                             :c [{:s ""
+                                                                                  :u stage-1-block-uid}]})]
+                                            (do
+                                              (create-struct
+                                                struct
+                                                top-parent
+                                                parent-block-uid
+                                                true
+                                                (p "Ref relevant notes"))
+                                              (<p! (-> (js/Promise.
+                                                         (fn [resolve _]
+                                                           (call-llm-api
+                                                             {:messages llm-context
+                                                              :settings settings
+                                                              :callback (fn [response]
+                                                                          (let [res-str (-> response :body)]
+                                                                            (println "ONE ON ONE MEeting :::: " res-str)
+                                                                            (update-block-string
+                                                                              stage-1-block-uid
+                                                                              (str res-str))
+                                                                            (resolve (str res-str))))})))))))))}
+
+          "Summarise prior work"]]))))
+
 
 (defn ooo-meetings-button [default-model
                               default-temp
@@ -203,7 +322,7 @@
                               extract-query-pages-ref?
                               step-1-prompt
                               step-2-prompt
-                              active?][]
+                              active?]
   (let [disabled? (r/atom true)]
     (fn []
       (let [mutation-callback (fn mutation-callback [mutations observer]
@@ -303,20 +422,21 @@
                                                                      (update-block-string
                                                                        stage-1-block-uid
                                                                        (str res-str))
-                                                                     (resolve (str res-str))))})))
-                                              ))))))}
+                                                                     (resolve (str res-str))))})))))))))}
+
           "Summarise last 1:1 meeting"]]))))
 
-(defn filtered-pages-button1 [default-model
-                              default-temp
-                              default-max-tokens
-                              get-linked-refs?
-                              extract-query-pages?
-                              extract-query-pages-ref?
-                              step-1-prompt
-                              step-2-prompt
-                              image-prompt
-                              active?][]
+(defn filtered-pages-button1 
+  [default-model
+   default-temp
+   default-max-tokens
+   get-linked-refs?
+   extract-query-pages?
+   extract-query-pages-ref?
+   step-1-prompt
+   step-2-prompt
+   image-prompt
+   active?]
   (let [disabled? (r/atom true)]
     (fn []
       (let [mutation-callback (fn mutation-callback [mutations observer]
@@ -331,8 +451,6 @@
                                                 (= page-title "Group Meetings")))
                                          (reset! disabled? false)
                                          (reset! disabled? true))))))
-                                         
-
                                          
             star-observing    (let [observer (js/MutationObserver. mutation-callback)]
                                 (.observe observer js/document #js {:childList true
@@ -498,8 +616,6 @@
                                                                              (js/setTimeout
                                                                                (fn [] (reset! active? false))
                                                                                500)))}))))))))))}
-
-
           "Reference relevant notes"]]))))
 
 
@@ -599,12 +715,27 @@
                                                false))
         ooo-step-1-prompt            (get-child-of-child-with-str ooo-get-context-uid "Prompt" "Step-1")
         ooo-step-2-prompt            (get-child-of-child-with-str ooo-get-context-uid "Prompt" "Step-2")
-        ooo-active?                  (r/atom false)]
-
-
-
-
-
+        ooo-active?                  (r/atom false)
+        
+        
+        prior-work-done-get-context-uid          (:uid (get-child-with-str
+                                                         (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                                         "Prior work"))
+        prior-work-default-model            (r/atom (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Model"))
+        prior-work-default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Temperature")))
+        prior-work-default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Max tokens")))
+        prior-work-get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Get linked refs"))
+                                                      true
+                                                      false))
+        prior-work-extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Extract query pages"))
+                                                      true
+                                                      false))
+        prior-work-extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str prior-work-done-get-context-uid "Settings" "Extract query pages ref?"))
+                                                        true
+                                                        false))
+        prior-work-step-1-prompt            (get-child-of-child-with-str prior-work-done-get-context-uid "Prompt" "Step-1")
+        prior-work-step-2-prompt            (get-child-of-child-with-str prior-work-done-get-context-uid "Prompt" "Step-2")
+        prior-work-active?                  (r/atom false)]
    (fn []
       (p "Render bottom bar buttons")
       [:> ButtonGroup
@@ -778,6 +909,18 @@
         ooo-step-1-prompt
         ooo-step-2-prompt
         ooo-active?]
+
+       [:> Divider]
+       [prior-work-button
+        prior-work-default-model
+        prior-work-default-temp
+        prior-work-default-max-tokens
+        prior-work-get-linked-refs?
+        prior-work-extract-query-pages?
+        prior-work-extract-query-pages-ref?
+        prior-work-step-1-prompt
+        prior-work-step-2-prompt
+        prior-work-active?]
        #_[:div
           {:style {:flex "1 1 1"}}
           [button-with-tooltip
