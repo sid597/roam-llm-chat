@@ -215,15 +215,16 @@
       (let [mutation-callback (fn mutation-callback [mutations observer]
                                 (doseq [mutation mutations]
                                   (when (= (.-type mutation) "childList")
-                                    (let [current-user  (:title (get-current-user))
-                                          name-in-meetings-page (db->meetings-username current-user)
+                                    (let [
                                           title-element (.querySelector js/document "h1.rm-title-display span")
-                                          page-title    (when title-element (.-textContent title-element))]
-                                      (println "Mutation page" page-title "::" name-in-meetings-page)
-                                      (if (and (some? page-title)
-                                            (or
-                                             (= page-title (str current-user "/Home"))
-                                             (= page-title (str "Meetings " name-in-meetings-page " and Matt"))))
+                                          page-title    (when title-element (.-textContent title-element))
+                                          page-uid      (title->uid page-title)
+                                          dg-node?      (j/call-in
+                                                          js/window 
+                                                          [:roamjs :extension :queryBuilder :isDiscourseNode]
+                                                          page-uid)]
+                                      ;(println "Mutation page" page-title "::" dg-node? @disabled?)
+                                      (if dg-node?
                                         (reset! disabled? false)
                                         (reset! disabled? true))))))
             star-observing    (let [observer (js/MutationObserver. mutation-callback)]
@@ -231,7 +232,7 @@
                                                                     :subtree true}))])
       (when (not @disabled?)
         [button-with-tooltip
-         "The llm summarises your last one-on-one meeting with Matt. It extracts the action items, blockers and discourse nodes you are working on. "
+         "The llm summarises what people have already done in this area, based on the notes from current node, linked notes and semantically linked nodes."
          [:> Button {:class-name "one on one meetings"
                      :minimal    true
                      :small      true
@@ -332,7 +333,7 @@
                                           name-in-meetings-page (db->meetings-username current-user)
                                           title-element (.querySelector js/document "h1.rm-title-display span")
                                           page-title    (when title-element (.-textContent title-element))]
-                                      (println "Mutation page" page-title "::" name-in-meetings-page)
+                                      ;(println "Mutation page" page-title "::" name-in-meetings-page)
                                       (if (and (some? page-title)
                                             (or
                                              (= page-title (str current-user "/Home"))
