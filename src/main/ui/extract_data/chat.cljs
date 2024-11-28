@@ -12,6 +12,7 @@
                                "AI: Get suggestions for next steps"
                                "AI Discourse node suggestions"
                                "AI: Discourse node suggestions"
+                               "AI: Prior work"
                                "{{llm-dg-suggestions}}"
                                "Can't let it go"})
 
@@ -200,24 +201,22 @@
 
 (defn get-children-for [{:keys [node block? extract-query-pages? only-pages? vision?]}]
    (p "Inside get children for particular page or block function: " node)
-   (let [eid               (cond
-                             (int? node) node
-                             block?   (uid->eid node)
-                             :else    (get-eid node))
-        ; _ (p "eid" eid)
-         raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
-                                        :in $ ?eid]
-                                     eid))
-         embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
-         sorted-by-children (sort-children raw-children-data)
-         extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
-                                              :extract-query-pages? (or extract-query-pages? false)
-                                              :only-pages?          only-pages?
-                                              :vision?              vision?})]
-    ; (p "Successfully extracted children for page or block with node: " node)
-     (if only-pages?
-       {:extracted-query-pages extracted-strings}
-       {:plain-text extracted-strings})))
+   (when-let [eid   (cond
+                      (int? node) node
+                      block?   (uid->eid node)
+                      :else    (get-eid node))]
+        (let [raw-children-data (ffirst (q '[:find (pull ?eid [{:block/children ...} :block/string :block/order :block/uid])
+                                             :in $ ?eid]
+                                          eid))
+              embed?             (when block? (ffirst (not-empty (extract-embeds (:string raw-children-data)))))
+              sorted-by-children (sort-children raw-children-data)
+              extracted-strings  (extract-strings {:tree                 (if embed? embed? sorted-by-children)
+                                                   :extract-query-pages? (or extract-query-pages? false)
+                                                   :only-pages?          only-pages?
+                                                   :vision?              vision?})]
+          (if only-pages?
+            {:extracted-query-pages extracted-strings}
+            {:plain-text extracted-strings}))))
 
 
 (comment
@@ -343,7 +342,7 @@
 
 
 (defn get-all-data-for [{:keys [title get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
-  (p "Inside get all data for particular page function")
+  (p "Inside get all data for particular page function" title)
   (let [children (get-children-for {:node                 title
                                     :block?               block?
                                     :extract-query-pages? extract-query-pages?
@@ -555,7 +554,7 @@
 
 
 (defn extract-query-pages [{:keys [context get-linked-refs? extract-query-pages? only-pages? vision?]}]
-  (p "extract query pages context: ")
+  (p "extract query pages context:")
   (let [res (atom [])]
     (doseq [child (:children context)]
       (p "child: " child)

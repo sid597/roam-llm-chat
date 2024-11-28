@@ -59,6 +59,7 @@
                            [(re-pattern "^@(.*?)$") ?.*?$-regex]
                            [?node :node/title ?node-Title]
                            [(re-find ?.*?$-regex ?node-Title)]])))))
+(extract-all-sources)
 
 
 (defn all-dg-nodes []
@@ -147,7 +148,13 @@
        [?duid :user/display-page ?user]]))
 
 (comment
-  (get-all-users))
+  (get-all-users)
+  (mapv
+    (fn [mdata]
+     (-> mdata
+      first
+      :title))
+    (get-all-users)))
 
 
 

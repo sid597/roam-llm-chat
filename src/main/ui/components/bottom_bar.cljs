@@ -11,7 +11,7 @@
             [ui.components.graph-overview-ai :refer [filtered-pages-button]]
             [ui.extract-data.chat :refer [extract-query-pages get-all-images-for-node]]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [buttons-settings extract-from-code-block create-new-block uid->eid get-current-user chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
+            [ui.utils :refer [get-all-users buttons-settings extract-from-code-block create-new-block uid->eid get-current-user chat-ui-with-context-struct ai-block-exists? button-popover button-with-tooltip model-mappings get-safety-settings update-block-string-for-block-with-child settings-button-popover image-to-text-for p get-child-of-child-with-str title->uid q block-has-child-with-str? call-llm-api update-block-string uid->title log get-child-with-str get-child-of-child-with-str-on-page get-open-page-uid get-block-parent-with-order get-focused-block create-struct gen-new-uid default-chat-struct get-todays-uid]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 
@@ -197,6 +197,16 @@
 (comment 
   (extract-latest-one-on-one-meeting-notes "sid"))
 
+(defn is-discourse-node? [s]
+  (let [nodes ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "CON"]
+        patterns (map #(re-pattern (str "^\\[\\[" % "\\]\\] - (.*?)$")) nodes)
+        evd-pattern (re-pattern "^\\[\\[EVD\\]\\] - (.*?) - (.*?)$")
+        at-pattern (re-pattern "^@(.*?)$")]
+    (or (re-matches evd-pattern s)
+      (some #(re-matches % s) patterns)
+      (re-matches at-pattern s))))
+
+
 
 (defn prior-work-button 
   [default-model
@@ -206,23 +216,18 @@
    extract-query-pages?
    extract-query-pages-ref?
    step-1-prompt
-   step-2-prompt
    active?]
-
   (let [disabled? (r/atom true)]
     (println "prior work" active? disabled?)
     (fn []
       (let [mutation-callback (fn mutation-callback [mutations observer]
                                 (doseq [mutation mutations]
                                   (when (= (.-type mutation) "childList")
-                                    (let [
-                                          title-element (.querySelector js/document "h1.rm-title-display span")
+                                    (let [title-element (.querySelector js/document "h1.rm-title-display span")
                                           page-title    (when title-element (.-textContent title-element))
-                                          page-uid      (title->uid page-title)
-                                          dg-node?      (j/call-in
-                                                          js/window 
-                                                          [:roamjs :extension :queryBuilder :isDiscourseNode]
-                                                          page-uid)]
+                                          dg-node?      (if (some? page-title)
+                                                          (some? (is-discourse-node? page-title))
+                                                          false)]
                                       ;(println "Mutation page" page-title "::" dg-node? @disabled?)
                                       (if dg-node?
                                         (reset! disabled? false)
@@ -243,7 +248,7 @@
                                     (go
                                       (let [current-page-uid    (<p! (get-open-page-uid))
                                             title               (str "[[" (uid->title current-page-uid) "]]")
-                                            nodes               {:children 
+                                            nodes               {:children
                                                                  [{:string title}]}
                                             vision?             (= "gpt-4-vision" @default-model)
                                             context             (extract-query-pages
@@ -270,57 +275,68 @@
                                                                   {:s ""
                                                                    :u res-block-uid})]
                                         (do
-                                          (<p! (create-struct
-                                                struct
-                                                top-parent
-                                                parent-block-uid
-                                                true
-                                                (p "Ref relevant notes")))
-                                          (<p! (-> (js/Promise.
-                                                    (fn [resolve _]
-                                                       (let [url      "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
-                                                             headers  {"Content-Type" "application/json"}
-                                                             res-ch   (http/post url {:with-credentials? false
-                                                                                      :headers headers
-                                                                                      :json-params {:input [title]
-                                                                                                    :top-k 3}})]
-                                                        (take! res-ch (fn [res]
-                                                                        (let [embeddings (first (js->clj (:body res) :keywordize-keys true))]
-                                                                          (println "Prior work EMBEDDINGS RES: " embeddings)
-                                                                          (resolve embeddings)))))))
-                                                (.then (fn [embeddings]
-                                                         (let [similar-nodes-titles (mapv 
-                                                                                      (fn [node]
-                                                                                        {:children 
-                                                                                         [{:string (-> node :metadata :title)}]})
-                                                                                      embeddings)
-                                                               all-embedding-notes   (extract-query-pages
-                                                                                      {:context              nodes
-                                                                                       :get-linked-refs?     @get-linked-refs?
-                                                                                       :extract-query-pages? @extract-query-pages?
-                                                                                       :only-pages?          @extract-query-pages-ref?
-                                                                                       :vision?              vision?})
+                                          (create-struct
+                                           struct
+                                           top-parent
+                                           parent-block-uid
+                                           true
+                                           (p "Ref relevant notes"))
+                                          (let [url "https://roam-llm-chat-falling-haze-86.fly.dev/get-openai-embeddings"
+                                                headers {"Content-Type" "application/json"}
+                                                res (<! (http/post url {:with-credentials? false
+                                                                        :headers headers
+                                                                        :json-params {:input [title]
+                                                                                      :top-k 3}}))
+                                                embeddings (first (js->clj (:body res) :keywordize-keys true))
+                                                lab-members  (mapv
+                                                               (fn [mdata]
+                                                                 (-> mdata
+                                                                   first
+                                                                   :title))
+                                                               (get-all-users))
+                                                _ (cljs.pprint/pprint embeddings)
+                                                similar-nodes-titles {:children (into []
+                                                                                  (mapv
+                                                                                    (fn [node]
+                                                                                      {:string (str "[["
+                                                                                                 (-> node :metadata :title)
+                                                                                                 "]]")})
+                                                                                    embeddings))}
+                                                all-embedding-notes   (extract-query-pages
+                                                                          {:context              similar-nodes-titles
+                                                                           :get-linked-refs?     @get-linked-refs?
+                                                                           :extract-query-pages? @extract-query-pages?
+                                                                           :only-pages?          @extract-query-pages-ref?
+                                                                           :vision?              vision?})
 
-                                                               stage-2-prompt        (str step-2-prompt
-                                                                                       "\n")
-                                                               llm-context           [{:role "user"
-                                                                                       :content stage-2-prompt}]]
-                                                            (println stage-2-prompt)
-                                                            (call-llm-api
-                                                              {:messages llm-context
-                                                               :settings settings
-                                                               :callback   (fn [response]
-                                                                              (p (str "Prior work llm response received: " response))
-                                                                              (let [res-str (-> response
-                                                                                               :body)]
-                                                                                (update-block-string
-                                                                                  res-block-uid
-                                                                                  (str res-str)
-                                                                                  (js/setTimeout
-                                                                                    (fn []
-                                                                                      (p (str "Prior work Updated block " res-block-uid " with response from openai api"))
-                                                                                      (reset! active? false))
-                                                                                    500))))}))))))))))}
+                                                stage-2-prompt        (str step-1-prompt
+                                                                              "\n"
+                                                                              "<lab-members>"
+                                                                               lab-members
+                                                                              "</lab-members>"
+                                                                              "<current-discourse-node>"
+                                                                              context
+                                                                              "</current-discourse-node>"
+                                                                              "<semantically-similar-nodes-data>"
+                                                                              all-embedding-notes
+                                                                              "</semantically-similar-nodes-data>")
+                                                llm-context           [{:role "user"
+                                                                        :content stage-2-prompt}]]
+                                            (call-llm-api
+                                                    {:messages llm-context
+                                                     :settings settings
+                                                     :callback   (fn [response]
+                                                                   (p (str "Prior work llm response received: " response)
+                                                                     (let [res-str (-> response
+                                                                                     :body)]
+                                                                       (update-block-string
+                                                                         res-block-uid
+                                                                         (str res-str)
+                                                                         (js/setTimeout
+                                                                           (fn []
+                                                                             (p (str "Prior work Updated block " res-block-uid " with response from openai api"))
+                                                                             (reset! active? false))
+                                                                           500)))))}))))))}
           "Summarise prior work"]]))))
 
 
@@ -929,7 +945,6 @@
         prior-work-extract-query-pages?
         prior-work-extract-query-pages-ref?
         prior-work-step-1-prompt
-        prior-work-step-2-prompt
         prior-work-active?]
        #_[:div
           {:style {:flex "1 1 1"}}
