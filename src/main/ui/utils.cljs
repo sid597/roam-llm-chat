@@ -1,9 +1,10 @@
 (ns ui.utils
   (:require
-    ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
+    ["@blueprintjs/core" :as bp :refer [ControlGroup Position Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
     [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
     [cljs.core.async.interop :as asy :refer [<p!]]
     [cljs.reader :as reader]
+    [reagent.core :as r]
     [cljs-http.client :as http]
     [applied-science.js-interop :as j]
     [clojure.string :as str]))
@@ -37,6 +38,86 @@
      (-> (.apply q-fn roam-api (apply array (concat [serialised-query] args)))
        (js->clj :keywordize-keys true)))))
 
+
+(defn extract-all-discourse-for [node]
+  (let [node-regex (re-pattern (cond
+                                 (= "EVD" node) (str "^\\[\\[EVD\\]\\] - (.*?) - (.*?)$")
+                                 :else (str "^\\[\\[" node "\\]\\] - (.*?)$")))]
+    (flatten (q '[:find (pull ?e [:node/title :block/uid])
+                  :in $ ?node-regex
+                  :where
+                  [?e :node/title ?tit]
+                  [(re-find ?node-regex ?tit)]]
+               node-regex))))
+
+
+(defn extract-all-sources []
+  (let [node-regex (re-pattern "^@[^\\s]+$")]
+    (into [] (flatten (q '[:find
+                           (pull ?node [:block/string :node/title :block/uid])
+                           :where
+                           [(re-pattern "^@(.*?)$") ?.*?$-regex]
+                           [?node :node/title ?node-Title]
+                           [(re-find ?.*?$-regex ?node-Title)]])))))
+
+
+(defn all-dg-nodes []
+ (let [cnt (atom [])
+       nodes ["QUE" "CLM" "EVD" "RES" "ISS" "HYP" "CON"]]
+   (doseq [node nodes]
+     (let [total  (extract-all-discourse-for node)]
+       (swap! cnt concat total)))
+   (into [] (concat (into [] @cnt) (extract-all-sources)))))
+(count (all-dg-nodes))
+
+(def all-title
+  (q '[:find ?u  ?t
+       :where [?e :node/title ?t]
+       [?e :block/uid ?u]]))
+
+(def dg-nodes
+  (filter
+    #(let [uid (str (first %))
+           dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+       (when dg?
+         %))
+    all-title))
+
+(defn node-count [t]
+  (->> (filter
+         #(let [s (second %)]
+            (when (clojure.string/starts-with? s (str "[[" t "]]"))
+              (second %)))
+         dg-nodes)
+    (map second)))
+
+
+(comment
+  (count (node-count "EVD"))
+  (node-count "EVD"))
+
+(comment
+  (extract-all-discourse-for "EVD")
+  (into #{} (node-count "EVD"))
+  (clojure.set/difference
+     (into #{} (->> (extract-all-discourse-for "EVD")
+                 (map :title)))
+     (into #{} (node-count "EVD")))
+ (count (extract-all-discourse-for "CLM"))
+ (count (extract-all-discourse-for "EVD"))
+ (count (extract-all-discourse-for "HYP"))
+ (count (extract-all-discourse-for "RES"))
+ (count (extract-all-discourse-for "ISS"))
+ (count (extract-all-discourse-for "QUE"))
+ (count (extract-all-discourse-for "EXP"))
+ (count (extract-all-discourse-for "CON"))
+ (count (q '[:find ?t
+             :where [?e :node/title]])))
+
+
+
+(comment
+  (flatten extract-all-sources))
 
 (defn uid-to-block [uid]
   (q '[:find (pull ?e [*])
@@ -82,14 +163,31 @@
   (is-a-page? "[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]"))
 
 
-(defn extract-from-code-block [s]
-  (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
-        m (re-find pattern s)]
-    (if m
-      (str (second m) " \n ")
-      (str s " \n "))))
+(defn extract-from-code-block
+  ([s]
+   (extract-from-code-block s false))
+  ([s v?]
+   (let [pattern #"(?s)```javascript\n \n(.*?)\n```"
+         pres? (re-find pattern s)
+         relaxed-pattern #"(?s)```\s*(.*?)\s*```"
+         rpres? (re-find relaxed-pattern s)]
+     (cond
+       pres?     (str (second pres?) " \n ")
+       (and v?
+         rpres?) (str (clojure.string/trim (second rpres?)) " \n ")
+       :else     (str s " \n ")))))
 
-
+(comment
+  (def t "Here is some code:\n```\nprint('Hello, world!')\n```")
+  (def tt "```javascript\n \nconsole.log('Hello, world!');\n```")
+  (def n "```
+        [[CLM]] - Actin accumulation at sites of endocytosis increases with membrane tension
+  [[CLM]] - Increased membrane tension results in slower dynamics of clathrin coated structures.
+  [[CLM]] - CG endocytosis is upregulated upon decrease of cell membrane tension.
+  ```")
+  (extract-from-code-block t)
+  (extract-from-code-block tt)
+  (extract-from-code-block n))
 
 (defn unnamespace-keys
   [m]
@@ -117,7 +215,7 @@
 
 
 (defn watch-children [block-uid cb]
-  (let [pull-pattern "[:block/uid :block/order {:block/children ...}]"
+  (let [pull-pattern "[:block/uid :block/order :block/string {:block/children ...}]"
         entity-id (str [:block/uid block-uid])]
     (println "add pull watch :" entity-id)
     (add-pull-watch pull-pattern entity-id cb)))
@@ -177,6 +275,12 @@
             p3)))
 
 
+(defn get-title-with-uid [title]
+  (q '[:find (pull ?e [:node/title :block/uid])
+       :in $ ?n
+       :where [?e :node/title ?n]]
+    title))
+
 
 (defn get-parent-parent [uid]
   (ffirst (q '[:find  ?p
@@ -198,7 +302,7 @@
               [?e :block/order ?o]]
            block-uid)))
 
-(defn block-with-str-on-page? [page bstr]
+(defn block-has-child-with-str? [page bstr]
   (ffirst
     (q '[:find ?uid
          :in $ ?today ?bstr
@@ -212,8 +316,7 @@
 
 
 (defn ai-block-exists? [page]
-  (block-with-str-on-page? page "AI chats"))
-
+  (block-has-child-with-str? page "AI chats"))
 
 ;; --- Roam specific ---
 
@@ -403,7 +506,8 @@
                            (p "Window added to right sidebar")
                            (j/call-in js/window [:roamAlphaAPI :ui :rightSidebar :open])))))))
 
-      (<p! (js/Promise. (fn [_] cb)))))))
+      (<p! (js/Promise. (fn [r rr]
+                          (cb))))))))
 
 (def gemini-safety-settings-struct
   {:s "Safety settings"
@@ -443,7 +547,7 @@
                    :c [{:s "Token count"
                         :c [{:s "0"}]}
                        {:s "Model"
-                        :c [{:s "gpt-3.5"}]}
+                        :c [{:s "gpt-4o-mini"}]}
                        {:s "Max tokens"
                         :c [{:s "400"}]}
                        {:s "Temperature"
@@ -472,7 +576,7 @@
                         :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nBased on the data provided from the page(s), propose some new discourse nodes.\n\nNote: \n\n 1. follow the following format, this is format of the following lines `node type - format to follow if the node is of this type`\n\n```javascript\n [[CON]] - {content}\n [[RES]] - {content} - {Source}\n [[HYP]] - {content}\n[[ISS]] - {content}\n@{content}\n[[EVD]] - {content} - {Source}\n [[QUE]] - {content}\n[[CLM]] - {content}```\n\n2. following the format does not mean degrading your answer quality. We want both follow the format and high quality suggestions. \n3. Please only reply with discourse node suggestions, not explanations, keep them high quality. \n\nData from page: "}]}
                        {:s "Settings"
                         :c [{:s "Model"
-                             :c [{:s "gpt-3.5"}]}
+                             :c [{:s "gpt-4o-mini"}]}
                             {:s "Temperature"
                              :c [{:s "0.9"}]}
                             {:s "Get linked refs"
@@ -494,7 +598,7 @@
    :c [{:s "Token count"
         :c [{:s "0"}]}
        {:s "Model"
-        :c [{:s "gpt-3.5"}]}
+        :c [{:s "gpt-4o-mini"}]}
        {:s "Max tokens"
         :c [{:s "400"}]}
        {:s "Temperature"
@@ -559,12 +663,16 @@
 ;; ---- ai specific ----
 
 (def model-mappings
-  {"gpt-4"            "gpt-4o"
-   "gpt-4-vision"     "gpt-4o"
-   "gpt-3.5"          "gpt-3.5-turbo-0125"
-   "claude-3-sonnet"  "claude-3-sonnet-20240229"
-   "claude-3-opus"    "claude-3-opus-20240229"
-   "gemini"           "gemini"})
+  {"gpt-4o"            "gpt-4o-2024-08-06"
+   "gpt-4-vision"      "gpt-4o-2024-08-06"
+   "gpt-4o-mini"       "gpt-4o-mini-2024-07-18"
+   "gpt-3.5"           "gpt-3.5-turbo-0125"
+   "claude-3.5-sonnet" "claude-3-5-sonnet-20240620"
+   "claude-3-opus"     "claude-3-opus-20240229"
+   "claude-3-haiku"    "claude-3-haiku-20240307"
+   "gemini-1.5-flash"  "gemini-1.5-flash"
+   "gemini-1.5-pro"    "gemini-1.5-pro"})
+
 
 (defn model-type [model-name]
   (cond
@@ -612,7 +720,9 @@
     (take! res-ch callback)))
 
 (defn call-llm-api [{:keys [messages settings callback]}]
+  (println "SETTINGS" settings)
   (let [model (model-type (:model settings))]
+    (println "MODEL NAME" model)
     (case model
       :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
@@ -726,7 +836,8 @@
 
 (defn inject-style []
   (let [style-element (.createElement js/document "style")
-        css-string ".sp svg { color: cadetblue; }"] ; Change 'blue' to your desired color
+        css-string ".sp svg { color: cadetblue; }
+        .bp3-tooltip {max-width: 200px;}"] ; Change 'blue' to your desired color
 
     (set! (.-type style-element) "text/css")
     (when (.-styleSheet style-element) ; For IE8 and below.
@@ -759,7 +870,7 @@
                 :small true}
      button-text]
     [:> Menu
-     {:style {:padding "20px"}}
+     ;{:style {:padding "20px"}}
      render-comp]]))
 
 (defn settings-button-popover
@@ -777,3 +888,226 @@
      [:div
        {:class-name "Classes.POPOVER_DISMISS_OVERRIDE"}
        render-comp]]]))
+
+(defn button-with-tooltip
+  ([tooltip-text button-comp]
+   (button-with-tooltip tooltip-text button-comp "auto"))
+  ([tooltip-text button-comp position]
+   (inject-style)
+   [:> Popover
+    {:position "bottom"}
+    [:> Tooltip
+     {:content tooltip-text
+      :position position
+      :openOnTargetFocus false
+      :hoverOpenDelay 500}
+     button-comp]]))
+
+
+
+
+(defn buttons-settings [button-name
+                        block-uid
+                        default-temp
+                        default-model
+                        default-max-tokens
+                        get-linked-refs?
+                        extract-query-pages?
+                        extract-query-pages-ref?]
+  (let [dismiss-popover? false]
+     (fn [_]
+       [:<>
+        [:> MenuDivider {:title button-name}]
+        [:> MenuItem
+         {:text  "Model"
+          :label (str @default-model)}
+         #_[button-with-tooltip
+            "Pricing is per million token but it does not mean we can use 1 Million tokens with every llm.
+      Only Gemini models support 1M tokens, Claude supports 200k, GPT-4o supports 128k and GPT-3.5 supports 16k tokens.
+      One useful strategy to optimise for pricing is to use different models for different type of messages in the same
+      chat for e.g you can use lower priced models to extract the necessary data from the context and then select
+      a stronger model to do reasoning on it."]
+         [:div
+          [button-with-tooltip
+           "If your page or context has any images and you want the llm to also consider them while
+        replying then you should use the GPT-4 Vision model."
+           [:> MenuDivider {:title "With vision capabilities"}]]
+
+          [:> MenuItem
+           {:text "GPT-4o"
+            :labelElement "$2.40"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gpt-4-vision")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4-vision")
+                        (reset! default-model "gpt-4-vision"))}]
+          [button-with-tooltip
+           "Gemini-1.5 Flash has 1 Million token context window so if you want to select a few pages with large context
+        and then chat with them, this model is the only one able to support such large context and not charge for it.
+        The catch is that they might use the data for training their models, we can opt for a paid plan and in that
+        case google will not use the data and would charge us  $0.35/1 Million tokens"
+           [:> MenuDivider {:title "Fast Free and 1M tokens"}]]
+          [:> MenuItem
+           {:text "Gemini 1.5 Flash"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gemini-1.5-flash")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-flash")
+                        (reset! default-model "gemini-1.5-flash"))}]
+
+          [button-with-tooltip
+           "For text only context you can consider the reasoning ability, context length and pricing of the models.
+        Note that if your context is say 50k tokens and you do back-and-forth with the llm 10 times then your
+        total token usage would be approx. 500k (approx. 50k tokens send to llm 10 times)"
+           [:> MenuDivider {:title "Top of the line"}]]
+          [:> Menu.Item
+           {:text "GPT-4o"
+            :labelElement "$2.50"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gpt-4o")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o")
+                        (reset! default-model "gpt-4o"))}]
+          [:> Menu.Item
+           {:text "Claude 3.5 Sonnet"
+            :labelElement "$3.00"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose claude-3.5-sonnet")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3.5-sonnet")
+                        (reset! default-model "claude-3.5-sonnet"))}]
+          [:> Menu.Item
+           {:text "Gemini 1.5 Pro"
+            :labelElement "$2.50"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gemini-1.5-pro")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-pro")
+                        (reset! default-model "gemini-1.5-pro"))}]
+
+          [:> Menu.Item
+           {:text "Claude 3 Opus"
+            :labelElement "$15.0"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose claude-3-opus")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
+                        (reset! default-model "claude-3-opus"))}]
+          [button-with-tooltip
+           "If you want to some tasks that don't need \"strong\" reasoning ability then you can use these models."
+           [:> MenuDivider {:title "Fast and cheap"}]]
+          [:> Menu.Item
+           {:text "Claude 3 Haiku"
+            :labelElement "$0.25"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose claude-3-haiku")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-haiku")
+                        (reset! default-model "claude-3-haiku"))}]
+          [:> Menu.Item
+           {:text "GPT-4o-mini"
+            :labelElement "$0.15"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gpt-4o-mini")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o-mini")
+                        (reset! default-model "gpt-4o-mini"))}]]]
+        [:> MenuItem
+         {:text "Max output tokens"
+          :label (str @default-max-tokens)}
+         [button-with-tooltip
+          "The maximum number of tokens to generate before stopping. Models may stop before reaching this maximum. This parameter only specifies the absolute maximum number of tokens to generate."
+          [:div
+           [:span {:style {:margin-bottom "5px"}} "Max output length:"]
+           [:> Slider {:min 0
+                       :max 4096
+                       :step-size (clj->js 50)
+                       :label-renderer @default-max-tokens
+                       :value @default-max-tokens
+                       :label-values [0 4096]
+                       :on-change (fn [e]
+                                    (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
+                                    (reset! default-max-tokens e))
+                       :on-release (fn [e]
+                                     #_(log "slider value" e)
+                                     (update-block-string-for-block-with-child block-uid "Settings" "Max tokens" (str e))
+                                     (reset! default-max-tokens e))}]]]]
+        [:> MenuItem
+         {:text "Temperature"
+          :label (str @default-temp)}
+         [button-with-tooltip
+          "Amount of randomness injected into the response.\n\nDefaults to 0.9. Ranges from 0.0 to 1.0 for claude and 0.0 to 2.0 for other models. Use temperature closer to 0.0 for analytical / multiple choice, and closer to 1.0 for creative and generative tasks.\n\nNote that even with temperature of 0.0, the results will not be fully deterministic."
+          [:div
+           [:span {:style {:margin-bottom "5px"}} "Temperature:"]
+           [:> Slider {:min 0
+                       :max (if (contains? #{"claude-3-haiku""claude-3.5-sonnet""claude-3-opus"} @default-model)
+                              1
+                              2)
+                       :step-size (clj->js 0.1)
+                       :label-renderer @default-temp
+                       :value @default-temp
+                       :label-values (if (contains? #{"claude-3-haiku""claude-3.5-sonnet""claude-3-opus"} @default-model)
+                                       [0 1]
+                                       [0 2])
+                       :on-change (fn [e]
+                                    (let [fe (js/parseFloat (.toFixed e 2))]
+                                      (println "E" fe (type fe))
+                                      (update-block-string-for-block-with-child block-uid "Settings" "Temperature" (str fe))
+                                      (reset! default-temp fe)))
+                       :on-release (fn [e]
+                                     (let [fe (js/parseFloat (.toFixed e 2))]
+                                       (println "E" fe)
+                                       (update-block-string-for-block-with-child block-uid "Settings" "Temperature" (str fe))
+                                       (reset! default-temp fe)))}]]]]
+        [:> MenuItem
+         {:text "Get linked refs?"
+          :should-dismiss-popover false
+          :label-element
+          (r/as-element
+            [button-with-tooltip
+             "For each page in the context, if you want to include references to other discourse nodes from that page select this option."
+             [:> Checkbox
+              {:style {:margin-bottom "0px"}
+               :checked @get-linked-refs?
+               :on-change (fn [x]
+                            (update-block-string-for-block-with-child block-uid "Settings" "Get linked refs" (str (not @get-linked-refs?)))
+                            (reset! get-linked-refs? (not @get-linked-refs?)))}]])}]
+
+        [:> MenuItem
+         {:text "Extract query pages?"
+          :should-dismiss-popover false
+          :labelElement
+          (r/as-element
+            [button-with-tooltip
+             "When checked, if you put any page in the context, and that page has a query block in it then we will extract
+            all the results of the query block. For each result if the result is a page then we extract the whole content of
+            the result page and if the result is a block ref we extract the content of the block ref. "
+             [:> Checkbox
+              {:style {:margin-bottom "0px"}
+               :checked @extract-query-pages?
+               :on-change (fn [x]
+                            (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages" (str (not @extract-query-pages?)))
+                            (reset! extract-query-pages? (not @extract-query-pages?)))}]])}]
+
+        [:> MenuItem
+         {:text "Extract query pages refs?"
+          :should-dismiss-popover false
+          :labelElement
+          (r/as-element
+            [button-with-tooltip
+             "This builds on top of the previous button `Extract query results?`. For each page result in the query builder's list of results
+         we also extract that result page's linked discourse node references. "
+             [:> Checkbox
+              {:style {:margin-bottom "0px"}
+               :checked @extract-query-pages-ref?
+               :on-change (fn [x]
+                            (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages ref?" (str (not @extract-query-pages-ref?)))
+                            (reset! extract-query-pages-ref? (not @extract-query-pages-ref?)))}]])}]])))

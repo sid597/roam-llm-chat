@@ -1,7 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [p get-child-of-child-with-str-on-page model-mappings get-safety-settings create-alternate-messages call-llm-api create-struct gen-new-uid delete-block get-child-with-str watch-children update-block-string-for-block-with-child]]
+            [ui.utils :refer [p button-with-tooltip get-child-of-child-with-str-on-page model-mappings get-safety-settings create-alternate-messages call-llm-api create-struct gen-new-uid delete-block get-child-with-str watch-children update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -111,91 +111,100 @@
                    :padding "8px"
                    :align-items "center"
                    :border "1px"}}
-          [:span (str "Tokens used: " tc)]
-          [:> Button {:class-name (str "scroll-down-button" m-uid)
-                      :style {:width "30px"}
-                      :icon "chevron-down"
-                      :minimal true
-                      :fill false
-                      :small true
-                      :on-click #(let [el @history-ref]
-                                   (p "scroll down button clicked")
-                                   (when el
-                                     (set! (.-scrollTop el) (.-scrollHeight el))))}]
-          [:> Button {:class-name (str "scroll-up-button" m-uid)
-                      :style {:width "30px"}
-                      :icon "chevron-up"
-                      :minimal true
-                      :fill false
-                      :small true
-                      :on-click #(let [el @history-ref]
-                                   (p "scroll up button clicked")
-                                   (when el
-                                     (set! (.-scrollTop el) 0)))}]
-          [:> Button {:class-name (str "scroll-up-button" m-uid)
-                      :style {:width "30px"}
-                      :icon "new-link"
-                      :minimal true
-                      :fill false
-                      :loading @active?
-                      :small true
-                      :on-click (fn [_]
-                                  (when (not @active?)
-                                    (reset! active? true)
-                                    (let [pre                "*Chat history suggestions: * "
-                                          suggestion-uid     (gen-new-uid)
-                                          struct             {:s "{{llm-dg-suggestions}}"
-                                                                :op false
-                                                                :c [{:s "Suggestions"
-                                                                     :u suggestion-uid}]}
-                                          filtered-messages  (filterv
-                                                               (fn [n]
-                                                                 (not= "{{llm-dg-suggestions}}" (:string n)))
-                                                               (sort-by :order (:children (get-child-with-str block-uid "Messages"))))
+          [button-with-tooltip
+           "Total number of tokens used in this chat till now, including the data extracted from context pages."
+           [:span (str "Tokens used: " tc)]]
+          [button-with-tooltip
+           "Scroll to the bottom of messages, i.e show the latest chat messages."
+           [:> Button {:class-name (str "scroll-down-button" m-uid)
+                       :style {:width "30px"}
+                       :icon "chevron-down"
+                       :minimal true
+                       :fill false
+                       :small true
+                       :on-click #(let [el @history-ref]
+                                    (p "scroll down button clicked")
+                                    (when el
+                                      (set! (.-scrollTop el) (.-scrollHeight el))))}]]
+          [button-with-tooltip
+           "Scroll to the top of messages, i.e show the oldest chat messages."
+           [:> Button {:class-name (str "scroll-up-button" m-uid)
+                       :style {:width "30px"}
+                       :icon "chevron-up"
+                       :minimal true
+                       :fill false
+                       :small true
+                       :on-click #(let [el @history-ref]
+                                    (p "scroll up button clicked")
+                                    (when el
+                                      (set! (.-scrollTop el) 0)))}]]
+          [button-with-tooltip
+           "Based on the chat conversation till now, the llm will propose a list of discourse nodes. You can then
+            select the ones you want and discard others."
+           [:> Button {:class-name (str "llm-dg-suggestions-button" m-uid)
+                       :style {:width "30px"}
+                       :icon "new-link"
+                       :minimal true
+                       :fill false
+                       :loading @active?
+                       :small true
+                       :on-click (fn [_]
+                                   (when (not @active?)
+                                     (reset! active? true)
+                                     (let [pre                "*Chat history suggestions: * "
+                                           suggestion-uid     (gen-new-uid)
+                                           struct             {:s "{{llm-dg-suggestions}}"
+                                                                 :op false
+                                                                 :c [{:s "Suggestions"
+                                                                      :u suggestion-uid}]}
+                                           filtered-messages  (filterv
+                                                                (fn [n]
+                                                                  (not= "{{llm-dg-suggestions}}" (:string n)))
+                                                                (sort-by :order (:children (get-child-with-str block-uid "Messages"))))
 
-                                          settings           (merge
-                                                               {:model       (get model-mappings model)
-                                                                :temperature temp
-                                                                :max-tokens  500}
-                                                               (when (= "gemini" model)
-                                                                 {:safety-settings (get-safety-settings block-uid)}))
-                                          messages           (vec
-                                                               (conj
-                                                                 (create-alternate-messages filtered-messages "_" pre)
-                                                                 {:role "user"
-                                                                  :content suggestion-context}))]
-                                      (do
-                                        (create-struct
-                                          struct
-                                          m-uid
-                                          nil
-                                          false)
-                                        (p (str pre "Calling openai api, with settings : " settings))
-                                        (p (str pre "and messages : " messages))
-                                        (p (str pre "Now sending message and wait for response ....."))
-                                        (call-llm-api
-                                          {:messages messages
-                                           :settings settings
-                                           :callback (fn [response]
-                                                       (p (str pre "llm response received: " response))
-                                                       (let [res-str             (map
-                                                                                   (fn [s]
-                                                                                     (when (not-empty s)
-                                                                                       {:s (str s)}))
-                                                                                   (-> response
-                                                                                     :body
-                                                                                     clojure.string/split-lines))]
-                                                         (p "suggestions: " res-str)
-                                                         (do
-                                                           (create-struct
-                                                             {:u suggestion-uid
-                                                              :c (vec res-str)}
-                                                             suggestion-uid
-                                                             nil
-                                                             false
-                                                             (js/setTimeout
-                                                               (fn []
-                                                                 (p (str pre "Updated block " suggestion-uid " with suggestions from openai api"))
-                                                                 (reset! active? false))
-                                                               500)))))})))))}]]]))))
+                                           settings           (merge
+                                                                {:model       (get model-mappings model)
+                                                                 :temperature temp
+                                                                 :max-tokens  500}
+                                                                (when (= "gemini" model)
+                                                                  {:safety-settings (get-safety-settings block-uid)}))
+                                           messages           (vec
+                                                                (conj
+                                                                  (create-alternate-messages filtered-messages "_" pre)
+                                                                  {:role "user"
+                                                                   :content suggestion-context}))]
+                                       (do
+                                         (create-struct
+                                           struct
+                                           m-uid
+                                           nil
+                                           false)
+                                         (p (str pre "Calling openai api, with settings : " settings))
+                                         (p (str pre "and messages : " messages))
+                                         (p (str pre "Now sending message and wait for response ....."))
+                                         (call-llm-api
+                                           {:messages messages
+                                            :settings settings
+                                            :callback (fn [response]
+                                                        (p (str pre "llm response received: " response))
+                                                        (let [res-str             (map
+                                                                                    (fn [s]
+                                                                                      (when (not-empty s)
+                                                                                        {:s (str s)}))
+                                                                                    (-> response
+                                                                                      :body
+                                                                                      clojure.string/split-lines))]
+                                                          (p "suggestions: " res-str)
+                                                          (do
+                                                            (create-struct
+                                                              {:u suggestion-uid
+                                                               :c (vec res-str)}
+                                                              suggestion-uid
+                                                              nil
+                                                              false
+                                                              (js/setTimeout
+                                                                (fn []
+                                                                  (p (str pre "Updated block " suggestion-uid " with suggestions from openai api"))
+                                                                  (reset! active? false))
+                                                                500)))))})))))}]]]]))))
 

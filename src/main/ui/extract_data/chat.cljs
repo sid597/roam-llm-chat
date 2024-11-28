@@ -8,7 +8,10 @@
 (def skip-blocks-with-string #{"{{ chat-llm }}"
                                "AI chats"
                                "AI summary"
+                               "AI: Get context"
+                               "AI: Get suggestions for next steps"
                                "AI Discourse node suggestions"
+                               "AI: Discourse node suggestions"
                                "{{llm-dg-suggestions}}"})
 
 (comment
@@ -231,6 +234,46 @@
      (p "Successfully extracted ref data for all pages ")
      (vec @res)))
 
+(defn get-all-discourse-nodes [])
+(defn valid-date?
+  "Checks if the given string is a valid date according to the provided format."
+  [date-str]
+  (let [date (js/Date. date-str)]
+    (and (not (js/isNaN (.getTime date)))
+      (= date-str (-> date .toISOString (subs 0 (count date-str)))))))
+
+
+
+(def all-title
+  (q '[:find ?u  ?t
+       :where [?e :node/title ?t]
+       [?e :block/uid ?u]]))
+
+(def dg-nodes
+  (filter
+    #(let [uid (str (first %))
+           dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+       (when dg?
+         %))
+    all-title))
+
+(defn node-count [t]
+  (filter
+    #(let [s (second %)]
+       (println s)
+       (when (clojure.string/starts-with? s (str "[[" t "]]"))
+         %))
+    dg-nodes))
+
+
+(comment
+  (count (filter
+           #(let [uid (str (first %))
+                  dg? (j/call-in js/window [:roamjs :extension :queryBuilder :isDiscourseNode] uid)]
+               (when dg?
+                 %))
+           all-title)))
+
 
 (comment
   (get-all-refs-for {:title "Test: extract query pages"})
@@ -265,7 +308,7 @@
        (when get-linked-refs?
          (when-let [refs (get-all-refs-for {:title  title
                                             :block? (or block? false)})]
-           {:refs refs})))))
+           {:linked-refs refs})))))
 
 
 (defn data-for-nodes [{:keys [nodes get-linked-refs? block? extract-query-pages? only-pages? vision?]}]
@@ -421,8 +464,8 @@
                    (:body message-map)
                    (str "{:title " (:title message-map) "\n :body \n"))
         ref-map   (extract-for-message-array
-                    (:refs message-map)
-                    (str ":refs \n "))
+                    (:linked-refs message-map)
+                    (str ":linked-refs \n "))
 
         res       (vec (concat body-map ref-map))]
    res))
@@ -433,7 +476,7 @@
         current-message (atom (str "{: title " title " \n  :body \n "))
         ref-map         (extract-for-message-array
                           refs
-                          (str ":refs \n ")
+                          (str ":linked-refs \n ")
                           "}")]
     (doseq [message messages]
       (let [current-image? (when (string? message) (extract-markdown-image message))]
@@ -477,7 +520,6 @@
                         (doseq [cstr (:body context-with-query-pages)]
                           (cond
                             (some? (is-a-page? cstr)) (do
-                                                        (p "---" cstr)
                                                         (let [page-data (data-for-nodes
                                                                                  {:nodes                [(is-a-page? cstr)]
                                                                                   :get-linked-refs?     get-linked-refs?
@@ -493,21 +535,21 @@
                           (swap! res concat (generate-messages-by-role
                                               @new-res
                                               (:title context-with-query-pages)
-                                              (:refs context-with-query-pages)))
+                                              (:linked-refs context-with-query-pages)))
                           (swap! res conj (with-out-str
                                             (print "\n")
                                             (print (merge
                                                      (when (some? (:title context-with-query-pages))
                                                        {:title (:title context-with-query-pages)})
                                                      {:body @new-res}
-                                                     (when (some? (:refs context-with-query-pages))
-                                                        {:refs (:refs context-with-query-pages)})))
+                                                     (when (some? (:linked-refs context-with-query-pages))
+                                                        {:linked-refs (:linked-refs context-with-query-pages)})))
                                             (print "\n")))))
           vision?      (do
                          (swap! res concat (generate-messages-by-role
                                              (:body (first context-with-query-pages))
                                              (:title context-with-query-pages)
-                                             (:refs context-with-query-pages))))
+                                             (:linked-refs context-with-query-pages))))
           :else        (swap! res conj (first context-with-query-pages)))))
     (p "extracted the query pages")
     (if vision?
@@ -592,6 +634,15 @@
      :get-linked-refs?     true
      :extract-query-pages? true
      :only-pages?          true
+     :vision?              false})
+
+  (extract-query-pages
+    {:context              {:children [{:order 0, :string
+                                        "[[[[EVD]] - NWASP was found around clusters of clathrin heavy chain by TIRF microscopy + super resolution microscopy - [[@leyton-puig2017flat]]]]"
+                                        , :uid "gYvoYlSJi"}],}
+     :get-linked-refs?     true
+     :extract-query-pages? true
+     :only-pages?          false
      :vision?              false})
 
   (extract-query-pages
