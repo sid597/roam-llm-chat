@@ -230,13 +230,13 @@
                                      ;(println "extract block" block-data)
                                      (if (some? ai-block?)
                                        (create-struct
-                                         (default-chat-struct chat-block-uid)
+                                         (default-chat-struct chat-block-uid  nil nil context-struct)
                                          ai-block?
                                          chat-block-uid
                                          true
                                          (p (str pre "Created a new chat block and opening in sidebar with context: " context)))
                                       (create-struct
-                                        (chat-ui-with-context-struct chat-block-uid)
+                                        (chat-ui-with-context-struct chat-block-uid nil context-struct)
                                         open-page-uid
                                         chat-block-uid
                                         true
