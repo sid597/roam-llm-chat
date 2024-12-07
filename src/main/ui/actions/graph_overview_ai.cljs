@@ -13,7 +13,7 @@
           page-name]}     (get-explorer-pages)
         make-page         (fn [page]
                             (str "[[" page "]]"))
-        pre-prompt        (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "Graph overview default pre prompt" "Pre prompt")
+        pre-prompt        (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "System prompt" "Pre prompt")
                                  :children
                                  first
                                  :string))
