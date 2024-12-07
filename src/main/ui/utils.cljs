@@ -561,7 +561,7 @@
                        {:s "Context for discourse graph suggestion"
                         :c [{:s "Based on our previous conversation propose some new discourse nodes.\nNote: \n\n 1. follow the following format, this is format of the following lines `node type - format to follow if the node is of this type`. For each suggestion put it on a newline.\n\n```javascript\n[[CON]] - {content}                // Use format for node type \"Conclusion\"\n[[RES]] - {content} - [[@Source]]  // Use format for node type \"Result\"\n[[HYP]] - {content}                // Use format for node type \"Hypothesis\"\n[[ISS]] - {content}                // Use format for node type \"Issue\"\n@{content}                         // Use format for node type \"Source\"\n[[EVD]] - {content} - [[@Source]]  // Use format for node type \"Evidence\"\n[[QUE]] - {content}                // Use format for node type \"Question\"\n[[CLM]] - {content}                // Use format for node type \"Claim\"```\n\n2. following the format does not mean degrading your answer quality. We want both follow the format and high quality suggestions. \n3. Please only reply with discourse node suggestions, not explanations, keep them high quality. "}]}]}
                   {:s "System prompt"
-                   :c [{:s "Pre prompt:"
+                   :c [{:s "Pre prompt"
                         :c [{:s "This is Dr. Akamatsu's biology lab at the University of Washington. Our lab uses Roam Research to organize our collaboration and knowledge sharing related to understanding endocytosis in cells.\n\nWe capture questions (QUE), hypotheses (HYP), and conclusions (CON) on separate pages in Roam. Each page has a title summarizing the key insight, a body elaborating on findings and literature, and hierarchical references (refs) linking to related pages. The refs show the lineage of ideas from one page to detailed explorations on another.\n\nFor example, a QUE page may ask \"How does the Arp2/3 complex bind to actin filaments?\" This could link to a HYP page proposing a molecular binding mechanism as a hypothesis. The HYP page would in turn link to CON pages concluding whether our hypothesis was supported or refuted.\n\nOur pages integrate knowledge from publications, data visualizations, and discussions with experts in the field. By connecting the dots across pages, we maintain an audit trail of the evolution in our research.\n\nThe provided page data reflects this structure, each individual page is a map with keys `:title`, `:body` and `:refs`. The body content combines biology expertise with our lab's own analyses and experimental data."}]}]}
                   #_{:s "Image prompt"
                      :c [{:s "Default prompt"
@@ -795,6 +795,7 @@
                       (reset! token-count-atom new-count)
                       (p "*New Token count* :" new-count))))))
 
+(get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "System prompt" "Pre prompt")
 
 (defn create-alternate-messages [messages initial-context pre]
   (let [pre-prompt          (str (-> (get-child-of-child-with-str-on-page "LLM chat settings" "Quick action buttons" "System prompt" "Pre prompt")
