@@ -1153,3 +1153,23 @@
                :on-change (fn [x]
                             (update-block-string-for-block-with-child block-uid "Settings" "Extract query pages ref?" (str (not @extract-query-pages-ref?)))
                             (reset! extract-query-pages-ref? (not @extract-query-pages-ref?)))}]])}]])))
+
+(defn render-child-node [child]
+  (fn [_]
+    (let [uid (:uid child)]
+      [:div
+       {:class-name (str "child-node-" uid)
+        :style {:display "flex"}}
+       [:div
+        {:class-name (str "child-node-render-")
+         :style {:flex "1"}
+         :ref (fn [el]
+                (when (some? el)
+                  (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
+                        (clj->js {:uid       uid
+                                  :open      false
+                                  :zoom-path false
+                                  :el        el}))
+                    (.then
+                      (fn [_]
+                        (p "MESSAGES block rendered successfully"))))))}]])))

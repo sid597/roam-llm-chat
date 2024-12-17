@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             ["@blueprintjs/core" :as bp :refer [Button InputGroup Card]]
+            [ui.render-comp.persistent-chat :refer [persistent-chat-ui]]
             [ui.render-comp.chat :as rc :refer [main]]
             [ui.render-comp.bottom-bar :refer [bottom-bar-main]]
             [ui.utils :refer [p chat-ui-with-context-struct create-struct gen-new-uid get-block-parent-with-order common-chat-struct q llm-chat-settings-page-struct]]
@@ -93,7 +94,7 @@
        (case inner-text
          "chat-llm"           (main {:block-uid pbuid} "filler" dom-id)
          "llm-dg-suggestions" (llm-dg-suggestions-main  pbuid  dom-id)
-         "visualise-suggestions"          (cytoscape-main  pbuid dom-id ))))))
+         "visualise-suggestions"          (cytoscape-main  pbuid dom-id))))))
 
 
 (defn get-matches [d class-name tag-name]
@@ -129,12 +130,48 @@
     (p "Initialising setup for matching buttons")
     (load-ui match)))
 
+#_(defn render-persistent []
+   (let [parent-el (.querySelector js/document ".roam-body-main")
+         new-child (.createElement js/document "div")]
+     (set! (.-className new-child) "persistent-chat")
+     (.appendChild parent-el new-child)
+     (rd/render [persistent-chat-ui] new-child)))
+
+
+
+
+(defn render-persistent []
+  (let [parent-el (.querySelector js/document ".roam-body-main")
+        article-wrapper (.querySelector parent-el ".rm-article-wrapper")
+        new-child (.createElement js/document "div")]
+
+    (when article-wrapper
+      (set! (.-className new-child) "persistent-chat")
+      (set! (.-style new-child)
+        (str
+          "float: left;
+           width: 37%;
+           height: 100%;
+           padding: 10px;
+           box-sizing: border-box;"))
+
+      (if-let [next-sibling (.-nextSibling article-wrapper)]
+        (.insertAfter parent-el new-child next-sibling)
+        (.appendChild parent-el new-child))
+
+      ; Style the article wrapper to occupy the remaining space
+      (set! (.-style article-wrapper)
+        (str "float: left; width: 63%; box-sizing: border-box;"))
+
+      (rd/render [persistent-chat-ui] new-child))))
+
 
 (defn init []
  (p "Hello from  chat-llm! ")
  (p "PROD Version: v-acc0dbb, previous version: v-13ca7a")
  (p "Starting initial setup.")
  (llm-chat-settings-page-struct)
+ (render-persistent)
  ;(append-and-render-component)
   ;; check if the dom already has a chat-llm button, if so render for them
  (setup)

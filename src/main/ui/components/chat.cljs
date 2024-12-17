@@ -1,7 +1,7 @@
 (ns ui.components.chat
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
-            [ui.utils :refer [p button-with-tooltip get-child-of-child-with-str-on-page model-mappings get-safety-settings create-alternate-messages call-llm-api create-struct gen-new-uid delete-block get-child-with-str watch-children update-block-string-for-block-with-child]]
+            [ui.utils :refer [p render-child-node button-with-tooltip get-child-of-child-with-str-on-page model-mappings get-safety-settings create-alternate-messages call-llm-api create-struct gen-new-uid delete-block get-child-with-str watch-children update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn log
@@ -45,25 +45,7 @@
                         :max-height "700px"}
                   style-map)}]))))
 
-(defn child-node [child]
-  (fn [_]
-    (let [uid (:uid child)]
-      [:div
-       {:class-name (str "child-node-" uid)
-        :style {:display "flex"}}
-       [:div
-        {:class-name (str "child-node-render-")
-         :style {:flex "1"}
-         :ref (fn [el]
-                (when (some? el)
-                  (-> (j/call-in js/window [:roamAlphaAPI :ui :components :renderBlock]
-                        (clj->js {:uid       uid
-                                  :open      false
-                                  :zoom-path false
-                                  :el        el}))
-                    (.then
-                      (fn [_]
-                        (p "MESSAGES block rendered successfully"))))))}]])))
+
 
 (defn chat-history [m-children m-uid token-count model temp block-uid]
   (let [history-ref (atom nil)
@@ -99,7 +81,7 @@
           (doall
            (for [child children]
              ^{:key (:uid child)}
-             [child-node child]))]
+             [render-child-node child]))]
          [:div
           {:class-name (str "messages-chin-" m-uid)
            :style {:display "flex"
