@@ -74,10 +74,13 @@
                 temperature
                 max-tokens]} (extract-request request)
         body    (json/generate-string
-                   {:model      model
-                    :messages   messages
-                    :temperature temperature
-                    :max_completion_tokens max-tokens})
+                  (merge
+                    (if (some? temperature)
+                      {:temperature temperature
+                       :max_completion_tokens max-tokens}
+                      {})
+                    {:model      model
+                     :messages   messages}))
         headers {"Content-Type" "application/json"
                  "Authorization" (str "Bearer " oai-key)}
         url "https://api.openai.com/v1/chat/completions"
