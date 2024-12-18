@@ -77,7 +77,7 @@
                    {:model      model
                     :messages   messages
                     :temperature temperature
-                    :max_tokens max-tokens})
+                    :max_completion_tokens max-tokens})
         headers {"Content-Type" "application/json"
                  "Authorization" (str "Bearer " oai-key)}
         url "https://api.openai.com/v1/chat/completions"
@@ -180,11 +180,11 @@
                 messages]} (extract-request request)
         _ (println model)
         mod     (if (= "gemini" model)
-                  "gemini-1.5-flash"
+                  "gemini-2.0-flash-exp"
                   model)
         api-key  gemini-key
         url      (str
-                   "https://generativelanguage.googleapis.com/v1/models/"
+                   "https://generativelanguage.googleapis.com/v1beta/models/"
                    mod
                    ":generateContent?key="
                    api-key)
