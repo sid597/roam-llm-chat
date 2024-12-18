@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [applied-science.js-interop :as j]
             [ui.components.get-context :refer [get-context-button get-suggestions-button]]
-            [ui.utils :refer [block-has-child-with-str? title->uid settings-button-popover buttons-settings gemini-safety-settings-struct button-with-tooltip get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
+            [ui.utils :refer [extract-data pull-deep-block-data block-has-child-with-str? title->uid settings-button-popover buttons-settings gemini-safety-settings-struct button-with-tooltip get-child-of-child-with-str create-struct button-popover p get-child-with-str watch-children update-block-string-for-block-with-child]]
             ["@blueprintjs/core" :as bp :refer [RadioGroup MenuDivider Position Radio ControlGroup Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]))
 
 (defn inject-style []
@@ -93,43 +93,35 @@
 
 
 (defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages? extract-query-pages-ref?]}]
-  (let [co-get-context-uid          (:uid (get-child-with-str
-                                            (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-                                            "Get context"))
-        co-default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str co-get-context-uid "Settings" "Temperature")))
-        co-default-model            (r/atom (get-child-of-child-with-str co-get-context-uid "Settings" "Model"))
-        co-default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str co-get-context-uid "Settings" "Max tokens")))
-        co-get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str co-get-context-uid "Settings" "Get linked refs"))
-                                              true
-                                              false))
-        co-extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str co-get-context-uid "Settings" "Extract query pages"))
-                                              true
-                                              false))
-        co-extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str co-get-context-uid "Settings" "Extract query pages ref?"))
-                                              true
-                                              false))
-        co-pre-prompt                (get-child-of-child-with-str co-get-context-uid "Prompt" "Pre-prompt")
-        co-remaining-prompt         (get-child-of-child-with-str co-get-context-uid "Prompt" "Further instructions")
-        co-active?                  (r/atom false)
-        sug-get-context-uid          (:uid (get-child-with-str
-                                             (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
-                                             "Get suggestions"))
-        sug-default-model            (r/atom (get-child-of-child-with-str sug-get-context-uid "Settings" "Model"))
-        sug-default-temp             (r/atom (js/parseFloat (get-child-of-child-with-str sug-get-context-uid "Settings" "Temperature")))
+  (let [get-context-data          (-> (:uid (get-child-with-str
+                                              (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                              "Get context"))
+                                    (pull-deep-block-data)
+                                    extract-data)
+        co-default-temp             (r/atom (:temperature get-context-data))
+        co-default-model            (r/atom (:model get-context-data))
+        co-default-max-tokens       (r/atom (:max-tokens get-context-data))
+        co-get-linked-refs?         (r/atom (:get-linked-refs? get-context-data))
+        co-extract-query-pages?     (r/atom (:extract-query-pages? get-context-data))
+        co-extract-query-pages-ref? (r/atom (:extract-query-pages-ref? get-context-data))
+        co-pre-prompt               (:pre-prompt get-context-data)
+        co-remaining-prompt         (:further-instructions get-context-data)
+        co-active?                  (r/atom (:active? get-context-data))
 
-        sug-default-max-tokens       (r/atom (js/parseInt (get-child-of-child-with-str sug-get-context-uid "Settings" "Max tokens")))
-        sug-get-linked-refs?         (r/atom (if (= "true" (get-child-of-child-with-str sug-get-context-uid "Settings" "Get linked refs"))
-                                               true
-                                               false))
-        sug-extract-query-pages?     (r/atom (if (= "true" (get-child-of-child-with-str sug-get-context-uid "Settings" "Extract query pages"))
-                                               true
-                                               false))
-        sug-extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str sug-get-context-uid "Settings" "Extract query pages ref?"))
-                                               true
-                                               false))
-        sug-pre-prompt                (get-child-of-child-with-str sug-get-context-uid "Prompt" "Pre-prompt")
-        sug-remaining-prompt         (get-child-of-child-with-str sug-get-context-uid "Prompt" "Further instructions")
-        sug-active?                  (r/atom false)
+        get-suggestions-data        (-> (:uid (get-child-with-str
+                                               (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
+                                               "Get suggestions"))
+                                      (pull-deep-block-data)
+                                      extract-data)
+        sug-default-model            (r/atom (:model get-suggestions-data))
+        sug-default-temp             (r/atom (:temperature get-suggestions-data))
+        sug-default-max-tokens       (r/atom (:max-tokens get-suggestions-data))
+        sug-get-linked-refs?         (r/atom (:get-linked-refs? get-suggestions-data))
+        sug-extract-query-pages?     (r/atom (:extract-query-pages? get-suggestions-data))
+        sug-extract-query-pages-ref? (r/atom (:extract-query-pages-ref? get-suggestions-data))
+        sug-pre-prompt               (:pre-prompt get-suggestions-data)
+        sug-remaining-prompt         (:further-instructions get-suggestions-data)
+        sug-active?                  (r/atom (:active? get-suggestions-data))
         messages-uid                  (:uid (get-child-with-str block-uid "Messages"))]
    [:div.chin
     {:style {:display "flex"

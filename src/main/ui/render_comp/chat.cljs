@@ -4,96 +4,40 @@
             ["@blueprintjs/core" :as bp :refer [Checkbox Tooltip HTMLSelect Button ButtonGroup Card Slider Divider Menu MenuItem Popover MenuDivider]]
             [ui.components.chat :as comp :refer [chat-context chat-history]]
             [ui.components.chin :refer [chin]]
-            [ui.utils :refer [get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
+            [ui.utils :refer [extract-data pull-deep-block-data uid->eid get-safety-settings send-message-component model-mappings watch-children update-block-string-for-block-with-child watch-string create-struct settings-struct get-child-of-child-with-str q p get-parent-parent extract-from-code-block log update-block-string-and-move is-a-page? get-child-with-str move-block create-new-block]]
             [ui.actions.chat :refer [send-context-and-message load-context]]
             [reagent.dom :as rd]))
 
 
 
-
 (defn chat-ui [block-uid]
-  #_(println "block uid for chat" block-uid)
-  (let [settings           (get-child-with-str block-uid "Settings")
-        context            (r/atom (get-child-with-str block-uid "Context"))
-        messages           (r/atom (get-child-with-str block-uid "Messages"))
-        chat               (r/atom (get-child-with-str block-uid "Chat"))
-        active?            (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Active?"))
-                                     true
-                                     false))
-        token-count        (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Token count")))
-        default-max-tokens (r/atom (js/parseInt (get-child-of-child-with-str block-uid "Settings" "Max tokens")))
-        default-temp       (r/atom (js/parseFloat (get-child-of-child-with-str block-uid "Settings" "Temperature")))
-        default-model      (r/atom (get-child-of-child-with-str block-uid "Settings" "Model"))
-        get-linked-refs?    (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Get linked refs"))
-                                      true
-                                      false))
-        extract-query-pages? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages"))
-                                       true
-                                       false))
-        extract-query-pages-ref? (r/atom (if (= "true" (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?"))
-                                           true
-                                           false))]
+  (js/console.time "chat-ui initial setup")
+  (let [extracted-data (-> block-uid
+                         (pull-deep-block-data)
+                         extract-data)
+        context             (r/atom (:context extracted-data))
+        messages            (r/atom (:messages extracted-data))
+        chat                (r/atom (:chat extracted-data))
+        active?             (r/atom (:active? extracted-data))
+        token-count         (r/atom (:token-count extracted-data))
+        default-max-tokens  (r/atom (:max-tokens extracted-data))
+        default-temp        (r/atom (:temperature extracted-data))
+        default-model       (r/atom (:model extracted-data) )
+        get-linked-refs?    (r/atom (:get-linked-refs? extracted-data))
+        extract-query-pages? (r/atom (:extract-query-pages? extracted-data))
+        extract-query-pages-ref? (r/atom (:extract-query-pages-ref? extracted-data))]
+    (js/console.timeEnd "chat-ui initial setup")
+
+    (js/console.time "chat-ui watch setup")
     (watch-children
       (:uid @messages)
       (fn [_ aft]
-        ;(p "context children changed" aft)
         (reset! messages aft)))
 
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Token count" false)
-      (fn [b aft]
-        (p "token count changed" aft)
-        (reset! token-count (js/parseInt (:string aft)))))
+    (js/console.timeEnd "chat-ui watch setup")
 
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Max tokens" false)
-      (fn [_ aft]
-        (p "max tokens changed" aft)
-        (reset! default-max-tokens (js/parseInt (:string aft)))))
-
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Temperature" false)
-      (fn [_ aft]
-        (p "temperature changed" aft)
-        (reset! default-temp (js/parseFloat (:string aft)))))
-
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Model" false)
-      (fn [_ aft]
-        (p "model name changed" aft)
-        (reset! default-model (:string aft))))
-
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Get linked refs" false)
-      (fn [_ aft]
-        (p "get linked refs changed" aft)
-        (reset! get-linked-refs? (if (= "true" (:string aft))
-                                    true
-                                    false))))
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Extract query pages" false)
-      (fn [_ aft]
-        (p "extract query results changed" aft)
-        (reset! extract-query-pages? (if (= "true" (:string aft))
-                                       true
-                                       false))))
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Extract query pages ref?" false)
-      (fn [_ aft]
-        (p "extract query result's ref changed" aft)
-        (reset! extract-query-pages-ref? (if (= "true" (:string aft))
-                                           true
-                                           false))))
-
-    (watch-string
-      (get-child-of-child-with-str block-uid "Settings" "Active?" false)
-      (fn [_ aft]
-        (p "Active button changed" aft)
-        (reset! active? (if (= "true" (:string aft))
-                          true
-                          false))))
-
-   (fn [_]
+    (fn [_]
+     (js/console.time "chat-ui callback setup")
      (let [callback          (fn [{:keys [b-uid] :or {b-uid block-uid}}]
                                ;(println "called callback to load context")
                                (when (not @active?)
@@ -123,6 +67,7 @@
                                               (j/get :block-uid))
                                        b-parent (get-parent-parent buid)]
                                   (callback b-parent))))]
+       (js/console.timeEnd "chat-ui callback setup")
        [:div
         {:class-name (str "chat-container-" block-uid)
          :style {:display "flex"
@@ -136,6 +81,8 @@
                           :flex-direction "column"
                           :border "2px solid rgba(0, 0, 0, 0.2)"
                           :border-radius "8px"}}
+
+         (js/console.time "chat-ui top comp setup")
          [:div.top-comp
            {:class-name (str "chat-input-container-" block-uid)
             :style {:display "flex"
@@ -147,10 +94,13 @@
            [chat-context context #() {:min-height     ""
                                       :background-color "whitesmoke"
                                       :padding-bottom "10px"}]]
+         (js/console.timeEnd "chat-ui top comp setup")
 
          ;;  Using Keys to Force Re-renders: If msg-children is changing, but the chat-history'
          ;;  component isn't updating, try adding a key to the chat-history' component that changes whenever
          ;; 'msg-children changes. This could be a simple incremented counter or a hash of 'msg-children's]
+
+         (js/console.time "chat-ui chat-history setup")
          [chat-history
           messages
           (:uid @messages)
@@ -159,6 +109,7 @@
           default-temp
           block-uid
           {:key (hash (:children @messages))}]
+         (js/console.timeEnd "chat-ui chat-history setup")
          [:div.bottom-comp
           {:style {:box-shadow "rgb(175 104 230) 0px 0px 5px 0px"}}
           [:div.chat-input-container
@@ -166,7 +117,10 @@
                     :flex-direction "row"
                     :background-color "#f6cbfe3d"
                     :border "1px"}}
-           [chat-context chat handle-key-event]]
+           (js/console.time "chat-ui chat-context comp setup")
+           [chat-context chat handle-key-event]
+           (js/console.timeEnd "chat-ui chat-context comp setup")]
+          (js/console.time "chat-ui chin comp setup")
           [chin {:default-model        default-model
                  :default-max-tokens   default-max-tokens
                  :default-temp         default-temp
@@ -175,7 +129,8 @@
                  :block-uid            block-uid
                  :callback             callback
                  :extract-query-pages? extract-query-pages?
-                 :extract-query-pages-ref? extract-query-pages-ref?}]]]]))))
+                 :extract-query-pages-ref? extract-query-pages-ref?}]
+          (js/console.timeEnd "chat-ui chin comp setup")]]]))))
 
 
 (defn main [{:keys [:block-uid]} & args]

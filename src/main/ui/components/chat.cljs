@@ -68,6 +68,7 @@
 (defn chat-history [m-children m-uid token-count model temp block-uid]
   (let [history-ref (atom nil)
         active? (r/atom false)]
+
     (fn [_ _ _]
       (let [tc       @token-count
             children (vec (sort-by :order (:children @m-children)))
@@ -77,6 +78,7 @@
                                       :children
                                       first
                                       :string))]
+        (js/console.time "chat-ui detailed-chat-history setup")
         ;(p "TOKEN COUNT" tc)
         [:div.middle-comp
          {:class-name (str "chat-history-container-" m-uid)
@@ -138,6 +140,7 @@
                                     (p "scroll up button clicked")
                                     (when el
                                       (set! (.-scrollTop el) 0)))}]]
+          (js/console.timeEnd "chat-ui detailed-chat-history setup")
           [button-with-tooltip
            "Based on the chat conversation till now, the llm will propose a list of discourse nodes. You can then
             select the ones you want and discard others."
@@ -207,4 +210,5 @@
                                                                   (p (str pre "Updated block " suggestion-uid " with suggestions from openai api"))
                                                                   (reset! active? false))
                                                                 500)))))})))))}]]]]))))
+
 

@@ -12,6 +12,7 @@
               :http-port 8080
               :loader-mode :eval
               :use-document-host false}
-   :compiler-options {:output-feature-set :es-next-in}
-   :source-maps true
+   :compiler-options {:output-feature-set :es-next-in
+                      :source-map true
+                      :source-map-include-sources-content true}
    :modules {:main {:init-fn ui.core/init}}}}}
