@@ -548,7 +548,7 @@
                    :c [{:s "Token count"
                         :c [{:s "0"}]}
                        {:s "Model"
-                        :c [{:s "gpt-4o-mini"}]}
+                        :c [{:s "gpt-4o-vision"}]}
                        {:s "Max tokens"
                         :c [{:s "400"}]}
                        {:s "Temperature"
@@ -596,7 +596,7 @@
                              :c [{:s "Please structure your response as follows:\n\n<summary>\nProvide a concise, high-level overview of the research topic, including:\n1. The main research question or focus\n2. The underlying motivation for this research\n3. The primary hypothesis or hypotheses\n4. Potential significance and implications of the research\n\nBase this summary primarily on the provided discourse node page content's body, supplemented by the linked references content. Use your expertise to offer insights and connections.\n</summary>\n\n<context>\nElaborate on the research context:\n1. Explain how this topic fits within the larger research project or question\n2. Identify key concepts, methods, or findings relevant to this research\n3. Highlight any challenges or open questions in this area of study\n\nExplicitly cite relevant discourse nodes present in <discourse-node-page-content's body and its linked-refs when possible. You may also draw from your knowledge base to provide additional context or speculate on the significance.\n</context>\n<important-instruction> While referencing a node use roam format of double brackets e.g `[[page title]]` <example> [[[[[[ISS]] - this is issue]]]] </example>\n</important-instruction>\nEnsure your response is:\n1. Comprehensive and well-structured\n2. Accurately reflects the provided information\n3. Demonstrates deep understanding of endocytosis and related cell biology concepts\n4. Provides insightful analysis and connections between different aspects of the research\n5. Uses clear, scientific language appropriate for an academic audience"}]}]}
                        {:s "Settings"
                         :c [{:s "Model"
-                             :c [{:s "gemini-1.5-flash"}]}
+                             :c [{:s "gemini-2.0-flash"}]}
                             {:s "Temperature"
                              :c [{:s "0.2"}]}
                             {:s "Max tokens"
@@ -709,17 +709,19 @@
   {"gpt-4o"            "gpt-4o-2024-08-06"
    "gpt-4-vision"      "gpt-4o-2024-08-06"
    "gpt-4o-mini"       "gpt-4o-mini-2024-07-18"
-   "gpt-3.5"           "gpt-3.5-turbo-0125"
-   "claude-3.5-sonnet" "claude-3-5-sonnet-20240620"
-   "claude-3-opus"     "claude-3-opus-20240229"
+   "o1"                "o1-preview"
+   "o1-mini"           "o1-mini-2024-09-12"
+   "claude-3.5-sonnet" "claude-3-5-sonnet-latest"
+   "claude-3.5-haiku"  "claude-3-5-haiku-latest"
    "claude-3-haiku"    "claude-3-haiku-20240307"
-   "gemini-1.5-flash"  "gemini-1.5-flash"
-   "gemini-1.5-pro"    "gemini-1.5-pro"})
+   "gemini-2.0-flash"  "gemini-2.0-flash-exp"
+   "gemini-exp"        "gemini-exp-1206"})
 
 
 (defn model-type [model-name]
   (cond
     (str/starts-with? model-name "gpt")    :gpt
+    (str/starts-with? model-name "o1")     :o1
     (str/starts-with? model-name "claude") :claude
     (str/starts-with? model-name "gemini") :gemini
     :else                                  :unknown))
@@ -764,12 +766,15 @@
 
 (defn call-llm-api [{:keys [messages settings callback]}]
   (println "SETTINGS" settings)
-  (let [model (model-type (:model settings))]
+  (let [model (model-type (:model settings))
+        new-settings {:model (:model settings)}]
     (println "MODEL NAME" model)
     (case model
-      :gpt        (call-api   "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+      :o1         (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
+                    messages new-settings callback)
+      :gpt        (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-complete"
                     messages settings callback)
-      :claude     (call-api  "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
+      :claude     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-anthropic"
                     messages settings callback)
      :gemini     (call-api "https://roam-llm-chat-falling-haze-86.fly.dev/chat-gemini"
                    messages settings callback)
@@ -979,7 +984,7 @@
 
           [:> MenuItem
            {:text "GPT-4o"
-            :labelElement "$2.40"
+            :labelElement "$2.50"
             :should-dismiss-popover dismiss-popover?
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
@@ -987,74 +992,83 @@
                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4-vision")
                         (reset! default-model "gpt-4-vision"))}]
           [button-with-tooltip
-           "Gemini-1.5 Flash has 1 Million token context window so if you want to select a few pages with large context
+           "Gemini-2.0 Flash has 1 Million token context window so if you want to select a few pages with large context
         and then chat with them, this model is the only one able to support such large context and not charge for it.
-        The catch is that they might use the data for training their models, we can opt for a paid plan and in that
-        case google will not use the data and would charge us  $0.35/1 Million tokens"
-           [:> MenuDivider {:title "Fast Free and 1M tokens"}]]
+        The catch is that they might use the data for training their models."
+           [:> MenuDivider {:title "Fast, Free, Best, 1M tokens"}]]
           [:> MenuItem
-           {:text "Gemini 1.5 Flash"
+           {:text "Gemini 2.0 Flash"
+            :labelElement "$0.00"
             :should-dismiss-popover dismiss-popover?
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
-                        (p "chose gemini-1.5-flash")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-flash")
-                        (reset! default-model "gemini-1.5-flash"))}]
-
+                        (p "chose gemini-2.0-flash")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-2.0-flash")
+                        (reset! default-model "gemini-2.0-flash"))}]
+          [:> Menu.Item
+           {:text "Gemini Experimental"
+            :labelElement "$0.00"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose gemini-exp")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-exp")
+                        (reset! default-model "gemini-exp"))}]
           [button-with-tooltip
            "For text only context you can consider the reasoning ability, context length and pricing of the models.
         Note that if your context is say 50k tokens and you do back-and-forth with the llm 10 times then your
         total token usage would be approx. 500k (approx. 50k tokens send to llm 10 times)"
            [:> MenuDivider {:title "Top of the line"}]]
-          [:> Menu.Item
-           {:text "GPT-4o"
-            :labelElement "$2.50"
-            :should-dismiss-popover dismiss-popover?
-            :on-click (fn [e]
-                        #_(js/console.log "clicked menu item" e)
-                        (p "chose gpt-4o")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o")
-                        (reset! default-model "gpt-4o"))}]
-          [:> Menu.Item
-           {:text "Claude 3.5 Sonnet"
-            :labelElement "$3.00"
-            :should-dismiss-popover dismiss-popover?
-            :on-click (fn [e]
-                        #_(js/console.log "clicked menu item" e)
-                        (p "chose claude-3.5-sonnet")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3.5-sonnet")
-                        (reset! default-model "claude-3.5-sonnet"))}]
-          [:> Menu.Item
-           {:text "Gemini 1.5 Pro"
-            :labelElement "$2.50"
-            :should-dismiss-popover dismiss-popover?
-            :on-click (fn [e]
-                        #_(js/console.log "clicked menu item" e)
-                        (p "chose gemini-1.5-pro")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "gemini-1.5-pro")
-                        (reset! default-model "gemini-1.5-pro"))}]
+
 
           [:> Menu.Item
-           {:text "Claude 3 Opus"
+           {:text "o1"
             :labelElement "$15.0"
             :should-dismiss-popover dismiss-popover?
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
-                        (p "chose claude-3-opus")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-opus")
-                        (reset! default-model "claude-3-opus"))}]
+                        (p "chose o1")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "o1")
+                        (reset! default-model "o1"))}]
+          [:> Menu.Item
+            {:text "GPT-4o"
+             :labelElement "$2.50"
+             :should-dismiss-popover dismiss-popover?
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+                         (p "chose gpt-4o")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o")
+                         (reset! default-model "gpt-4o"))}]
+          [:> Menu.Item
+            {:text "o1-mini"
+             :labelElement "$3.00"
+             :should-dismiss-popover dismiss-popover?
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+                         (p "chose o1-mini")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "o1-mini")
+                         (reset! default-model "o1-mini"))}]
+          [:> Menu.Item
+            {:text "Claude 3.5 Sonnet"
+             :labelElement "$3.00"
+             :should-dismiss-popover dismiss-popover?
+             :on-click (fn [e]
+                         #_(js/console.log "clicked menu item" e)
+                         (p "chose claude-3.5-sonnet")
+                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3.5-sonnet")
+                         (reset! default-model "claude-3.5-sonnet"))}]
           [button-with-tooltip
            "If you want to some tasks that don't need \"strong\" reasoning ability then you can use these models."
            [:> MenuDivider {:title "Fast and cheap"}]]
           [:> Menu.Item
-           {:text "Claude 3 Haiku"
-            :labelElement "$0.25"
+           {:text "Claude 3.5 Haiku"
+            :labelElement "$0.80"
             :should-dismiss-popover dismiss-popover?
             :on-click (fn [e]
                         #_(js/console.log "clicked menu item" e)
                         (p "chose claude-3-haiku")
-                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-haiku")
-                        (reset! default-model "claude-3-haiku"))}]
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3.5-haiku")
+                        (reset! default-model "claude-3.5-haiku"))}]
           [:> Menu.Item
            {:text "GPT-4o-mini"
             :labelElement "$0.15"
@@ -1063,7 +1077,17 @@
                         #_(js/console.log "clicked menu item" e)
                         (p "chose gpt-4o-mini")
                         (update-block-string-for-block-with-child block-uid "Settings" "Model" "gpt-4o-mini")
-                        (reset! default-model "gpt-4o-mini"))}]]]
+                        (reset! default-model "gpt-4o-mini"))}]
+          [:> Menu.Item
+           {:text "Claude 3 Haiku"
+            :labelElement "$0.25"
+            :should-dismiss-popover dismiss-popover?
+            :on-click (fn [e]
+                        #_(js/console.log "clicked menu item" e)
+                        (p "chose claude-3-haiku")
+                        (update-block-string-for-block-with-child block-uid "Settings" "Model" "claude-3-haiku")
+                        (reset! default-model "claude-3-haiku"))}]]]
+
         [:> MenuItem
          {:text "Max output tokens"
           :label (str @default-max-tokens)}
