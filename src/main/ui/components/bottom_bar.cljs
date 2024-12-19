@@ -2,7 +2,7 @@
   (:require [cljs.core.async.interop :as asy :refer [<p!]]
             [cljs.core.async :as async :refer [<! >! go chan put! take! timeout]]
             [reagent.core :as r :refer [atom]]
-            [ui.components.quick-buttons :refer [button-with-settings text-to-image-button discourse-graph-this-page-button]]
+            [ui.components.quick-buttons :refer [ discourse-graph-this-page-button]]
             [cljs-http.client :as http]
             [ui.components.get-context :refer [get-context-button get-suggestions-button]]
             [ui.components.search-pinecone :refer [search-pinecone]]
@@ -168,8 +168,6 @@
         sug-pre-prompt
         sug-remaining-prompt]
 
-       #_[:div {:style {:flex "1 1 1"}}
-          [button-with-settings "Summarise this page"]]
        [:> Divider]
        [:div
         {:style {:flex "1 1 1"}}

@@ -92,7 +92,7 @@
          [:> Radio {:label "Block most" :value "Block most"}]]]])))
 
 
-(defn chin [{:keys [default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages? extract-query-pages-ref?]}]
+(defn chin [{:keys [popover-open? default-model default-max-tokens default-temp get-linked-refs? active? block-uid callback buttons? extract-query-pages? extract-query-pages-ref?]}]
   (let [get-context-data          (-> (:uid (get-child-with-str
                                               (block-has-child-with-str? (title->uid "LLM chat settings") "Quick action buttons")
                                               "Get context"))
@@ -123,54 +123,70 @@
         sug-remaining-prompt         (:further-instructions get-suggestions-data)
         sug-active?                  (r/atom (:active? get-suggestions-data))
         messages-uid                  (:uid (get-child-with-str block-uid "Messages"))]
-   [:div.chin
-    {:style {:display "flex"
-             :flex-direction "row"
-             :background-color "#f6cbfe3d"
-             :min-height "27px"
-             :justify-content "space-between"
-             :font-size "10px"
-             :padding-right "11px"
-             :align-items "center"
-             :border "1px"}}
-    [:> ButtonGroup
-     [get-context-button
-      messages-uid
-      co-default-model
-      co-default-temp
-      co-default-max-tokens
-      co-get-linked-refs?
-      co-extract-query-pages?
-      co-extract-query-pages-ref?
-      co-active?
-      co-pre-prompt
-      co-remaining-prompt]
-     [get-suggestions-button
-      messages-uid
-      sug-default-model
-      sug-default-temp
-      sug-default-max-tokens
-      sug-get-linked-refs?
-      sug-extract-query-pages?
-      sug-extract-query-pages-ref?
-      sug-active?
-      sug-pre-prompt
-      sug-remaining-prompt]]
-    [:> ButtonGroup
-     [settings-button-popover
-      [buttons-settings
-       "Chat settings"
-       block-uid
-       default-temp
-       default-model
-       default-max-tokens
-       get-linked-refs?
-       extract-query-pages?
-       extract-query-pages-ref?]
-      "#fdf3ff"]
-     [send-message-component
-      active?
-      callback]]]))
+    (fn [_]
+      [:div.chin
+       {:style {:display "flex"
+                :flex-direction "row"
+                :background-color "#f6cbfe3d"
+                :min-height "27px"
+                :justify-content "space-between"
+                :font-size "10px"
+                :padding-right "11px"
+                :align-items "center"
+                :border "1px"}}
+       [:> ButtonGroup
+        [get-context-button
+         messages-uid
+         co-default-model
+         co-default-temp
+         co-default-max-tokens
+         co-get-linked-refs?
+         co-extract-query-pages?
+         co-extract-query-pages-ref?
+         co-active?
+         co-pre-prompt
+         co-remaining-prompt]
+        [get-suggestions-button
+         messages-uid
+         sug-default-model
+         sug-default-temp
+         sug-default-max-tokens
+         sug-get-linked-refs?
+         sug-extract-query-pages?
+         sug-extract-query-pages-ref?
+         sug-active?
+         sug-pre-prompt
+         sug-remaining-prompt]]
+       [:> ButtonGroup
+         [:> Popover
+          {:is-open @popover-open?
+           :onInteraction (fn [next-open-state]
+                            (reset! popover-open? next-open-state))
+           :usePortal true}
+          [:> Button {:icon "cog"
+                      :minimal true
+                      :aria-hidden nil
+                      :tabIndex -1
+                      :small true
+                      :on-click (fn [e]
+                                  (.stopPropagation e)
+                                  (reset! popover-open? (not @popover-open?)))
+                      :style {:background-color "#fdf3ff"}}]
+          [:> Menu
+           {:style {:padding "20px"}
+            :on-click #(.stopPropagation %)}
+           [buttons-settings
+            "Chat settings"
+            block-uid
+            default-temp
+            default-model
+            default-max-tokens
+            get-linked-refs?
+            extract-query-pages?
+            extract-query-pages-ref?]]]
+        [send-message-component
+         active?
+         callback]]])))
 
 
 

@@ -22,10 +22,11 @@
         token-count         (r/atom (:token-count extracted-data))
         default-max-tokens  (r/atom (:max-tokens extracted-data))
         default-temp        (r/atom (:temperature extracted-data))
-        default-model       (r/atom (:model extracted-data) )
+        default-model       (r/atom (:model extracted-data))
         get-linked-refs?    (r/atom (:get-linked-refs? extracted-data))
         extract-query-pages? (r/atom (:extract-query-pages? extracted-data))
-        extract-query-pages-ref? (r/atom (:extract-query-pages-ref? extracted-data))]
+        extract-query-pages-ref? (r/atom (:extract-query-pages-ref? extracted-data))
+        popover-open?       (r/atom false)]
     (js/console.timeEnd "chat-ui initial setup")
 
     (js/console.time "chat-ui watch setup")
@@ -70,6 +71,9 @@
        (js/console.timeEnd "chat-ui callback setup")
        [:div
         {:class-name (str "chat-container-" block-uid)
+         :on-click (fn []
+                     (when @popover-open?
+                       (reset! popover-open? false)))
          :style {:display "flex"
                  :flex-direction "column"
                  :border-radius "8px"
@@ -129,7 +133,8 @@
                  :block-uid            block-uid
                  :callback             callback
                  :extract-query-pages? extract-query-pages?
-                 :extract-query-pages-ref? extract-query-pages-ref?}]
+                 :extract-query-pages-ref? extract-query-pages-ref?
+                 :popover-open?        popover-open?}]
           (js/console.timeEnd "chat-ui chin comp setup")]]]))))
 
 
